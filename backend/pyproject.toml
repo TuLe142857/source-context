@@ -1,0 +1,13 @@
+[project]
+name = "source-context-backend"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.18.5",
+    "fastapi[standard]>=0.139.0",
+    "pydantic>=2.13.4",
+    "sqlalchemy>=2.0.51",
+]
+
+[tool.ruff]
+extend = "../pyproject.toml"
