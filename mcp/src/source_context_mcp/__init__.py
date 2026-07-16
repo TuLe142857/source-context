@@ -1,4 +1,4 @@
-def run():
+def run() -> None:
     print(
         "Hello World",
         " - Package: source-context-mcp",

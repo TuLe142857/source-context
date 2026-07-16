@@ -2,7 +2,7 @@
 
 # Requirements
 - build tool: uv, npm, make(optional)
-- python: 3.12
+- python: 3.13
 - node: 24
 - docker
 

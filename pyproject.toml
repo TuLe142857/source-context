@@ -7,6 +7,7 @@ members = [
 [dependency-groups]
 dev = [
     "mypy>=2.3.0",
+    "pre-commit>=4.6.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "pytest-html>=4.2.0",
@@ -15,7 +16,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 line-length = 88
 indent-width = 4
 exclude = [
@@ -43,3 +44,9 @@ select = [
     "I",
     "F"
 ]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
