@@ -79,6 +79,32 @@ Coming soon :)
 **Cursor:**  
 Coming soon :)
 
+# Dependency Management
+
+This project uses a `uv` workspace to manage dependencies. To add new libraries to specific workspace members (`backend` or `mcp`), use the `--project` flag:
+
+```shell
+# Add a package to the backend
+uv add <package_name> --project backend
+
+# Add a package to the mcp
+uv add <package_name> --project mcp
+```
+
+To add a development dependency (like a formatting or testing tool) for the entire workspace:
+```shell
+uv add <package_name> --dev
+```
+
+### Syncing with Docker
+Because `pyproject.toml` and `uv.lock` are directly mounted into the `backend` container in development, you do **not** need to rebuild the Docker image after adding new packages locally.
+
+Instead, simply run `uv sync` inside the running container to update its environment instantly:
+```shell
+docker compose -f docker-compose.yml -f docker-compose-dev.yml exec -it backend uv sync
+```
+*(If the backend server doesn't hot-reload the new library automatically, you can restart it with `docker compose restart backend`)*
+
 # Coding Rule
 ## Pre-commit:
 This project uses [pre-commit](https://pre-commit.com/) to automatically run formatting, linting, and type-checking 

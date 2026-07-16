@@ -6,6 +6,9 @@ services:
       target: dev
     volumes:
       - ./backend/app:/app/backend/app
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - ./backend/pyproject.toml:/app/backend/pyproject.toml
 
   frontend:
     build:
