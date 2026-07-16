@@ -1,7 +1,7 @@
 # Source Context
 
 # Requirements
-- build tool: uv, npm, make(optional)
+- build tool: uv, npm
 - python: 3.13
 - node: 24
 - docker
