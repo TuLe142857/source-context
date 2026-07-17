@@ -9,7 +9,7 @@ from . import python as PYTHON
 
 @lru_cache
 def get_language_config() -> list[LanguageConfig]:
-    return [PYTHON.get_language_config()]
+    return [PYTHON.get_language_config(), JAVA.get_language_config()]
 
 
 @lru_cache
