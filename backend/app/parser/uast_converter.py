@@ -4,12 +4,13 @@ Module document.....
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from tree_sitter import Node, Query, QueryCursor, Tree
 
-from .uast_node import UASTNode, UASTNodeBuilder, UASTNodeFactory
+from .uast_node import UASTNode
+from .uast_node_builder import CaptureType, UASTNodeBuilder, UASTNodeFactory
 
 
 class UASTConverter(Protocol):
@@ -27,7 +28,7 @@ class UASTConverter(Protocol):
             file_path: file path, use to add more information to the output nodes. Defaults to None.
 
         Returns:
-            Root node of UAST tree. In most case, the result is instance of FileNode.
+            Root node of UAST tree. In most case, the result is instance of ``ContainerNode``.
 
         """
         pass
@@ -37,8 +38,8 @@ class CaptureHandler(Protocol):
     """
     Handle tree-sitter capture name, make it to a metadata or new-node-builder
 
-        - ``metadata``: not a node instance, it belongs to another node
-        - ``new-node-builder``: new node-builder
+        - metadata: not a node instance, it belongs to another node
+        - new-node-builder: new node-builder
     """
 
     def handle(
@@ -90,8 +91,8 @@ class DefaultCaptureHandler:
             if not capture_name.startswith("definition"):
                 return False
 
-            if parent_builder.capture_name == "definition.class" and capture_name == "definition.function":
-                capture_name = "definition.method"
+            # if parent_builder.capture_name == "definition.class" and capture_name == "definition.function":
+            #     capture_name = "definition.method"
 
             builder = UASTNodeBuilder.from_ts_node(ts_child, capture_name)
             builder.set_parent_id(parent_builder.id)
@@ -185,6 +186,10 @@ class DefaultCaptureHandler:
 
 @dataclass(frozen=True, kw_only=True)
 class LanguageAdapter:
+    @staticmethod
+    def get_default_capture_priorities() -> dict[CaptureType, int]:
+        return {"definition.method": 2, "definition.constructor": 1}
+
     """
 
     Attributes:
@@ -199,6 +204,10 @@ class LanguageAdapter:
     query: Query
     node_factory: UASTNodeFactory
     handlers: list[CaptureHandler]
+    capture_priorities: dict[CaptureType, int] = field(default_factory=get_default_capture_priorities)
+
+    def get_capture_priorities(self, capture: CaptureType) -> int:
+        return self.capture_priorities.get(capture, 100)
 
 
 @dataclass
@@ -217,12 +226,17 @@ class BaseUASTConverter(UASTConverter):
     def convert(self, tree: Tree, source_bytes: bytes, file_path: str | None = None) -> UASTNode:
         ts_root = tree.root_node
         query_result: dict[str, list[Node]] = QueryCursor(self.adapter.query).captures(ts_root)
+
         captures_map: dict[int, list[str]] = dict()
         for capture_name, nodes in query_result.items():
             for node in nodes:
                 if node.id not in captures_map:
                     captures_map[node.id] = list()
                 captures_map[node.id].append(capture_name)
+        # sort by priority
+        for node_id, captures_name in captures_map.items():
+            captures_name.sort(key=self.adapter.get_capture_priorities)
+
         root_builder = UASTNodeBuilder.from_ts_node(ts_root, "container.file")
 
         for child in ts_root.children:
@@ -242,14 +256,17 @@ class BaseUASTConverter(UASTConverter):
         child_is_metadata: bool = False
 
         for handler in self.adapter.handlers:
+            if child_is_metadata or (child_builder is not None):
+                break
+
             for capture_name in captures:
                 result = handler.handle(capture_name, ts_child, parent_builder)
-                if isinstance(result, bool):
-                    if result:
-                        child_is_metadata = True
-                        break
-                if isinstance(result, UASTNodeBuilder):
+                if isinstance(result, bool) and result:
+                    child_is_metadata = True
+                    break
+                elif isinstance(result, UASTNodeBuilder):
                     child_builder = result
+                    break
 
         if not child_is_metadata:
             next_builder = child_builder if child_builder is not None else parent_builder

@@ -21,9 +21,11 @@ from .uast_node import (
     TypeDefinitionNode,
     TypeReferenceNode,
     UASTNode,
+    VariableNode,
+)
+from .uast_node_builder import (
     UASTNodeBuilder,
     UASTNodeFactory,
-    VariableNode,
 )
 
 __all__ = [

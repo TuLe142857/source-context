@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import typer
 
@@ -11,7 +11,6 @@ cli = typer.Typer()
 
 
 def uast_to_dict(node: UASTNode) -> dict[str, Any]:
-    # Format expected by TreeFormatter: {"NodeLabel": [children_dicts]}
     key = f"[{node.node_type}] {node.name}"
 
     if node.docstring is not None:
@@ -28,7 +27,9 @@ def uast_to_dict(node: UASTNode) -> dict[str, Any]:
 
 
 @cli.command("parse")
-def parse_code(path: str = typer.Argument()) -> None:
+def parse_code(
+    path: str = typer.Argument(), format_type: Literal["tree", "json"] = typer.Option("tree", "--format", "-fmt")
+) -> None:
     path = Path(path)
     if (not path.exists()) or (not path.is_file()):
         raise ValueError("Invalid path")
@@ -38,14 +39,16 @@ def parse_code(path: str = typer.Argument()) -> None:
 
     language_registry = get_language_registry()
 
-    language_name = language_registry.resolve_language_name(filename)
-    parser = language_registry.get_parser(language_name)
-    converter = language_registry.get_converter(language_name)
+    parser = language_registry.get_parser_for_file(filename)
+    converter = language_registry.get_converter_for_file(filename)
 
     ts_tree = parser.parse(file_content_bytes)
     uast_root = converter.convert(ts_tree, file_content_bytes)
-    print(type(converter))
-    print(type(uast_root))
-    # return
-    uast_dict = uast_to_dict(uast_root)
-    print(TreeFormatter().format(uast_dict))
+
+    if format_type == "tree":
+        uast_dict = uast_to_dict(uast_root)
+        print(TreeFormatter().format(uast_dict))
+    else:
+        import json
+
+        print(json.dumps(uast_root.to_dict(), indent=2))
