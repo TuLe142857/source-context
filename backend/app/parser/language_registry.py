@@ -6,7 +6,7 @@ from typing import Callable, Mapping, Sequence
 
 from tree_sitter import Language, Parser
 
-from .exception import UnsupportedLanguage
+from .exception import UnsupportedLanguageError
 from .uast_converter import UASTConverter
 
 
@@ -28,7 +28,12 @@ class LanguageConfig:
     """File patterns of language. Default empty list."""
 
     def __post_init__(self) -> None:
-        pass
+        if len(self.extensions) != len(set(self.extensions)):
+            duplicates = [name for name, count in Counter(self.extensions).items() if count > 1]
+            raise ValueError(f"Duplicate file extensions for language '{self.name}': {duplicates}")
+        if len(self.filename_patterns) != len(set(self.filename_patterns)):
+            duplicates = [name for name, count in Counter(self.filename_patterns).items() if count > 1]
+            raise ValueError(f"Duplicate filename patterns for language '{self.name}': {duplicates}")
 
     def match(self, filename: str) -> bool:
         """
@@ -83,37 +88,46 @@ class LanguageRegistry:
     @property
     def configs(self) -> Mapping[str, LanguageConfig]:
         """
-
-        Returns: Mapping[language_name, LanguageConfig]
-
+        Returns:
+            Mapping[language_name, LanguageConfig]
         """
         return self._configs
 
     def resolve_language_name(self, filename: str) -> str:
         """
         Resolve the language name from the filename.
+
         Args:
             filename: filename to resolve.
 
         Returns:
+            language name as string
+
+        Raises:
+            UnsupportedLanguageError
 
         """
         for language_name, config in self.configs.items():
             if config.match(filename):
                 return language_name
-        raise UnsupportedLanguage(f"No Supported Language for file name: {filename}")
+        raise UnsupportedLanguageError(f"No Supported Language for file name: {filename}")
 
     def get_language(self, lang_name: str) -> Language:
         """
         Get tree-sitter Language object for language name.
-        Args:
-            lang_name: language name
 
-        Returns: Language object.
+        Args:
+            lang_name: language name.
+
+        Returns:
+            Language object.
+
+        Raises:
+            UnsupportedLanguageError
 
         """
         if lang_name not in self._configs:
-            raise UnsupportedLanguage(f"Unsupported Language {lang_name}")
+            raise UnsupportedLanguageError(f"Unsupported Language {lang_name}")
         language = self._languages_cache.get(lang_name)
         if language is None:
             config = self._configs[lang_name]
@@ -122,54 +136,87 @@ class LanguageRegistry:
         return language
 
     def get_language_for_file(self, filename: str) -> Language:
+        """
+        Get tree-sitter Language object for filename.
+
+        Args:
+            filename: file name.
+
+        Returns:
+            Language object.
+
+        Raises:
+            UnsupportedLanguageError
+
+        """
         return self.get_language(self.resolve_language_name(filename))
 
     def get_parser(self, lang_name: str) -> Parser:
         """
         Get tree-sitter Parser by language name.
-        Args:
-            lang_name: language name
 
-        Returns: Parser
+        Args:
+            lang_name: language name.
+
+        Returns:
+            Parser object.
+
+        Raises:
+            UnsupportedLanguageError
 
         """
         if lang_name not in self._configs:
-            raise UnsupportedLanguage(f"Unsupported Language {lang_name}")
+            raise UnsupportedLanguageError(f"Unsupported Language {lang_name}")
         language = self.get_language(lang_name)
         return Parser(language)
 
     def get_parser_for_file(self, filename: str) -> Parser:
         """
         Get tree-sitter Parser by filename.
+
         Args:
-            filename:
+            filename: file name.
 
         Returns:
+            Parser object.
+
+        Raises:
+            UnsupportedLanguageError
 
         """
         return self.get_parser(self.resolve_language_name(filename))
 
     def get_converter(self, lang_name: str) -> UASTConverter:
         """
-        Get UASTConverter by language name
+        Get UASTConverter by language name.
+
         Args:
             lang_name: language name
 
-        Returns: UASTConverter
+        Returns:
+            UASTConverter object.
+
+        Raises:
+            UnsupportedLanguageError
 
         """
         if lang_name not in self._configs:
-            raise UnsupportedLanguage(f"Unsupported Language {lang_name}")
+            raise UnsupportedLanguageError(f"Unsupported Language {lang_name}")
         config = self._configs[lang_name]
         return config.converter_factory()
 
     def get_converter_for_file(self, filename: str) -> UASTConverter:
         """
-        Get UASTConverter by filename
+        Get UASTConverter by filename.
+
         Args:
-            filename: filename
+            filename: file name
 
         Returns:
+            UASTConverter object.
+
+        Raises:
+            UnsupportedLanguageError
 
         """
         return self.get_converter(self.resolve_language_name(filename))

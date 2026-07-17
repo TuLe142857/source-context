@@ -1,2 +1,2 @@
-class UnsupportedLanguage(Exception):
+class UnsupportedLanguageError(Exception):
     pass

@@ -4,13 +4,13 @@ from typing import Any
 import typer
 
 from app.languages import get_language_registry
-from app.parser import UastNode
+from app.parser import FunctionNode, UASTNode
 from app.util import TreeFormatter
 
 cli = typer.Typer()
 
 
-def uast_to_dict(node: UastNode) -> dict[str, Any]:
+def uast_to_dict(node: UASTNode) -> dict[str, Any]:
     # Format expected by TreeFormatter: {"NodeLabel": [children_dicts]}
     key = f"[{node.node_type}] {node.name}"
 
@@ -19,6 +19,8 @@ def uast_to_dict(node: UastNode) -> dict[str, Any]:
     if len(node.metadata) > 0:
         key += f" {node.metadata}"
 
+    if isinstance(node, FunctionNode):
+        key += f" {node.kind}"
     children = []
     for child in node.children:
         children.append(uast_to_dict(child))

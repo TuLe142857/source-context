@@ -1,17 +1,37 @@
+from __future__ import annotations
+
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 
 from tree_sitter import Node
 
+__all__ = [
+    "UASTNode",
+    "ContainerNode",
+    "DefinitionNode",
+    "TypeDefinitionNode",
+    "FunctionNode",
+    "VariableNode",
+    "DependencyNode",
+    "ImportNode",
+    "ExportNode",
+    "ReferenceNode",
+    "CallNode",
+    "AttributeAccessNode",
+    "TypeReferenceNode",
+    "UASTNodeFactory",
+    "UASTNodeBuilder",
+]
+
 
 @dataclass(kw_only=True)
-class UastNode:
+class UASTNode:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
-    name: str | None = None
-
     node_type: str
+
+    name: str | None = None
 
     start_point: tuple[int, int]
     """[row, column]"""
@@ -23,50 +43,108 @@ class UastNode:
 
     end_byte: int
 
-    language: str | None
-
-    file_path: str | None = None
-
     source: str | None = None
+
     docstring: str | None = None
 
     parent_id: str | None = None
-    children: list["UastNode"] = field(default_factory=list)
+    children: list["UASTNode"] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+# ====================================================
+#       CONTAINER: Project, Module, File
+# ====================================================
 @dataclass(kw_only=True)
-class FileNode(UastNode):
-    node_type: Literal["file"] = "file"
+class ContainerNode(UASTNode):
+    node_type: Literal["container"] = "container"
+    kind: Literal["project", "module", "file"]
+    language: str | None = None
+    path: str | None = None
+    source_bytes: bytes | None = None
+
+
+# ====================================================
+#       DEFINITION: class, enum, interface, function, ...
+# ====================================================
 
 
 @dataclass(kw_only=True)
-class ClassNode(UastNode):
-    node_type: Literal["class"] = "class"
+class DefinitionNode(UASTNode):
+    visibility: str | None = None
+    modifiers: list[str] = field(default_factory=list)
+    decorators: list[str] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
-class FunctionNode(UastNode):
+class TypeDefinitionNode(DefinitionNode):
+    node_type: Literal["type-definition"] = "type-definition"
+    kind: Literal["class", "interface", "enum", "struct", "trait", "protocol"] = "class"
+
+    base_types: list[str] = field(default_factory=list)
+    is_abstract: bool = False
+    enum_values: list[str] = field(default_factory=list)
+    """For kind=enum only"""
+
+
+@dataclass(kw_only=True)
+class FunctionNode(DefinitionNode):
     node_type: Literal["function"] = "function"
+    kind: Literal["function", "method", "constructor", "lambda"] = "function"
+
+    return_type: str | None = None
+
+    is_async: bool = False
+
+    is_generator: bool = False
+    """Python yield, JS function"""
+
+    is_static: bool = False
+    """ static method"""
+
+    is_abstract: bool = False
+    """abstract method"""
+
+    is_override: bool = False
+    """""@Override Java, override Kotlin/Swift..."""
 
 
 @dataclass(kw_only=True)
-class ParameterNode(UastNode):
-    """
-    Function/Methods parameters
-    """
+class VariableNode(DefinitionNode):
+    node_type: Literal["variable"] = "variable"
+    kind: Literal["variable", "constant", "field", "parameter"] = "variable"
 
-    data_type: str
-    default_value: str
+    type_annotation: str | None = None
+    initial_value: str | None = None
+
+
+# ====================================================
+#       DEPENDENCY
+# ====================================================
+@dataclass(kw_only=True)
+class DependencyNode(UASTNode):
+    pass
 
 
 @dataclass(kw_only=True)
-class ExpressionNode(UastNode):
-    node_type: Literal["expression"] = "expression"
+class ImportNode(DependencyNode):
+    node_type: Literal["import"] = "import"
+
+    module_path: str | None = None
 
 
 @dataclass(kw_only=True)
-class ReferenceNode(UastNode):
+class ExportNode(DependencyNode):
+    node_type: Literal["export"] = "export"
+
+
+# ====================================================
+#       REFERENCE: call, attribute, type
+# ====================================================
+
+
+@dataclass(kw_only=True)
+class ReferenceNode(UASTNode):
     pass
 
 
@@ -75,9 +153,107 @@ class CallNode(ReferenceNode):
     node_type: Literal["call"] = "call"
 
 
-class UASTNodeFactory(Protocol):
-    def create(self, capture_name: str, **kwargs: Any) -> UastNode:
-        pass
+@dataclass(kw_only=True)
+class AttributeAccessNode(ReferenceNode):
+    node_type: Literal["attribute_access"] = "attribute_access"
+
+
+@dataclass(kw_only=True)
+class TypeReferenceNode(ReferenceNode):
+    node_type: Literal["type_reference"] = "type_reference"
+
+
+class UASTNodeFactory:
+    """
+    Map from capture name to node type
+    """
+
+    type FactoryConfig = dict[str, type[UASTNode] | tuple[type[UASTNode], dict[str, Any]]]
+
+    def __init__(self, registry: dict[str, type[UASTNode] | tuple[type[UASTNode], dict[str, Any]]] | None = None):
+        """
+        Args:
+            registry:
+                - dict[str, type[UASTNode]]: map capture name(str) to UASTNode type.
+                - dict[str, tuple(type[UASTNode], dict[str, Any])]: map capture name(str) to UASTNode type, contain
+                  default dict[str, Any] to pass as keyword-arguments when call constructor. This keyword-arguments can
+                  be overridden.
+
+
+        Default config:
+            ...
+
+        """
+        if registry is None:
+            self._registry: dict[str, type[UASTNode] | tuple[type[UASTNode], dict[str, Any]]] = {
+                # fmt: off
+                "container.project": (ContainerNode, {"kind": "project"}),
+                "container.module": (ContainerNode, {"kind": "module"}),
+                "container.file": (ContainerNode, {"kind": "file"}),
+                "definition.interface": (TypeDefinitionNode, {"kind": "interface"}),
+                "definition.enum": (TypeDefinitionNode, {"kind": "enum"}),
+                "definition.struct": (TypeDefinitionNode, {"kind": "struct"}),
+                "definition.trait": (TypeDefinitionNode, {"kind": "trait"}),
+                "definition.protocol": (TypeDefinitionNode, {"kind": "protocol"}),
+                "definition.class": (TypeDefinitionNode, {"kind": "class"}),
+                "definition.method": (FunctionNode, {"kind": "method"}),
+                "definition.constructor": (FunctionNode, {"kind": "constructor"}),
+                "definition.lambda": (FunctionNode, {"kind": "lambda"}),
+                "definition.function": (FunctionNode, {"kind": "function"}),
+                "definition.field": (VariableNode, {"kind": "field"}),
+                "definition.constant": (VariableNode, {"kind": "constant"}),
+                "definition.parameter": (VariableNode, {"kind": "parameter"}),
+                "definition.variable": (VariableNode, {"kind": "variable"}),
+                "dependence.import": ImportNode,
+                "dependence.export": ExportNode,
+                "reference.call": CallNode,
+                "reference.attribute": AttributeAccessNode,
+                "reference.type": TypeReferenceNode,
+                # fmt: on
+            }
+        else:
+            self._registry = registry
+
+    @property
+    def registry(self) -> FactoryConfig:
+        return self._registry
+
+    @staticmethod
+    def _validate_config(config: FactoryConfig) -> bool:
+        return True
+
+    def create(self, capture_name: str, **kwargs: Any) -> UASTNode:
+        """
+
+        Args:
+            capture_name: capture name
+            **kwargs: keyword arguments to pass to the constructor. Can override default keyword arguments of this
+                      factory.
+
+        Returns:
+
+        """
+        config = self._registry.get(capture_name, UASTNode)
+
+        node_class: type[UASTNode]
+        default_kwargs: dict[str, Any]
+
+        if isinstance(config, tuple):
+            if not (len(config) == 2 and isinstance(config[0], type) and isinstance(config[1], dict)):
+                raise ValueError("Invalid UASTNode config")
+            node_class = config[0]
+            default_kwargs = config[1]
+        elif isinstance(config, type) and issubclass(config, UASTNode):
+            node_class = config
+            if config is UASTNode:
+                default_kwargs = {"node_type": "generic"}
+            else:
+                default_kwargs = {}
+        else:
+            raise ValueError("Invalid UASTNode config")
+
+        merged_kwargs: dict[str, Any] = default_kwargs | kwargs
+        return node_class(**merged_kwargs)
 
 
 class UASTNodeBuilder:
@@ -107,7 +283,7 @@ class UASTNodeBuilder:
         self.source: str | None = None
         self.docstring: str | None = None
         self.parent_id: str | None = None
-        self.children: list["UastNode"] = list()
+        self.children: list["UASTNode"] = list()
         self.metadata: dict[str, Any] = dict()
 
         self.attributes_map: dict[str, Any] = dict()
@@ -185,19 +361,19 @@ class UASTNodeBuilder:
         self.parent_id = parent_id
         return self
 
-    def add_child(self, child: "UastNode") -> "UASTNodeBuilder":
+    def add_child(self, child: "UASTNode") -> UASTNodeBuilder:
         self.children.append(child)
         return self
 
-    def set_metadata(self, key: str, value: Any) -> "UASTNodeBuilder":
+    def set_metadata(self, key: str, value: Any) -> UASTNodeBuilder:
         self.metadata[key] = value
         return self
 
-    def set(self, keyword: str, value: Any) -> "UASTNodeBuilder":
+    def set(self, keyword: str, value: Any) -> UASTNodeBuilder:
         self.attributes_map[keyword] = value
         return self
 
-    def build(self, node_factory: UASTNodeFactory) -> UastNode:
+    def build(self, node_factory: UASTNodeFactory) -> UASTNode:
         self.attributes_map["id"] = self._node_id
         self.attributes_map["metadata"] = self.metadata
 
