@@ -40,9 +40,9 @@ Thumbs.db
 *.log
 logs/
 
-# Local repository workspace
-sample-repositories/*
-!sample-repositories/.gitkeep
+# Managed local repository workspace
+workspace-repositories/*
+!workspace-repositories/.gitkeep
 
 # Backend generated data
 backend/data/source/*

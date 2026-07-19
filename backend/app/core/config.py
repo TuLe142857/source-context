@@ -1,8 +1,10 @@
 """Application configuration loaded from environment variables."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["development", "test", "production"]
@@ -26,6 +28,18 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: LogLevel = "INFO"
     api_v1_prefix: str = "/api/v1"
+
+    repository_workspace_root: Path = Path("workspace-repositories")
+
+    scanner_max_file_size_bytes: int = Field(
+        default=1_000_000,
+        gt=0,
+    )
+
+    git_command_timeout_seconds: int = Field(
+        default=120,
+        gt=0,
+    )
 
 
 @lru_cache(maxsize=1)
