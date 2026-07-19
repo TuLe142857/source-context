@@ -5,7 +5,7 @@ Module document.....
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from tree_sitter import Node, Query, QueryCursor, Tree
 
@@ -13,6 +13,7 @@ from .uast_node import UASTNode
 from .uast_node_builder import CaptureType, UASTNodeBuilder, UASTNodeFactory
 
 
+@runtime_checkable
 class UASTConverter(Protocol):
     """
     Use to convert tree-sitter tree to UAST tree.
