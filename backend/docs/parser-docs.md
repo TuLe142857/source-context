@@ -19,10 +19,12 @@ Main capture name:
 - `@container.file`
 
 ### Capture: `@definition`
-- `@definition.class`
+- `@definition.class`:
 - `@definition.interface`
 - `@definition.enum`
 - `@definition.struct`
+- `@definition.protocol`
+- `@definition.trait`
 
 
 - `@definition.function`
@@ -45,10 +47,18 @@ Main capture name:
 
 
 ### Capture: `@meta`
-- `@meta.doc`
-- `@meta.name`
-- `@meta.visibility`
-- `@meta.modifier`
+- `@meta.name`: identifier. Example: class name, function name, variable name, ...
+- `@meta.doc`: docstring
+- `@meta.modifier`: public, private, protected, abstract, async, final, ....
+- `@meta.visibility`: Edge case of modifier. Example: public/private/protected in Java
+- `@meta.base_type`: base type of class - for inheritance
+- `@meta.type`: data type. For funtion/method: return type. For variable: data type
+- `@meta.value`: for variable: init value
+- `@meta.enum_value`: for enum class only
+- `@meta.decorator`: decorator(in python), annotation(in java) ...
+- `@meta.module_path`: for `@dependency`
+- `@meta.alias`: for `@dependency`
+- `@meta.subject`: for `@reference.call`
 - ...
 
 ## UAST inheritance design
