@@ -37,9 +37,16 @@ class UASTConverter(Protocol):
 class CaptureHandler(Protocol):
     """
     Handle tree-sitter capture name, make it to a metadata or new-node-builder
-
         - metadata: not a node instance, it belongs to another node
         - new-node-builder: new node-builder
+
+    Every ``LanguageAdapter`` must have at least 4 ``CaptureHandler`` (class ``DefaultCaptureHandler`` has provided
+    them in default for basic logic):
+        - DefinitionHandler: handle capture ``definition.*``
+        - MetadataHandler: handle capture ``metadata.*``
+        - ReferenceHandler: handle capture ``reference.*``
+        - DependencyHandler: handle capture ``dependency.*``
+
     """
 
     def handle(
@@ -82,6 +89,10 @@ class DefaultCaptureHandler:
         ]
 
     class DefinitionHandler(CaptureHandler):
+        """
+        Simple handler for capture ``definition.*``
+        """
+
         def handle(
             self,
             capture_name: str,
@@ -97,6 +108,10 @@ class DefaultCaptureHandler:
             return builder
 
     class ReferenceHandler(CaptureHandler):
+        """
+        Simple handler for capture ``reference.*``
+        """
+
         def handle(
             self,
             capture_name: str,
@@ -111,6 +126,10 @@ class DefaultCaptureHandler:
             return builder
 
     class DependencyHandler(CaptureHandler):
+        """
+        Simple handler for capture ``dependency.*``
+        """
+
         def handle(
             self,
             capture_name: str,
@@ -125,6 +144,10 @@ class DefaultCaptureHandler:
             return builder
 
     class MetadataHandler(CaptureHandler):
+        """
+        Simple handler for capture ``metadata.*``
+        """
+
         def handle(
             self,
             capture_name: str,
@@ -209,8 +232,17 @@ class BuildContext:
     class BuildScope:
         def __init__(self, builder: UASTNodeBuilder):
             self.builder = builder
+
             self.pending_metadata: dict[str, Any] = dict()
+            """
+            Pending metadata that will be pass to next sibling node(Must implement logic in handler to get metadata
+            from previous sibling node, then pop all metdata value when it's handled).
+            """
+
             self.state: dict[str, Any] = dict()
+            """
+            Build state. Use for customization per language.
+            """
 
     def __init__(
         self, file_path: str | None = None, language_name: str | None = None, source_bytes: bytes | None = None
@@ -226,17 +258,42 @@ class BuildContext:
 
     @property
     def file_path(self) -> str | None:
+        """
+        Returns:
+            file path as string.
+
+        """
         return self._file_path
 
     @property
     def language_name(self) -> str | None:
+        """
+
+        Returns:
+            language name as string.
+
+        """
         return self._language_name
 
     @property
     def source_bytes(self) -> bytes | None:
+        """
+
+        Returns:
+            The whole file source code as bytes.
+        """
         return self._source_bytes
 
     def get_text(self, ts_node: Node) -> str | None:
+        """
+
+        Args:
+            ts_node: ``tree-sitter`` Node
+
+        Returns:
+            Text of this node as string.
+
+        """
         text_bytes = ts_node.text
         if text_bytes is not None:
             return text_bytes.decode("utf-8")
@@ -250,12 +307,23 @@ class BuildContext:
 
     @property
     def current_scope(self) -> BuildContext.BuildScope:
+        """
+
+        Returns:
+            Current ``BuildContext.BuildScope`` - parent build scope.
+        """
         return self._scope[-1]
 
     def push_scope(self, scope: BuildContext.BuildScope) -> None:
+        """
+        DO NOT CALL THIS METHOD IN CAPTURE HANDLER.
+        """
         self._scope.append(scope)
 
     def pop_scope(self) -> BuildContext.BuildScope:
+        """
+        DO NOT CALL THIS METHOD IN CAPTURE HANDLER.
+        """
         return self._scope.pop()
 
 
@@ -282,6 +350,9 @@ class BaseUASTConverter(UASTConverter):
             captures_name.sort(key=self.adapter.get_capture_priorities)
 
         root_builder = UASTNodeBuilder.from_ts_node(ts_root, "container.file")
+        root_builder.set("path", file_path)
+        root_builder.set("language", self.adapter.language_name)
+        root_builder.set("source_bytes", source_bytes)
 
         build_context = BuildContext(
             file_path=file_path,
@@ -325,12 +396,12 @@ class BaseUASTConverter(UASTConverter):
             if child_is_metadata or (child_builder is not None):
                 break
 
-        if not child_is_metadata and child_builder is None and ts_child.is_named:
+        # Barrier, prevent metadata fall so depth.
+        if (not child_is_metadata) and (child_builder is None) and ts_child.is_named:
             if context is not None:
                 context.current_scope.pending_metadata.clear()
 
         if not child_is_metadata:
-            # if child not is metadata, scan for it's children
             next_builder: UASTNodeBuilder
             if child_builder is not None:
                 next_builder = child_builder

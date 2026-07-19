@@ -35,7 +35,7 @@ def get_query() -> Query:
 class JavaAdapter(LanguageAdapter):
     def __init__(self) -> None:
         super().__init__(
-            language_name="python",
+            language_name="java",
             query=get_query(),
             node_factory=UASTNodeFactory(),
             handlers=[
