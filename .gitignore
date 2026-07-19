@@ -1,11 +1,61 @@
-.idea/
-.vscode/
-
+# Environment variables
 .env
-!.env.*.example
+.env.*
+!.env.example
 
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.python-version.bak
+
+# Virtual environments
 .venv/
-.ruff_cache
-.pytest_cache
-.mypy_cache
+venv/
+env/
+
+# Python tools
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
 dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local repository workspace
+sample-repositories/*
+!sample-repositories/.gitkeep
+
+# Backend generated data
+backend/data/source/*
+backend/data/chunks/*
+backend/data/indexes/*
+backend/data/manifests/*
+
+!backend/data/source/.gitkeep
+!backend/data/chunks/.gitkeep
+!backend/data/indexes/.gitkeep
+!backend/data/manifests/.gitkeep
+
+# Credentials and local configuration
+*.pem
+*.key
+secrets/
