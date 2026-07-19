@@ -1,13 +1,20 @@
 [project]
 name = "source-context-backend"
 version = "0.1.0"
-requires-python = ">=3.13"
+description = "Backend indexing and retrieval service for Source Context."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-    "alembic>=1.18.5",
-    "fastapi[standard]>=0.139.0",
-    "pydantic>=2.13.4",
-    "sqlalchemy>=2.0.51",
+    "fastapi[standard]>=0.139.2",
 ]
 
-[tool.ruff]
-extend = "../pyproject.toml"
+[build-system]
+requires = ["uv_build>=0.11.29,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = [
+    "app",
+    "workers",
+]
+module-root = ""
