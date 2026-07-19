@@ -784,10 +784,14 @@ version = "0.1.0"
 source = { editable = "backend" }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "pydantic-settings" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "fastapi", extras = ["standard"], specifier = ">=0.139.2" }]
+requires-dist = [
+    { name = "fastapi", extras = ["standard"], specifier = ">=0.139.2" },
+    { name = "pydantic-settings", specifier = ">=2.14.2" },
+]
 
 [[package]]
 name = "source-context-mcp"
