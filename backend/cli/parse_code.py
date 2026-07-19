@@ -4,7 +4,7 @@ from typing import Any, Literal
 import typer
 
 from app.languages import get_language_registry
-from app.parser import FunctionNode, UASTNode
+from app.parser.uast import FunctionNode, UASTNode
 from app.util import TreeFormatter
 
 cli = typer.Typer()

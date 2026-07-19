@@ -40,6 +40,26 @@
 (class_definition body: (block (function_definition) @definition.method ))
 
 (function_definition name: (identifier) @meta.name) @definition.function
+(function_definition return_type:(type) @meta.type)
+(function_definition
+    parameters: ( parameters
+        [(identifier) (typed_parameter) (typed_default_parameter)] @definition.parameter
+    )
+)
+
+(parameters
+    (_
+        (identifier) @meta.name
+    )
+)
+(parameters
+    (_
+        type: (type
+            (identifier) @meta.type
+        )
+    )
+)
+
 
 (call function: [
       (identifier) @meta.name

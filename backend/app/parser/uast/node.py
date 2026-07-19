@@ -26,9 +26,6 @@ class UASTNode:
     end_byte: int
     "end byte index(in file). start from 0"
 
-    source: str | None = None
-    """Source code of this node as string"""
-
     docstring: str | None = None
     """Docstring of this node as string"""
 
@@ -48,7 +45,6 @@ class UASTNode:
             "end_point": self.end_point,
             "start_byte": self.start_byte,
             "end_byte": self.end_byte,
-            "source": self.source,
             "docstring": self.docstring,
             "parent_id": self.parent_id,
             "children": [child.to_dict() for child in self.children],
@@ -184,6 +180,11 @@ class ImportNode(DependencyNode):
 
     module_path: str | None = None
 
+    imported_names: list[str] = field(default_factory=list)
+
+    alias: dict[str, str] = field(default_factory=dict)
+    """Map imported_name to its alias"""
+
     def to_dict(self) -> dict[str, Any]:
         additional_data = {
             "module_path": self.module_path,
@@ -194,6 +195,10 @@ class ImportNode(DependencyNode):
 @dataclass(kw_only=True)
 class ExportNode(DependencyNode):
     node_type: Literal["export"] = "export"
+
+    exported_names: list[str] = field(default_factory=list)
+
+    alias: dict[str, str] = field(default_factory=dict)
 
 
 # ====================================================
@@ -210,6 +215,18 @@ class ReferenceNode(UASTNode):
 class CallNode(ReferenceNode):
     node_type: Literal["call"] = "call"
 
+    subject: str | None = None
+    """
+    Example:
+        caculator.sum(a, b)
+            - name: sum
+            - subject: calculator
+
+        print("hi")
+            - name: print
+            - subject: None
+    """
+
 
 @dataclass(kw_only=True)
 class AttributeAccessNode(ReferenceNode):
@@ -219,3 +236,8 @@ class AttributeAccessNode(ReferenceNode):
 @dataclass(kw_only=True)
 class TypeReferenceNode(ReferenceNode):
     node_type: Literal["type_reference"] = "type_reference"
+
+    namespace: str | None = None
+
+    type_arguments: list[str] = field(default_factory=list)
+    """For generic type like Map<str, int>"""

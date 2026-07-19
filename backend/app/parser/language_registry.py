@@ -7,7 +7,7 @@ from typing import Callable, Mapping, Sequence
 from tree_sitter import Language, Parser
 
 from .exception import UnsupportedLanguageError
-from .uast_converter import UASTConverter
+from .uast.converter import UASTConverter
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -70,7 +70,7 @@ class LanguageRegistry:
         self._configs: dict[str, LanguageConfig] = {config.name: config for config in configs}
         self._supported_languages: Sequence[str] = tuple(language_names)
         self._supported_file_patterns: Sequence[str] = tuple(language_patterns)
-        self._supported_file_extensions = tuple(language_patterns)
+        self._supported_file_extensions = tuple(language_extensions)
         self._languages_cache: dict[str, Language] = {}
 
     @property

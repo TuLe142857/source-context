@@ -2,15 +2,12 @@ from functools import lru_cache
 from pathlib import Path
 
 import tree_sitter_python
-from tree_sitter import Language, Node, Query
+from tree_sitter import Language, Query
 
-from app.parser import (
-    BuildContext,
-    CaptureHandler,
-    DefaultCaptureHandler,
+from app.parser.uast import (
+    BaseMetadataCaptureHandler,
+    BaseNodeCaptureHandler,
     LanguageAdapter,
-    UASTNodeBuilder,
-    UASTNodeFactory,
 )
 
 
@@ -39,58 +36,8 @@ class PythonAdapter(LanguageAdapter):
         super().__init__(
             language_name="python",
             query=get_query(),
-            node_factory=UASTNodeFactory(),
-            handlers=[
-                DefaultCaptureHandler.ContainerHandler(),
-                DefaultCaptureHandler.DefinitionHandler(),
-                DefaultCaptureHandler.DependencyHandler(),
-                DefaultCaptureHandler.ReferenceHandler(),
-                self.PythonMetadataHandler(),
-            ],
+            handlers=[BaseMetadataCaptureHandler(), BaseNodeCaptureHandler(capture_patterns=["definition.*"])],
         )
-
-    class PythonMetadataHandler(CaptureHandler):
-        def handle(
-            self,
-            capture_name: str,
-            ts_child: Node,
-            parent_builder: UASTNodeBuilder,
-            context: BuildContext | None = None,
-        ) -> bool | UASTNodeBuilder:
-            if not capture_name.startswith("meta"):
-                return False
-            meta_type = capture_name.split(".")[-1]
-
-            text_bytes = ts_child.text
-            text = text_bytes.decode("utf-8") if text_bytes is not None else ""
-
-            match meta_type:
-                case "name":
-                    parent_builder.set_name(text)
-                case "doc":
-                    parent_builder.set_docstring(text)
-                case "comment":
-                    pass
-                case "visibility":
-                    pass
-                case "modifier":
-                    pass
-                case "decorator":
-                    pass
-                case "return_type":
-                    pass
-                case "type":
-                    pass
-                case "base_type":
-                    pass
-                case "value":
-                    pass
-                case "init_value":
-                    pass
-                case _:
-                    pass
-
-            return True
 
 
 @lru_cache()

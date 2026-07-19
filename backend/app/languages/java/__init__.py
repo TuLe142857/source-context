@@ -1,6 +1,7 @@
 from functools import lru_cache
 
-from app.parser import BaseUASTConverter, LanguageConfig, UASTConverter
+from app.parser import LanguageConfig
+from app.parser.uast import BaseUASTConverter, UASTConverter
 
 from .adapter import get_adapter, get_language
 

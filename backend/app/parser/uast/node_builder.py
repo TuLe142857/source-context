@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Literal
+from typing import Any
 
 from tree_sitter import Node
 
-from .uast_node import (
+from .node import (
     AttributeAccessNode,
     CallNode,
     ContainerNode,
@@ -17,34 +17,7 @@ from .uast_node import (
     UASTNode,
     VariableNode,
 )
-
-type CaptureType = (
-    Literal[
-        "container.project",
-        "container.module",
-        "container.file",
-        "definition.interface",
-        "definition.enum",
-        "definition.struct",
-        "definition.trait",
-        "definition.protocol",
-        "definition.class",
-        "definition.method",
-        "definition.constructor",
-        "definition.lambda",
-        "definition.function",
-        "definition.field",
-        "definition.constant",
-        "definition.parameter",
-        "definition.variable",
-        "dependence.import",
-        "dependence.export",
-        "reference.call",
-        "reference.attribute",
-        "reference.type",
-    ]
-    | str
-)
+from .types import CaptureType
 
 
 class UASTNodeFactory:
@@ -88,8 +61,8 @@ class UASTNodeFactory:
                 "definition.constant": (VariableNode, {"kind": "constant"}),
                 "definition.parameter": (VariableNode, {"kind": "parameter"}),
                 "definition.variable": (VariableNode, {"kind": "variable"}),
-                "dependence.import": ImportNode,
-                "dependence.export": ExportNode,
+                "dependency.import": ImportNode,
+                "dependency.export": ExportNode,
                 "reference.call": CallNode,
                 "reference.attribute": AttributeAccessNode,
                 "reference.type": TypeReferenceNode,
@@ -101,10 +74,6 @@ class UASTNodeFactory:
     @property
     def registry(self) -> FactoryConfig:
         return self._registry
-
-    # @staticmethod
-    # def _validate_config(config: FactoryConfig) -> bool:
-    #     return True
 
     def create(self, capture_name: CaptureType, **kwargs: Any) -> UASTNode:
         """
@@ -143,7 +112,7 @@ class UASTNodeFactory:
 class UASTNodeBuilder:
     def __init__(
         self,
-        capture_name: str,
+        capture_name: CaptureType,
         node_id: str | None = None,
     ) -> None:
         """
@@ -162,7 +131,6 @@ class UASTNodeBuilder:
         self.end_point: tuple[int, int] | None = None
         self.start_byte: int | None = None
         self.end_byte: int | None = None
-        self.source: str | None = None
         self.docstring: str | None = None
         self.parent_id: str | None = None
         self.children: list["UASTNode"] = list()
@@ -201,7 +169,7 @@ class UASTNodeBuilder:
         """
         return self._node_id
 
-    def set_name(self, name: str) -> "UASTNodeBuilder":
+    def set_name(self, name: str | None) -> "UASTNodeBuilder":
         self.name = name
         return self
 
@@ -225,11 +193,7 @@ class UASTNodeBuilder:
         self.end_byte = end_byte
         return self
 
-    def set_source(self, source: str) -> "UASTNodeBuilder":
-        self.source = source
-        return self
-
-    def set_docstring(self, docstring: str) -> "UASTNodeBuilder":
+    def set_docstring(self, docstring: str | None) -> "UASTNodeBuilder":
         self.docstring = docstring
         return self
 

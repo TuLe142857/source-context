@@ -15,6 +15,15 @@ dependencies = [
     "typer>=0.26.8",
 ]
 
+[tool.uv]
+package=true
+
+[tool.setuptools]
+packages = ["app", "cli"]
+
+[project.scripts]
+cli="cli:run"
+
 [tool.ruff]
 extend = "../pyproject.toml"
 

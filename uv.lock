@@ -1147,7 +1147,7 @@ wheels = [
 [[package]]
 name = "source-context-backend"
 version = "0.1.0"
-source = { virtual = "backend" }
+source = { editable = "backend" }
 dependencies = [
     { name = "alembic" },
     { name = "fastapi", extra = ["standard"] },
