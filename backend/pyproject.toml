@@ -3,7 +3,8 @@ name = "source-context-backend"
 version = "0.1.0"
 description = "Backend indexing and retrieval service for Source Context."
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.13"
+
 dependencies = [
     "fastapi[standard]>=0.139.2",
     "pathspec>=1.1.1",
@@ -24,18 +25,6 @@ packages = ["app", "cli"]
 
 [project.scripts]
 cli="cli:run"
-
-[build-system]
-requires = ["uv_build>=0.11.29,<0.12"]
-build-backend = "uv_build"
-
-[tool.uv.build-backend]
-module-name = [
-    "app",
-    "workers",
-]
-module-root = ""
-
 
 [tool.ruff.lint.isort]
 known-third-party = [
