@@ -1,14 +1,22 @@
 [project]
 name = "source-context-mcp"
-version = "0.1.0"
-description = "Local MCP server for the Source Context platform."
+version = "0.1.dev1"
+description = "Local MCP server for your agents."
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+authors = [
+    { name = "Le Ngoc Tu", email = "tuleaibk@gmail.com" },
+    { name = "Dang Huu Hieu", email = "danghuuhieu038@gmail.com"},
+    { name = "Huynh Phat Tai", email = "huynhphtai@gmail.com"}
+]
+requires-python = ">=3.13"
 dependencies = []
 
+[project.scripts]
+source-context-mcp="source_context_mcp:run"
+
 [build-system]
-requires = ["uv_build>=0.11.29,<0.12"]
+requires = ["uv_build>=0.11.21,<0.12.0"]
 build-backend = "uv_build"
 
-[tool.uv.build-backend]
-module-name = "source_context_mcp"
+[tool.ruff]
+extend = "../pyproject.toml"
