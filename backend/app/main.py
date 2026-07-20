@@ -22,7 +22,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application = FastAPI(
         title=app_settings.app_name,
         version=app_settings.app_version,
-        description=("Source code indexing and retrieval API for the Source Context MCP platform."),
+        description=(
+            "Source code indexing and retrieval API for the Source Context MCP platform."
+        ),
         debug=app_settings.debug,
     )
 

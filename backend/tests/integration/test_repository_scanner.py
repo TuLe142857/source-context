@@ -37,7 +37,8 @@ def test_scanner_returns_supported_source_files(
     result = scanner.scan(tmp_path)
 
     files_by_path = {
-        source_file.relative_path.as_posix(): source_file for source_file in result.files
+        source_file.relative_path.as_posix(): source_file
+        for source_file in result.files
     }
 
     assert set(files_by_path) == {

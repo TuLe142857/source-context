@@ -15,8 +15,12 @@ members = [
     "mcp",
 ]
 
-[tool.pytest.ini_options]
-minversion = "8.0"
+[tool.pytest]
+minversion = "9.0"
+pythonpath = [
+  "backend",
+  "mcp"
+]
 testpaths = [
     "backend/tests",
     "mcp/tests",
@@ -38,6 +42,8 @@ markers = [
     "integration: integration tests",
     "e2e: end-to-end tests",
 ]
+
+
 
 [tool.coverage.run]
 branch = true
@@ -61,13 +67,28 @@ exclude_also = [
 
 [tool.ruff]
 target-version = "py312"
-line-length = 100
+#target-version = "py313"
+line-length = 120
+indent-width = 4
 extend-exclude = [
     ".venv",
     "frontend",
     "backend/data",
     "workspace-repositories",
 ]
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "build",
+    "dist",
+    "venv",
+    "frontend"
+]
+
+
 
 [tool.ruff.lint]
 select = [
@@ -76,6 +97,7 @@ select = [
     "I",
     "B",
     "UP",
+    "W"
 ]
 ignore = []
 
@@ -89,6 +111,7 @@ known-first-party = [
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+skip-magic-trailing-comma = false
 
 [tool.mypy]
 python_version = "3.12"
@@ -116,3 +139,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.15.22",
 ]
+
+
+
+

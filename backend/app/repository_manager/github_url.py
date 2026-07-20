@@ -71,7 +71,9 @@ class GitHubUrlParser:
         if parsed_url.query or parsed_url.fragment:
             raise InvalidGitHubUrlError(repository_url)
 
-        path_parts = [unquote(part) for part in parsed_url.path.strip("/").split("/") if part]
+        path_parts = [
+            unquote(part) for part in parsed_url.path.strip("/").split("/") if part
+        ]
 
         if len(path_parts) != 2:
             raise InvalidGitHubUrlError(repository_url)

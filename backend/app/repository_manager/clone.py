@@ -63,7 +63,8 @@ class GitHubPublicRepositoryProvider:
 
             if (
                 existing_reference.owner.casefold() != reference.owner.casefold()
-                or existing_reference.repository.casefold() != reference.repository.casefold()
+                or existing_reference.repository.casefold()
+                != reference.repository.casefold()
             ):
                 raise RepositoryDestinationConflictError(
                     destination,
