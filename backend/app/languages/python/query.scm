@@ -22,7 +22,6 @@
 )
 ; ==============================================================
 
-(module (expression_statement (assignment left: (identifier) @meta.name) @definition.constant))
 
 (class_definition
     name: (identifier) @meta.name
@@ -47,6 +46,19 @@
     )
 )
 
+(module  (expression_statement
+	[
+    	(identifier)@meta.name
+        (assignment
+        	left: (identifier)@meta.name
+        )
+    ]
+)@definition.variable)
+
+; (module (expression_statement (assignment left: (identifier) @meta.name) @definition.constant))
+
+
+
 (parameters
     (_
         (identifier) @meta.name
@@ -66,3 +78,14 @@
       (attribute
         attribute: (identifier) @meta.name)
   ]) @reference.call
+
+(type
+	(identifier) @meta.name
+)@reference.type
+
+
+; ==============================================================
+;                   DEPENDENCY
+; ==============================================================
+[(import_statement) (import_from_statement)] @dependency.import
+(import_statement (dotted_name) @meta.module_path)

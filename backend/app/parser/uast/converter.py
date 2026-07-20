@@ -59,6 +59,7 @@ class BaseUASTConverter(UASTConverter):
             captures_name.sort(key=self.adapter.get_capture_priorities)
 
         root_builder = UASTNodeBuilder.from_ts_node(ts_root, "container.file")
+        root_builder.set_name(file_path)
         root_builder.set("path", file_path)
         root_builder.set("language", self.adapter.language_name)
         root_builder.set("source_bytes", source_bytes)
@@ -81,7 +82,7 @@ class BaseUASTConverter(UASTConverter):
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
         captures_map: dict[int, list[str]],
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> None:
         captures = captures_map.get(ts_child.id, list())
 
@@ -104,6 +105,9 @@ class BaseUASTConverter(UASTConverter):
                     break
             if child_is_metadata or (child_builder is not None):
                 break
+        # debug
+        if (len(captures) != 0) and (not child_is_metadata) and (child_builder is None):
+            print(f"{captures} is not handled")
 
         # Barrier, prevent metadata fall so depth.
         if (not child_is_metadata) and (child_builder is None) and ts_child.is_named:

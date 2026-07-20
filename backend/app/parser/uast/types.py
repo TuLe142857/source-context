@@ -47,7 +47,7 @@ type MetaCaptureType = Literal[
     "meta.decorator",
     "meta.module_path",
     "meta.alias",
-    "meta.receiver",
+    "meta.subject",
 ]
 
 

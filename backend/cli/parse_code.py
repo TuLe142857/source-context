@@ -4,22 +4,23 @@ from typing import Any, Literal
 import typer
 
 from app.languages import get_language_registry
-from app.parser.uast import FunctionNode, UASTNode
+from app.parser.uast import UASTNode
 from app.util import TreeFormatter
 
 cli = typer.Typer()
 
 
 def uast_to_dict(node: UASTNode) -> dict[str, Any]:
-    key = f"[{node.node_type}] {node.name}"
+    node_type = node.node_type
+    if hasattr(node, "kind"):
+        node_type = getattr(node, "kind")
+    key = f"[{node_type}] {node.name}"
 
     if node.docstring is not None:
         key += " (has doc)"
     if len(node.metadata) > 0:
         key += f" {node.metadata}"
 
-    if isinstance(node, FunctionNode):
-        key += f" {node.kind}"
     children = []
     for child in node.children:
         children.append(uast_to_dict(child))

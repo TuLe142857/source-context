@@ -36,7 +36,10 @@ class PythonAdapter(LanguageAdapter):
         super().__init__(
             language_name="python",
             query=get_query(),
-            handlers=[BaseMetadataCaptureHandler(), BaseNodeCaptureHandler(capture_patterns=["definition.*"])],
+            handlers=[
+                BaseMetadataCaptureHandler(),
+                BaseNodeCaptureHandler(capture_patterns=["definition.*", "reference.*", "dependency.*"]),
+            ],
         )
 
 

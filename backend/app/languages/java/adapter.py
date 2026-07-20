@@ -8,7 +8,6 @@ from app.parser.uast import (
     BaseMetadataCaptureHandler,
     BaseNodeCaptureHandler,
     BuildContext,
-    CaptureHandler,
     LanguageAdapter,
     UASTNodeBuilder,
     UASTNodeFactory,
@@ -42,29 +41,35 @@ class JavaAdapter(LanguageAdapter):
             handlers=[
                 self.JavaDefinitionHandler(),
                 self.JavaMetadataHandler(),
-                BaseNodeCaptureHandler(capture_patterns=["dependency.*"]),
+                BaseNodeCaptureHandler(capture_patterns=["dependency.*", "reference"]),
                 BaseNodeCaptureHandler(capture_patterns=["reference.*"]),
             ],
         )
 
-    class JavaDefinitionHandler(CaptureHandler):
-        def handle(
+    class JavaDefinitionHandler(BaseNodeCaptureHandler):
+        def __init__(self) -> None:
+            super().__init__(capture_patterns="definition.*")
+
+        def do_after_build(
+            self, builder: UASTNodeBuilder, ts_node: Node, parent_builder: UASTNodeBuilder, context: BuildContext
+        ) -> None:
+            pending_metadata = context.current_scope.pending_metadata
+            doc = pending_metadata.pop("meta.doc", None)
+            builder.set_docstring(doc)
+
+        def create_builder(
             self,
             capture_name: str,
             ts_child: Node,
             parent_builder: UASTNodeBuilder,
-            context: BuildContext | None = None,
-        ) -> bool | UASTNodeBuilder:
-            if not capture_name.startswith("definition"):
-                return False
-
+            context: BuildContext,
+        ) -> UASTNodeBuilder:
             builder = UASTNodeBuilder.from_ts_node(ts_child, capture_name)
             builder.set_parent_id(parent_builder.id)
             if context is not None:
                 pending_metadata = context.current_scope.pending_metadata
                 doc = pending_metadata.pop("meta.doc", None)
                 builder.set_docstring(doc)
-
             return builder
 
     class JavaMetadataHandler(BaseMetadataCaptureHandler):

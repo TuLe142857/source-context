@@ -38,7 +38,7 @@ Main capture name:
 
 ### Capture: `@dependency`
 - `@dependency.import`
-- `@dependecy.export`
+- `@dependency.export`
 
 ### Capture: `@reference`
 - `@reference.call`
