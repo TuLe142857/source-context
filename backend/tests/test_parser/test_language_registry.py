@@ -1,7 +1,7 @@
 import pytest
 from tree_sitter import Language, Parser
 
-from app.languages import get_language_registry
+from app.parser.languages import get_language_registry
 from app.parser import LanguageRegistry
 from app.parser.uast import UASTConverter
 

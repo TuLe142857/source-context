@@ -2,7 +2,8 @@
 Module docs...
 """
 
-from .exception import UnsupportedLanguageError
-from .language_registry import LanguageConfig, LanguageRegistry
-
-__all__ = ["UnsupportedLanguageError", "LanguageConfig", "LanguageRegistry", "uast"]
+from . import uast as uast
+from . import languages as languages
+from .exc import UnsupportedLanguageError as UnsupportedLanguageError
+from .language_registry import LanguageConfig as LanguageConfig
+from .language_registry import LanguageRegistry as LanguageRegistry

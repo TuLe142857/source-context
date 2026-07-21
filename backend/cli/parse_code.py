@@ -4,9 +4,9 @@ from typing import Any, Literal
 
 import typer
 
-from app.languages import get_language_registry
+from app.parser.languages import get_language_registry
 from app.parser.uast import UASTNode
-from app.parser import UnsupportedLanguageError
+from app.parser.exc import UnsupportedLanguageError
 from app.util import TreeFormatter
 
 cli = typer.Typer()

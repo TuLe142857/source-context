@@ -6,8 +6,8 @@ from typing import Callable, Mapping, Sequence
 
 from tree_sitter import Language, Parser
 
-from .exception import UnsupportedLanguageError
-from .uast.converter import UASTConverter
+from .exc import UnsupportedLanguageError
+from .uast import UASTConverter
 
 
 @dataclass(frozen=True, kw_only=True)
