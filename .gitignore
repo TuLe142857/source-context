@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Jetbrain Air
+.air/
+
 # Python
 __pycache__/
 *.py[cod]
