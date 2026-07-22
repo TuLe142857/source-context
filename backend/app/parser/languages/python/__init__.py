@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from app.parser import LanguageConfig
+from app.parser.language_registry import LanguageConfig
 from app.parser.uast import BaseUASTConverter, UASTConverter
 
 from .adapter import get_adapter, get_language
@@ -14,10 +14,10 @@ def get_converter() -> UASTConverter:
 @lru_cache()
 def get_language_config() -> LanguageConfig:
     return LanguageConfig(
-        name="java",
+        name="python",
         language_factory=get_language,
         converter_factory=get_converter,
-        extensions=[".java"],
+        extensions=[".py"],
     )
 
 
