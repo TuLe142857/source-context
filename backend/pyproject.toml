@@ -5,7 +5,13 @@ description = "Backend indexing and retrieval service for Source Context."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "asyncpg>=0.29.0",
+    "bcrypt>=4.0.0",
     "fastapi[standard]>=0.139.2",
+    "psycopg[binary]>=3.1.0",
+    "pydantic-settings>=2.0.0",
+    "pyjwt>=2.8.0",
+    "sqlalchemy>=2.0.0",
 ]
 
 [build-system]
