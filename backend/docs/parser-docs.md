@@ -1,5 +1,6 @@
 # Tree-sitter
-
+> [!NOTE]
+> See [types.py](../app/parser/uast/types.py)
 # Language Config and Language Registry
 
 # Convert CST to UAST
@@ -14,27 +15,28 @@ Main capture name:
 - `@meta`
 
 ### Capture: `@container`
-- `@container.project`
-- `@container.module`
-- `@container.file`
+- `@container.project`: Repository, not in tree-sitter query
+- `@container.module`: Repo's module(directory, ...), not in tree-sitter query
+- `@container.file`: file, root not of any tree convert from a file.
 
 ### Capture: `@definition`
-- `@definition.class`:
-- `@definition.interface`
-- `@definition.enum`
-- `@definition.struct`
-- `@definition.protocol`
-- `@definition.trait`
+### Type Definition Capture(Class-Like definition)
+- `@definition.class`:  
+- `@definition.interface`:
+- `@definition.enum`:
+- `@definition.struct`: c/cpp struct, java record, ...
+- `@definition.protocol`: go/rust
+- `@definition.trait`: go/rust
 
+### Funtion/Callable Capture
+- `@definition.function`: single function, not belong to any class
+- `@definition.method`: function that belong to a class
+- `@definition.lambda`: anonymous function/ callback function/...
 
-- `@definition.function`
-- `@definition.method`
-- `@definition.lambda`
-
-
-- `@definition.variable`
-- `@definition.constant`
-- `@definition.parameter`
+### Variable definition
+- `@definition.variable`: normal variable
+- `@definition.constant`: constant
+- `@definition.parameter`: function/method 's parameter
 
 ### Capture: `@dependency`
 - `@dependency.import`
@@ -57,9 +59,8 @@ Main capture name:
 - `@meta.enum_value`: for enum class only
 - `@meta.decorator`: decorator(in python), annotation(in java) ...
 - `@meta.module_path`: for `@dependency`
-- `@meta.alias`: for `@dependency`
+- `@meta.alias`: for `@dependency` - import/export alias
 - `@meta.subject`: for `@reference.call`
-- ...
 
 ## UAST inheritance design
 ```mermaid

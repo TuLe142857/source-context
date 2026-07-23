@@ -5,7 +5,14 @@ from tree_sitter import Node
 
 from .build_context import BuildContext
 from .node_builder import UASTNodeBuilder
-from .types import CaptureType
+from .types import (
+    CaptureType,
+    is_type_def_capture,
+    is_function_like_capture,
+    is_variable_like_capture,
+    is_definition_capture,
+    is_dependency_capture,
+)
 
 
 @runtime_checkable
@@ -121,11 +128,10 @@ class BaseNodeCaptureHandler(CaptureHandler):
         Returns:
 
         """
-        if (
-            builder.capture_name == "reference.type"
-            and parent_builder.capture_name == "definition.parameter"
-        ):
-            parent_builder.set("data_type", context.get_text(ts_node))
+        if builder.capture_name == "reference.type":
+            BaseMetadataCaptureHandler.set_type_attribute(
+                parent_builder, context.get_text(ts_node)
+            )
 
     def handle(
         self,
@@ -147,6 +153,20 @@ class BaseMetadataCaptureHandler(CaptureHandler):
     To customize: override ``handle_{meta_name}`` method
     """
 
+    _MODIFIER_FLAG_MAP: dict[str, str] = {
+        "static": "is_static",
+        "abstract": "is_abstract",
+        "async": "is_async",
+        "override": "is_override",
+    }
+    """Modifier tokens shared across languages that map to a boolean flag on a
+    function-like definition. Override per-adapter for language-specific tokens."""
+
+    _VISIBILITY_MODIFIERS: frozenset[str] = frozenset(
+        {"public", "private", "protected"}
+    )
+    """Modifier tokens that double as visibility (e.g. Java's public/private/protected)."""
+
     def handle(
         self,
         capture_name: CaptureType,
@@ -159,35 +179,40 @@ class BaseMetadataCaptureHandler(CaptureHandler):
         meta_type = capture_name.split(".")[-1]
         match meta_type:
             case "name":
-                return self.handle_name(capture_name, ts_child, parent_builder, context)
+                return self.handle_name(ts_child, parent_builder, context)
             case "doc":
-                return self.handle_docstring(
-                    capture_name, ts_child, parent_builder, context
-                )
+                return self.handle_docstring(ts_child, parent_builder, context)
             case "module_path":
-                return self.handle_module_path(
-                    capture_name, ts_child, parent_builder, context
-                )
+                return self.handle_module_path(ts_child, parent_builder, context)
+            case "modifier":
+                return self.handle_modifier(ts_child, parent_builder, context)
+            case "visibility":
+                return self.handle_visibility(ts_child, parent_builder, context)
+            case "base_type":
+                return self.handle_base_type(ts_child, parent_builder, context)
+            case "type":
+                return self.handle_type(ts_child, parent_builder, context)
+            case "value":
+                return self.handle_value(ts_child, parent_builder, context)
+            case "enum_value":
+                return self.handle_enum_value(ts_child, parent_builder, context)
+            case "decorator":
+                return self.handle_decorator(ts_child, parent_builder, context)
+            case "alias":
+                return self.handle_alias(ts_child, parent_builder, context)
+            case "subject":
+                return self.handle_subject(ts_child, parent_builder, context)
             case _:
                 return False
 
     def handle_name(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
         context: BuildContext,
     ) -> bool | UASTNodeBuilder:
         """
         Handle ``@meta.name``
-        Args:
-            capture_name:
-            ts_child:
-            parent_builder:
-            context:
-
-        Returns:
-
         """
 
         parent_builder.set_name(context.get_text(ts_child))
@@ -195,96 +220,150 @@ class BaseMetadataCaptureHandler(CaptureHandler):
 
     def handle_docstring(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
         context: BuildContext,
     ) -> bool | UASTNodeBuilder:
         """
         Handle ``@meta.doc``
-        Args:
-            capture_name:
-            ts_child:
-            parent_builder:
-            context:
-
-        Returns:
-
         """
         parent_builder.set_docstring(context.get_text(ts_child))
         return True
 
     def handle_modifier(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> bool | UASTNodeBuilder:
-        return False
+        """
+        Handle ``@meta.modifier``: appends the raw token to ``modifiers`` on any
+        definition, and additionally infers ``visibility`` (public/private/protected)
+        or a boolean flag (``is_static``/``is_abstract``/``is_async``/``is_override``)
+        for tokens shared across languages. Override ``_MODIFIER_FLAG_MAP``/
+        ``_VISIBILITY_MODIFIERS`` for language-specific tokens.
+        """
+
+        if not is_definition_capture(parent_builder.capture_name):
+            return False
+        text = context.get_text(ts_child)
+        if text is None:
+            return False
+        parent_builder.append("modifiers", text)
+        if text in self._VISIBILITY_MODIFIERS:
+            parent_builder.set("visibility", text)
+        elif text in self._MODIFIER_FLAG_MAP:
+            flag_name = self._MODIFIER_FLAG_MAP[text]
+            # is_abstract exists on both FunctionNode and TypeDefinitionNode
+            # (e.g. "abstract class"); the other flags are function-only.
+            applies_to_type_definition = (
+                flag_name == "is_abstract"
+                and is_type_def_capture(parent_builder.capture_name)
+            )
+            if (
+                is_function_like_capture(parent_builder.capture_name)
+                or applies_to_type_definition
+            ):
+                parent_builder.set(flag_name, True)
+        return True
 
     def handle_visibility(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> bool | UASTNodeBuilder:
-        return False
+        """Handle ``@meta.visibility``: sets ``visibility`` on any definition."""
+        if not is_definition_capture(parent_builder.capture_name):
+            return False
+        text = context.get_text(ts_child)
+        if text is None:
+            return False
+        parent_builder.set("visibility", text)
+        return True
 
     def handle_base_type(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> bool | UASTNodeBuilder:
-        return False
+        """Handle ``@meta.base_type``: appends to ``base_types`` on a type definition."""
+        if not is_type_def_capture(parent_builder.capture_name):
+            return False
+        text = context.get_text(ts_child)
+        if text is None:
+            return False
+        parent_builder.append("base_types", text)
+        return True
+
+    def handle_type(
+        self,
+        ts_child: Node,
+        parent_builder: UASTNodeBuilder,
+        context: BuildContext,
+    ) -> bool | UASTNodeBuilder:
+        """
+        Handle ``@meta.type``: ``return_type`` for a function-like parent, or
+        ``data_type`` for a variable-like parent.
+        """
+        return BaseMetadataCaptureHandler.set_type_attribute(
+            parent_builder, context.get_text(ts_child)
+        )
 
     def handle_value(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> bool | UASTNodeBuilder:
-        return False
+        """Handle ``@meta.value``: sets ``initial_value`` on a variable-like parent."""
+        if not is_variable_like_capture(parent_builder.capture_name):
+            return False
+        text = context.get_text(ts_child)
+        if text is None:
+            return False
+        parent_builder.set("initial_value", text)
+        return True
 
     def handle_enum_value(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> bool | UASTNodeBuilder:
-        return False
+        """Handle ``@meta.enum_value``: appends to ``enum_values`` on an enum definition."""
+        if parent_builder.capture_name != "definition.enum":
+            return False
+        text = context.get_text(ts_child)
+        if text is None:
+            return False
+        parent_builder.append("enum_values", text)
+        return True
 
     def handle_decorator(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> bool | UASTNodeBuilder:
-        return False
+        """Handle ``@meta.decorator``: appends to ``decorators`` on any definition."""
+        if not is_definition_capture(parent_builder.capture_name):
+            return False
+        text = context.get_text(ts_child)
+        if text is None:
+            return False
+        parent_builder.append("decorators", text)
+        return True
 
     def handle_module_path(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
         context: BuildContext,
     ) -> bool | UASTNodeBuilder:
         """
         Handle ``@meta.module_path``: import module path
-        Args:
-            capture_name:
-            ts_child:
-            parent_builder:
-            context:
-
-        Returns:
-
         """
         text = context.get_text(ts_child)
         if parent_builder.capture_name == "dependency.import":
@@ -295,31 +374,57 @@ class BaseMetadataCaptureHandler(CaptureHandler):
 
     def handle_alias(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> bool | UASTNodeBuilder:
-        return False
+        """
+        Handle ``@meta.alias``: alias name for an import/export.
+
+        Without a per-symbol ``@meta.name``/``@meta.alias`` pairing from the query,
+        this stores the alias keyed by the import/export node's current ``name``
+        (or ``"*"`` if unset). Languages aliasing multiple symbols per statement
+        (e.g. ``from an import b as c, d as e``) should override this to pair each
+        alias with its correct imported name.
+        """
+        if not is_dependency_capture(parent_builder.capture_name):
+            return False
+        text = context.get_text(ts_child)
+        if text is None:
+            return False
+        alias_map = parent_builder.attributes_map.setdefault("alias", {})
+        alias_map[parent_builder.name or "*"] = text
+        return True
 
     def handle_subject(
         self,
-        capture_name: str,
         ts_child: Node,
         parent_builder: UASTNodeBuilder,
-        context: BuildContext | None = None,
+        context: BuildContext,
     ) -> bool | UASTNodeBuilder:
+        """Handle ``@meta.subject``: sets ``subject`` on a call reference."""
+        if parent_builder.capture_name != "reference.call":
+            return False
+        text = context.get_text(ts_child)
+        if text is None:
+            return False
+        parent_builder.set("subject", text)
+        return True
+
+    @staticmethod
+    def set_type_attribute(parent_builder: UASTNodeBuilder, text: str | None) -> bool:
         """
-        Handle ``@meta.subject``: call subject
-        Args:
-            capture_name:
-            ts_child:
-            parent_builder:
-            context:
+        Route a type-like capture (``@meta.type`` / ``@reference.type``) to the correct
+        attribute depending on what kind of definition the parent is: ``return_type``
+        for function-like parents, ``data_type`` for variable-like parents.
 
         Returns:
+            Whether the parent matched a known target and was updated.
         """
-        if parent_builder.capture_name == "reference.call":
-            parent_builder.set("subject", ts_child)
-
+        if is_function_like_capture(parent_builder.capture_name):
+            parent_builder.set("return_type", text)
+            return True
+        if is_variable_like_capture(parent_builder.capture_name):
+            parent_builder.set("data_type", text)
+            return True
         return False

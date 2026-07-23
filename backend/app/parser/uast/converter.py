@@ -4,6 +4,7 @@ Module document.....
 
 from __future__ import annotations
 
+
 from typing import Protocol, runtime_checkable
 
 from tree_sitter import Node, QueryCursor, Tree
@@ -111,9 +112,6 @@ class BaseUASTConverter(UASTConverter):
                     break
             if child_is_metadata or (child_builder is not None):
                 break
-        # debug
-        if (len(captures) != 0) and (not child_is_metadata) and (child_builder is None):
-            print(f"{captures} is not handled")
 
         # Barrier, prevent metadata fall so depth.
         if (not child_is_metadata) and (child_builder is None) and ts_child.is_named:

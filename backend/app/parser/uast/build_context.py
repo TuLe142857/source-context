@@ -80,10 +80,10 @@ class BuildContext:
         if text_bytes is not None:
             return text_bytes.decode("utf-8")
         elif self.source_bytes is not None:
+            text_bytes = self.source_bytes[ts_node.start_byte : ts_node.end_byte]
             try:
-                text_bytes = self.source_bytes[ts_node.start_byte : ts_node.end_byte]
                 return text_bytes.decode("utf-8")
-            except (IndexError, Exception):
+            except (UnicodeDecodeError, IndexError):
                 return None
         return None
 

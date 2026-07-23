@@ -221,6 +221,16 @@ class UASTNodeBuilder:
         self.attributes_map[keyword] = value
         return self
 
+    def append(self, keyword: str, value: Any) -> UASTNodeBuilder:
+        """
+        Append ``value`` to a list-valued attribute, creating the list if absent.
+
+        Use for attributes accumulated across multiple captures on the same
+        parent (e.g. ``modifiers``, ``decorators``, ``base_types``, ``enum_values``).
+        """
+        self.attributes_map.setdefault(keyword, []).append(value)
+        return self
+
     def build(self, node_factory: UASTNodeFactory) -> UASTNode:
         kwargs: dict[str, Any] = self.attributes_map.copy()
 
