@@ -1,8 +1,10 @@
 """Domain models representing managed source repositories."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from pydantic import BaseModel, ConfigDict
 
 from app.domain.source_file import ScannedSourceFile
 
@@ -77,3 +79,31 @@ class RepositorySnapshot:
     git: GitRepositoryMetadata
     files: tuple[ScannedSourceFile, ...]
     statistics: RepositoryScanStatistics
+
+
+# Pydantic schemas for ORM Repository endpoints (attaching repository links to projects)
+
+
+class RepositoryLinkCreate(BaseModel):
+    """Schema for attaching a Git repository link to a project."""
+
+    name: str
+    git_url: str
+    description: str | None = None
+    default_branch: str = "main"
+
+
+class RepositoryLinkResponse(BaseModel):
+    """Schema for returning attached Git repository link information."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    name: str
+    git_url: str
+    description: str | None
+    default_branch: str
+    status: str
+    created_at: datetime
+    updated_at: datetime

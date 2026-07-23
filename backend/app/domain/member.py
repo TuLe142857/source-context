@@ -48,3 +48,18 @@ class Member(Base):
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="members")
     user: Mapped["User"] = relationship("User", back_populates="project_memberships")
+
+    @property
+    def user_email(self) -> str:
+        """Helper to get user email for API schemas."""
+        return self.user.email
+
+    @property
+    def user_username(self) -> str:
+        """Helper to get user username for API schemas."""
+        return self.user.username
+
+    @property
+    def user_full_name(self) -> str | None:
+        """Helper to get user full name for API schemas."""
+        return self.user.full_name
