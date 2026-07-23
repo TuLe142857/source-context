@@ -79,7 +79,6 @@ class JavaAdapter(LanguageAdapter):
     class JavaMetadataHandler(BaseMetadataCaptureHandler):
         def handle_docstring(
             self,
-            capture_name: str,
             ts_child: Node,
             parent_builder: UASTNodeBuilder,
             context: BuildContext | None = None,
