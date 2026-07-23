@@ -118,7 +118,7 @@ line-ending = "auto"
 skip-magic-trailing-comma = false
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 explicit_package_bases = true
 mypy_path = ["backend", "mcp/src"]
 check_untyped_defs = true

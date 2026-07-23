@@ -1,6 +1,6 @@
 """Preparation of managed public GitHub repositories."""
 
-from app.domain.repository import (
+from app.schemas.repository import (
     PreparedRepository,
     RepositoryAcquisitionStatus,
     RepositorySourceType,

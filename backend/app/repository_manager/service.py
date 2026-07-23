@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 from app.core.config import Settings
-from app.domain.repository import (
+from app.schemas.repository import (
     PreparedRepository,
     RepositoryAcquisitionStatus,
     RepositorySnapshot,

@@ -9,14 +9,15 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY ./pyproject.toml ./uv.lock ./
 COPY ./backend/pyproject.toml /app/backend/
+COPY ./mcp/pyproject.toml /app/mcp/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-install-workspace
+    uv sync --frozen --no-install-project --package source-context-backend
 
 ENV PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app/backend
-CMD ["fastapi", "dev", "app/main.py", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM base AS builder
 
