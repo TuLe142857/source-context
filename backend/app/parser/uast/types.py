@@ -125,7 +125,7 @@ def is_type_def_capture(capture_name: CaptureType) -> bool:
 
 
 def is_variable_like_capture(capture_name: CaptureType) -> bool:
-    return capture_name in TYPE_DEFINITION_CAPTURES
+    return capture_name in VARIABLE_LIKE_CAPTURES
 
 
 def is_function_like_capture(capture_name: CaptureType) -> bool:
