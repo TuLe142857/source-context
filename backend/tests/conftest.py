@@ -6,8 +6,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.core.config import Settings
-from app.main import create_app
+from app.core.config import Settings, settings
+
+# Force host to 127.0.0.1 for running tests outside docker container
+settings.POSTGRES_HOST = "127.0.0.1"
+
+from app.main import create_app  # noqa: E402
 
 
 @pytest.fixture
@@ -21,6 +25,7 @@ def test_settings() -> Settings:
         debug=False,
         log_level="WARNING",
         api_v1_prefix="/api/v1",
+        POSTGRES_HOST="127.0.0.1",
     )
 
 
