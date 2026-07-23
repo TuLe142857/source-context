@@ -5,6 +5,11 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${BACKEND_EXTERNAL_PORT:-8000}:8000"
 
@@ -17,18 +22,18 @@ services:
 
 
   postgres:
-    image: postgres:18
+    image: postgres:17
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mypassword}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb_dev}
     volumes:
       - ./docker/postgres:/docker-entrypoint-initdb.d/
     ports:
       - "127.0.0.1:${DB_EXTERNAL_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myuser} -d ${POSTGRES_DB:-mydb_dev}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,7 +44,7 @@ services:
     image: neo4j:community
     restart: unless-stopped
     environment:
-      - NEO4J_AUTH=${NEO4J_USERNAME}/${NEO4J_PASSWORD?-Variable is empty or not set}
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-neo4jpassword}
     ports:
       # For web UI
       - "127.0.0.1:${NEO4J_EXTERNAL_HTTP_PORT:-7474}:7474"
@@ -49,8 +54,8 @@ services:
       test: [
         "CMD",
         "cypher-shell",
-        "-u", "${NEO4J_USERNAME?-Variable is empty or not set}",
-        "-p", "${NEO4J_PASSWORD?-Variable is emtpy or not set}",
+        "-u", "${NEO4J_USERNAME:-neo4j}",
+        "-p", "${NEO4J_PASSWORD:-neo4jpassword}",
         "RETURN 1"
       ]
       interval: 10s
@@ -66,7 +71,7 @@ services:
       - "127.0.0.1:${QDRANT_EXTERNAL_PORT_HTTP:-6333}:6333"
       - "127.0.0.1:${QDRANT_EXTERNAL_PORT_GRPC:-6334}:6334"
     environment:
-      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY?-Variable is empty or not set}
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-}
       - QDRANT__TELEMETRY_DISABLED=true
     healthcheck:
       test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
@@ -84,7 +89,7 @@ services:
     command: >
       redis-server
       --user default off
-      --user ${REDIS_USER:?Variable is not set or empty} on ">${REDIS_PASSWORD:?Variable is not set or empty}" allcommands allkeys allchannels
+      --user ${REDIS_USER:-myuser} on ">${REDIS_PASSWORD:-mypassword}" allcommands allkeys allchannels
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -97,8 +102,8 @@ services:
     image: minio/minio:latest
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER?-Variable is empty or not set}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD?-Variable is empty or not set}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     command: server /data --address :9000 --console-address :9001
     ports:
       - "127.0.0.1:${MINIO_API_EXTERNAL_PORT:-9000}:9000"

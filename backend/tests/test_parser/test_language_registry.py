@@ -12,7 +12,7 @@ def registry() -> LanguageRegistry:
 
 
 class TestLoadConfig:
-    def test_load_registry(self, registry: LanguageRegistry):
+    def test_load_registry(self, registry: LanguageRegistry) -> None:
         assert isinstance(registry, LanguageRegistry)
 
     @pytest.mark.parametrize(
@@ -21,7 +21,7 @@ class TestLoadConfig:
     )
     def test_get_language_object(
         self, registry: LanguageRegistry, language_name: str, file_names: list[str]
-    ):
+    ) -> None:
         language = registry.get_language(language_name)
         assert isinstance(language, Language)
 
@@ -35,7 +35,7 @@ class TestLoadConfig:
     )
     def test_get_parser_object(
         self, registry: LanguageRegistry, language_name: str, file_names: list[str]
-    ):
+    ) -> None:
         parser = registry.get_parser(language_name)
         assert isinstance(parser, Parser)
         for file_name in file_names:
@@ -48,6 +48,6 @@ class TestLoadConfig:
     )
     def test_get_converter_object(
         self, registry: LanguageRegistry, language_name: str, file_names: list[str]
-    ):
+    ) -> None:
         converter = registry.get_converter(language_name)
         assert isinstance(converter, UASTConverter)

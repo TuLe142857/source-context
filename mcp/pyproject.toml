@@ -8,11 +8,13 @@ authors = [
     { name = "Dang Huu Hieu", email = "danghuuhieu038@gmail.com"},
     { name = "Huynh Phat Tai", email = "huynhphtai@gmail.com"}
 ]
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp",
+]
 
 [project.scripts]
-source-context-mcp="source_context_mcp:run"
+source-context-mcp = "source_context_mcp.__main__:main"
 
 [build-system]
 requires = ["uv_build>=0.11.21,<0.12.0"]

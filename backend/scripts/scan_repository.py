@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 from app.core.config import get_settings
-from app.domain.repository import RepositorySnapshot
+from app.schemas.repository import RepositorySnapshot
 from app.repository_manager import RepositoryManager
 
 

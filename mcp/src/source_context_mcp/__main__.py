@@ -1,4 +1,9 @@
-from source_context_mcp import run
+from .server import mcp
+
+
+def main() -> None:
+    mcp.run()
+
 
 if __name__ == "__main__":
-    run()
+    main()

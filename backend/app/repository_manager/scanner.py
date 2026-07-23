@@ -4,7 +4,7 @@ import hashlib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from app.domain.repository import (
+from app.schemas.repository import (
     RepositoryScanResult,
     RepositoryScanStatistics,
 )

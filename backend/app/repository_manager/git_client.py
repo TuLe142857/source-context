@@ -5,7 +5,7 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
-from app.domain.repository import GitRepositoryMetadata
+from app.schemas.repository import GitRepositoryMetadata
 from app.repository_manager.exceptions import (
     GitCommandError,
     GitCommandTimeoutError,

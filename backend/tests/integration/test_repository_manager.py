@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 from app.core.config import Settings
-from app.domain.repository import (
+from app.schemas.repository import (
     RepositoryAcquisitionStatus,
     RepositorySourceType,
 )

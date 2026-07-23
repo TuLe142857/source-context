@@ -4,11 +4,15 @@ services:
   backend:
     build:
       target: dev
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
-      - ./backend/app:/app/backend/app
+      - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
-      - ./backend/pyproject.toml:/app/backend/pyproject.toml
 
   frontend:
     build:
@@ -19,8 +23,24 @@ services:
 
 
   postgres:
+    image: postgres:17
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mydb_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mypassword}
+
     volumes:
-      - postgres_data_dev:/var/lib/postgresql
+      - postgres_data_dev:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-myuser} -d ${POSTGRES_DB:-mydb_dev}"
+        ]
+      interval: 10s
+      retries: 5
 
 
   neo4j:
