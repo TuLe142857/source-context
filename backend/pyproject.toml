@@ -15,7 +15,7 @@ dependencies = [
     "pyjwt>=2.8.0",
     "sqlalchemy>=2.0.0",
     "tabulate>=0.10.0",
-    "tree-sitter>=0.26.0",
+    "tree-sitter==0.25.0",
     "tree-sitter-c>=0.24.2",
     "tree-sitter-c-sharp>=0.23.5",
     "tree-sitter-cpp>=0.23.4",
