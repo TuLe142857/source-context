@@ -1,3 +1,4 @@
+
 from typing import Any
 
 import typer
@@ -10,6 +11,7 @@ from dataclasses import dataclass, field
 from app.parser import UnsupportedLanguageError
 
 cli = typer.Typer()
+
 
 @dataclass
 class ChunkData:
@@ -33,9 +35,10 @@ class ChunkData:
         header = "\n".join(header_lines)
         return f"{header}\n{self.text}"
 
+
 class CodeChunker(ABC):
     @abstractmethod
-    def calc_chunk_size(self, text: str|bytes) -> int:
+    def calc_chunk_size(self, text: str | bytes) -> int:
         """
         Calculate chunk size for given text.
         The unit of measurement depend on how this method works.
@@ -49,9 +52,11 @@ class CodeChunker(ABC):
 
     @staticmethod
     def get_text(source_bytes: bytes, start_byte: int, end_byte: int) -> str:
-        return source_bytes[start_byte: end_byte].decode("utf-8", errors="replace")
+        return source_bytes[start_byte:end_byte].decode("utf-8", errors="replace")
 
-    def make_chunk(self, source_bytes: bytes, start_byte: int, end_byte: int) -> ChunkData:
+    def make_chunk(
+        self, source_bytes: bytes, start_byte: int, end_byte: int
+    ) -> ChunkData:
         text = self.get_text(source_bytes, start_byte, end_byte)
         return ChunkData(
             text=text,
@@ -70,9 +75,9 @@ class CodeChunker(ABC):
         return self.make_chunk(source_bytes, chunks[0].start_byte, chunks[-1].end_byte)
 
     def __init__(
-            self,
-            max_chunk_size: int,
-            auto_merge_chunk: bool = True,
+        self,
+        max_chunk_size: int,
+        auto_merge_chunk: bool = True,
     ) -> None:
         """
 
@@ -101,18 +106,18 @@ class CodeChunker(ABC):
             Snapped offset, or the original one when the line holds more than indentation.
         """
         i = offset
-        while i > floor and source_bytes[i - 1: i] in (b" ", b"\t"):
+        while i > floor and source_bytes[i - 1 : i] in (b" ", b"\t"):
             i -= 1
-        if i == floor or source_bytes[i - 1: i] == b"\n":
+        if i == floor or source_bytes[i - 1 : i] == b"\n":
             return i
         return offset
 
     def split_span(
-            self,
-            node: UASTNode,
-            file_bytes: bytes,
-            start_byte: int,
-            end_byte: int,
+        self,
+        node: UASTNode,
+        file_bytes: bytes,
+        start_byte: int,
+        end_byte: int,
     ) -> list[tuple[int, int, UASTNode | None]]:
         """
         Split ``[start_byte, end_byte)`` into units that cover it exactly - no byte lost,
@@ -153,9 +158,12 @@ class CodeChunker(ABC):
         # Attach each gap to the child that follows it.
         units: list[tuple[int, int, UASTNode | None]] = []
         pending: tuple[int, int] | None = None
-        for piece_start, piece_end, child in pieces:
-            if child is None:
-                pending = (pending[0] if pending is not None else piece_start, piece_end)
+        for piece_start, piece_end, piece_node in pieces:
+            if piece_node is None:
+                pending = (
+                    pending[0] if pending is not None else piece_start,
+                    piece_end,
+                )
                 continue
             if pending is not None:
                 gap_size = self.calc_chunk_size(self.get_text(file_bytes, *pending))
@@ -166,11 +174,11 @@ class CodeChunker(ABC):
                 else:
                     piece_start = pending[0]
                 pending = None
-            units.append((piece_start, piece_end, child))
+            units.append((piece_start, piece_end, piece_node))
 
         if pending is not None:
             # Trailing gap: no child follows it.
-            if len(units) != 0 and file_bytes[pending[0]: pending[1]].strip() == b"":
+            if len(units) != 0 and file_bytes[pending[0] : pending[1]].strip() == b"":
                 last_start, _, last_child = units[-1]
                 units[-1] = (last_start, pending[1], last_child)
             else:
@@ -178,11 +186,11 @@ class CodeChunker(ABC):
         return units
 
     def chunk(
-            self,
-            node: UASTNode,
-            file_bytes: bytes,
-            start_byte: int | None = None,
-            end_byte: int | None = None,
+        self,
+        node: UASTNode,
+        file_bytes: bytes,
+        start_byte: int | None = None,
+        end_byte: int | None = None,
     ) -> list[ChunkData]:
         """
         Chunk ``node``. The returned chunks cover the whole span exactly.
@@ -217,9 +225,13 @@ class CodeChunker(ABC):
                 stack: list[ChunkData] = []
                 for unit_start, unit_end, child in units:
                     if child is None:
-                        child_chunks = [self.make_chunk(file_bytes, unit_start, unit_end)]
+                        child_chunks = [
+                            self.make_chunk(file_bytes, unit_start, unit_end)
+                        ]
                     else:
-                        child_chunks = self.chunk(child, file_bytes, unit_start, unit_end)
+                        child_chunks = self.chunk(
+                            child, file_bytes, unit_start, unit_end
+                        )
 
                     if len(child_chunks) == 1:
                         child_chunk = child_chunks[0]
@@ -251,8 +263,6 @@ class CodeChunker(ABC):
             # an over-sized chunk is visible downstream, a missing one is not.
             chunks.append(self.make_chunk(file_bytes, start, end))
         return chunks
-
-
 
 
 class ByteChunker(CodeChunker):
@@ -302,23 +312,31 @@ def verify_coverage(chunks: list[ChunkData], file_bytes: bytes) -> list[str]:
     if chunks[0].start_byte != 0:
         problems.append(f"first chunk starts at {chunks[0].start_byte}, expected 0")
     if chunks[-1].end_byte != len(file_bytes):
-        problems.append(f"last chunk ends at {chunks[-1].end_byte}, expected {len(file_bytes)}")
+        problems.append(
+            f"last chunk ends at {chunks[-1].end_byte}, expected {len(file_bytes)}"
+        )
     for previous, current in zip(chunks, chunks[1:]):
         if previous.end_byte != current.start_byte:
             kind = "gap" if previous.end_byte < current.start_byte else "overlap"
-            problems.append(f"{kind} between byte {previous.end_byte} and {current.start_byte}")
+            problems.append(
+                f"{kind} between byte {previous.end_byte} and {current.start_byte}"
+            )
 
-    rebuilt = b"".join(file_bytes[chunk.start_byte: chunk.end_byte] for chunk in chunks)
+    rebuilt = b"".join(
+        file_bytes[chunk.start_byte : chunk.end_byte] for chunk in chunks
+    )
     if rebuilt != file_bytes:
         problems.append("concatenating the chunks does not rebuild the file")
     return problems
 
 
 type ChunkLevel = dict[type[UASTNode], ChunkLevel]
-def chunk_file(node: UASTNode, file_bytes: bytes, chunk_level: ChunkLevel)-> list[str]:
+
+
+def chunk_file(node: UASTNode, file_bytes: bytes, chunk_level: ChunkLevel) -> list[str]:
     chunks = []
 
-    allowed_types  = chunk_level.keys()
+    allowed_types = chunk_level.keys()
     for child in node.children:
         for allowed_type in allowed_types:
             if isinstance(child, allowed_type):
@@ -327,17 +345,18 @@ def chunk_file(node: UASTNode, file_bytes: bytes, chunk_level: ChunkLevel)-> lis
                 break
 
     if len(chunks) == 0:
-        text = file_bytes[node.start_byte:node.end_byte].decode("utf-8")
+        text = file_bytes[node.start_byte : node.end_byte].decode("utf-8")
         chunks.append(text)
     return chunks
 
 
 @cli.command(name="chunk", help="Test Chunking, currently support only python")
 def chunking(
-        p: str = typer.Argument(help="Path to the file or directory"),
-        output_path: str | None = typer.Option(None, "--out-file")
+    p: str = typer.Argument(help="Path to the file or directory"),
+    output_path: str | None = typer.Option(None, "--out-file"),
 ) -> None:
     import gc
+
     gc.disable()
 
     root = Path(p)
@@ -357,16 +376,14 @@ def chunking(
     # chunk files
     lang_registry = get_language_registry()
 
-
-
     level: ChunkLevel = {
         TypeDefinitionNode: {
-            TypeDefinitionNode: {}, # class in class
-            FunctionNode: {},       # method in class
-            VariableNode: {},       # field/constant in class
+            TypeDefinitionNode: {},  # class in class
+            FunctionNode: {},  # method in class
+            VariableNode: {},  # field/constant in class
         },
         FunctionNode: {},
-        VariableNode: {}
+        VariableNode: {},
     }
     for path in paths:
         parser = lang_registry.get_parser("python")
@@ -391,32 +408,44 @@ def chunking(
     if output_path is None:
         for file_name, chunks in result.items():
             print(
-                "="*100,
+                "=" * 100,
                 f"file: {file_name} separate into {len(chunks)} chunks:",
-                sep="\n"
+                sep="\n",
             )
             for chunk in chunks:
                 print(chunk)
-                print("-"*50)
-            print("="*100)
+                print("-" * 50)
+            print("=" * 100)
     else:
         output = Path(output_path)
-        if not(output.exists()) or not(output.is_file()):
+        if not (output.exists()) or not (output.is_file()):
             raise ValueError("Output path does not exist")
         pass
 
 
-@cli.command(name="chunkv2", help="Test CodeChunker. Size unit is selectable(byte or word).")
+@cli.command(
+    name="chunkv2", help="Test CodeChunker. Size unit is selectable(byte or word)."
+)
 def chunking_v2(
-        p: str = typer.Argument(help="Path to the file or directory"),
-        unit: str = typer.Option("byte", "--unit", "-u", help="Size unit: byte or word"),
-        max_chunk_size: int = typer.Option(500, "--max-size", "-m", help="Max size per chunk, in the selected unit"),
-        no_merge: bool = typer.Option(False, "--no-merge", help="Disable auto merging of small sibling chunks"),
-        show_text: bool = typer.Option(False, "--show-text", help="Print chunk content, not only the summary"),
-        verify: bool = typer.Option(False, "--verify", help="Fail when the chunks do not cover the file exactly"),
+    p: str = typer.Argument(help="Path to the file or directory"),
+    unit: str = typer.Option("byte", "--unit", "-u", help="Size unit: byte or word"),
+    max_chunk_size: int = typer.Option(
+        500, "--max-size", "-m", help="Max size per chunk, in the selected unit"
+    ),
+    no_merge: bool = typer.Option(
+        False, "--no-merge", help="Disable auto merging of small sibling chunks"
+    ),
+    show_text: bool = typer.Option(
+        False, "--show-text", help="Print chunk content, not only the summary"
+    ),
+    verify: bool = typer.Option(
+        False, "--verify", help="Fail when the chunks do not cover the file exactly"
+    ),
 ) -> None:
     if unit not in CHUNKER_UNITS:
-        raise typer.BadParameter(f"Unknown unit {unit!r}, expected one of: {', '.join(CHUNKER_UNITS)}")
+        raise typer.BadParameter(
+            f"Unknown unit {unit!r}, expected one of: {', '.join(CHUNKER_UNITS)}"
+        )
 
     root = Path(p)
     if not root.exists():
@@ -436,13 +465,25 @@ def chunking_v2(
 
     for path in paths:
         try:
-            lang_name = lang_registry.resolve_language_name(path.name)
+            parser_config_name = lang_registry.resolve_language_name(path.name)
         except UnsupportedLanguageError:
             continue
 
         file_bytes = path.read_bytes()
-        ts_tree = lang_registry.get_parser(lang_name).parse(file_bytes)
-        uast_root = lang_registry.get_converter(lang_name).convert(ts_tree, source_bytes=file_bytes)
+
+        parser = lang_registry.get_parser_for_file(
+            path.name,
+        )
+        converter = lang_registry.get_converter_for_file(
+            path.name,
+        )
+
+        ts_tree = parser.parse(file_bytes)
+        uast_root = converter.convert(
+            ts_tree,
+            source_bytes=file_bytes,
+            file_path=str(path),
+        )
 
         # Clamp to the whole file so coverage never depends on the root node's own span.
         chunks = chunker.chunk(uast_root, file_bytes, 0, len(file_bytes))
@@ -452,13 +493,21 @@ def chunking_v2(
         sizes = [chunk.size for chunk in chunks]
 
         print("=" * 100)
-        print(f"file      : {path} ({lang_name})")
-        print(f"config    : unit={unit}, max_chunk_size={max_chunk_size}, auto_merge={not no_merge}")
+        print(
+            f"file      : {path} (parser={parser_config_name})",
+        )
+        print(
+            f"config    : unit={unit}, max_chunk_size={max_chunk_size}, auto_merge={not no_merge}"
+        )
         print(f"chunks    : {len(chunks)}")
-        print(f"coverage  : file={len(file_bytes)} bytes, covered={covered}, missing={missing}")
+        print(
+            f"coverage  : file={len(file_bytes)} bytes, covered={covered}, missing={missing}"
+        )
         if sizes:
             over_limit = sum(1 for size in sizes if size > max_chunk_size)
-            print(f"chunk size: min={min(sizes)}, max={max(sizes)}, over_limit={over_limit} (unit={unit})")
+            print(
+                f"chunk size: min={min(sizes)}, max={max(sizes)}, over_limit={over_limit} (unit={unit})"
+            )
 
         if verify:
             problems = verify_coverage(chunks, file_bytes)
@@ -470,9 +519,10 @@ def chunking_v2(
 
         if show_text:
             for index, chunk in enumerate(chunks):
-                print("-" * 50, f"chunk #{index} (size={chunk.size}, bytes={chunk.start_byte}-{chunk.end_byte})", sep="\n")
+                print(
+                    "-" * 50,
+                    f"chunk #{index} (size={chunk.size}, bytes={chunk.start_byte}-{chunk.end_byte})",
+                    sep="\n",
+                )
                 print(str(chunk))
         print("=" * 100)
-
-
-
