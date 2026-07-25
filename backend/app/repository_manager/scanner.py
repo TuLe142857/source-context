@@ -1,17 +1,13 @@
 """Scanner for supported source files in a local repository."""
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from app.schemas.repository import (
-    RepositoryScanResult,
-    RepositoryScanStatistics,
-)
 from app.domain.source_file import (
     ScannedSourceFile,
     SourceLanguage,
     detect_source_language,
+    compute_source_content_hash,
 )
 from app.repository_manager.exceptions import (
     InvalidRepositoryPathError,
@@ -19,6 +15,10 @@ from app.repository_manager.exceptions import (
     RepositoryTraversalError,
 )
 from app.repository_manager.ignore_rules import IgnoreRules
+from app.schemas.repository import (
+    RepositoryScanResult,
+    RepositoryScanStatistics,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,13 +224,11 @@ class RepositoryScanner:
     def _calculate_hash(
         file_path: Path,
     ) -> str:
-        with file_path.open("rb") as source_file:
-            digest = hashlib.file_digest(
-                source_file,
-                "sha256",
-            )
+        source_bytes = file_path.read_bytes()
 
-        return digest.hexdigest()
+        return compute_source_content_hash(
+            source_bytes,
+        )
 
     @staticmethod
     def _raise_traversal_error(

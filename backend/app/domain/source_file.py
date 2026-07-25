@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Final, Mapping
 
@@ -53,6 +54,14 @@ def detect_source_language(
 
     extension = Path(file_path).suffix.casefold()
     return SOURCE_LANGUAGE_BY_EXTENSION.get(extension)
+
+
+def compute_source_content_hash(
+    source_bytes: bytes,
+) -> str:
+    """Return the canonical SHA-256 hash for source bytes."""
+
+    return sha256(source_bytes).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)

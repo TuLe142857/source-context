@@ -1,10 +1,7 @@
-"""
-Module docs...
-"""
-
 from . import uast as uast
 from . import languages as languages
 from .exc import UnsupportedLanguageError as UnsupportedLanguageError
+from .exc import StaleScannedSourceFileError
 from .language_registry import LanguageConfig as LanguageConfig
 from .language_registry import LanguageRegistry as LanguageRegistry
 
@@ -19,6 +16,16 @@ from .contracts import (
 )
 from .service import ParserService
 
+from .repository_contracts import (
+    ParsedSourceFile,
+    RepositoryParseBatch,
+    SourceFileChange,
+    SourceFileFingerprint,
+)
+from .repository_service import (
+    RepositoryParserService,
+)
+
 __all__ = [
     "LanguageConfig",
     "LanguageRegistry",
@@ -31,4 +38,10 @@ __all__ = [
     "ParserService",
     "SourcePoint",
     "SourceRange",
+    "ParsedSourceFile",
+    "RepositoryParseBatch",
+    "RepositoryParserService",
+    "SourceFileChange",
+    "SourceFileFingerprint",
+    "StaleScannedSourceFileError",
 ]
