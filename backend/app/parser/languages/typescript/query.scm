@@ -1,36 +1,126 @@
-; TypeScript declarations
+; TypeScript and TSX -> UAST query
+;
+; The same query is compiled independently against:
+; - the TypeScript grammar
+; - the TSX grammar
+;
+; Semantic field extraction is handled by TypeScript-specific handlers.
 
-(function_declaration
-  name: (identifier) @meta.name) @definition.function
+; ---------------------------------------------------------------------------
+; Documentation
+; ---------------------------------------------------------------------------
 
-(class_declaration
-  name: (type_identifier) @meta.name) @definition.class
-
-(interface_declaration
-  name: (type_identifier) @meta.name) @definition.interface
-
-(method_definition
-  name: (property_identifier) @meta.name) @definition.method
-
-(variable_declarator
-  name: (identifier) @meta.name) @definition.variable
-
-
-; TypeScript imports
-
-(import_statement
-  source: (string) @meta.module_path) @dependency.import
+(
+  (comment) @meta.doc
+  (#match? @meta.doc "^/\\*\\*")
+)
 
 
-; Direct function calls: execute()
+; ---------------------------------------------------------------------------
+; Type definitions
+; ---------------------------------------------------------------------------
 
-(call_expression
-  function: (identifier) @meta.name) @reference.call
+(class_declaration) @definition.class
+
+(abstract_class_declaration) @definition.class
+
+(interface_declaration) @definition.interface
+
+(type_alias_declaration) @definition.type_alias
+
+(enum_declaration) @definition.enum
 
 
-; Member calls: service.execute()
+; ---------------------------------------------------------------------------
+; Constructors and methods
+; ---------------------------------------------------------------------------
 
-(call_expression
-  function: (member_expression
-    object: (identifier) @meta.subject
-    property: (property_identifier) @meta.name)) @reference.call
+(
+  (method_definition
+    name: (property_identifier) @_.constructor_name)
+    @definition.constructor
+  (#eq? @_.constructor_name "constructor")
+)
+
+(method_definition) @definition.method
+
+
+; ---------------------------------------------------------------------------
+; Functions
+; ---------------------------------------------------------------------------
+
+(function_declaration) @definition.function
+
+(generator_function_declaration) @definition.function
+
+
+; ---------------------------------------------------------------------------
+; Parameters
+; ---------------------------------------------------------------------------
+
+(required_parameter) @definition.parameter
+
+(optional_parameter) @definition.parameter
+
+
+; Untyped single-parameter arrow function:
+; value => value + 1
+
+(arrow_function
+  parameter: (identifier) @definition.parameter)
+
+
+; ---------------------------------------------------------------------------
+; Variables, constants and class fields
+; ---------------------------------------------------------------------------
+
+; Handlers classify variable declarators as:
+; - function
+; - constant
+; - variable
+
+(variable_declarator) @definition.variable
+
+
+; TypeScript uses public_field_definition for class fields.
+; Handlers classify function-valued fields as methods.
+
+(public_field_definition) @definition.field
+
+
+; ---------------------------------------------------------------------------
+; Dependencies
+; ---------------------------------------------------------------------------
+
+(import_statement) @dependency.import
+
+
+; export { value } from "./module"
+
+(export_statement
+  source: (string)) @dependency.import
+
+
+; const package = require("package")
+
+(
+  (call_expression
+    function: (identifier) @_.require_function
+    arguments: (arguments
+      (string) @_.require_source))
+    @dependency.import
+  (#eq? @_.require_function "require")
+)
+
+
+; ---------------------------------------------------------------------------
+; References
+; ---------------------------------------------------------------------------
+
+(call_expression) @reference.call
+
+(new_expression) @reference.call
+
+(member_expression) @reference.attribute
+
+(subscript_expression) @reference.attribute
