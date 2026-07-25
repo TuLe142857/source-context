@@ -1,16 +1,13 @@
 """Scanner for supported source files in a local repository."""
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from app.schemas.repository import (
-    RepositoryScanResult,
-    RepositoryScanStatistics,
-)
 from app.domain.source_file import (
     ScannedSourceFile,
     SourceLanguage,
+    detect_source_language,
+    compute_source_content_hash,
 )
 from app.repository_manager.exceptions import (
     InvalidRepositoryPathError,
@@ -18,19 +15,10 @@ from app.repository_manager.exceptions import (
     RepositoryTraversalError,
 )
 from app.repository_manager.ignore_rules import IgnoreRules
-
-SUPPORTED_FILE_EXTENSIONS: dict[str, SourceLanguage] = {
-    ".py": SourceLanguage.PYTHON,
-    ".pyi": SourceLanguage.PYTHON,
-    ".js": SourceLanguage.JAVASCRIPT,
-    ".jsx": SourceLanguage.JAVASCRIPT,
-    ".mjs": SourceLanguage.JAVASCRIPT,
-    ".cjs": SourceLanguage.JAVASCRIPT,
-    ".ts": SourceLanguage.TYPESCRIPT,
-    ".tsx": SourceLanguage.TYPESCRIPT,
-    ".mts": SourceLanguage.TYPESCRIPT,
-    ".cts": SourceLanguage.TYPESCRIPT,
-}
+from app.schemas.repository import (
+    RepositoryScanResult,
+    RepositoryScanStatistics,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,9 +207,7 @@ class RepositoryScanner:
     def _detect_language(
         file_path: Path,
     ) -> SourceLanguage | None:
-        return SUPPORTED_FILE_EXTENSIONS.get(
-            file_path.suffix.lower(),
-        )
+        return detect_source_language(file_path)
 
     def _is_binary_file(
         self,
@@ -238,13 +224,11 @@ class RepositoryScanner:
     def _calculate_hash(
         file_path: Path,
     ) -> str:
-        with file_path.open("rb") as source_file:
-            digest = hashlib.file_digest(
-                source_file,
-                "sha256",
-            )
+        source_bytes = file_path.read_bytes()
 
-        return digest.hexdigest()
+        return compute_source_content_hash(
+            source_bytes,
+        )
 
     @staticmethod
     def _raise_traversal_error(
