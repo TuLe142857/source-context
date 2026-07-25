@@ -11,6 +11,7 @@ from app.schemas.repository import (
 from app.domain.source_file import (
     ScannedSourceFile,
     SourceLanguage,
+    detect_source_language,
 )
 from app.repository_manager.exceptions import (
     InvalidRepositoryPathError,
@@ -18,19 +19,6 @@ from app.repository_manager.exceptions import (
     RepositoryTraversalError,
 )
 from app.repository_manager.ignore_rules import IgnoreRules
-
-SUPPORTED_FILE_EXTENSIONS: dict[str, SourceLanguage] = {
-    ".py": SourceLanguage.PYTHON,
-    ".pyi": SourceLanguage.PYTHON,
-    ".js": SourceLanguage.JAVASCRIPT,
-    ".jsx": SourceLanguage.JAVASCRIPT,
-    ".mjs": SourceLanguage.JAVASCRIPT,
-    ".cjs": SourceLanguage.JAVASCRIPT,
-    ".ts": SourceLanguage.TYPESCRIPT,
-    ".tsx": SourceLanguage.TYPESCRIPT,
-    ".mts": SourceLanguage.TYPESCRIPT,
-    ".cts": SourceLanguage.TYPESCRIPT,
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,9 +207,7 @@ class RepositoryScanner:
     def _detect_language(
         file_path: Path,
     ) -> SourceLanguage | None:
-        return SUPPORTED_FILE_EXTENSIONS.get(
-            file_path.suffix.lower(),
-        )
+        return detect_source_language(file_path)
 
     def _is_binary_file(
         self,
