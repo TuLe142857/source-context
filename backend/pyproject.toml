@@ -8,8 +8,13 @@ requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.29.0",
     "bcrypt>=4.0.0",
+    "docker>=7.2.0",
     "fastapi[standard]>=0.139.2",
+    "grpcio-tools>=1.83.0",
+    "neo4j~=6.1.0",
+    "neomodel~=6.1.0",
     "pathspec>=1.1.1",
+    "protobuf>=7.35.1",
     "psycopg[binary]>=3.1.0",
     "pydantic-settings>=2.14.2",
     "pyjwt>=2.8.0",
@@ -29,6 +34,7 @@ dependencies = [
     "tree-sitter-rust>=0.24.2",
     "tree-sitter-typescript>=0.23.2",
     "typer>=0.26.8",
+    "types-protobuf>=7.34.1.20260518",
 ]
 
 [tool.uv]

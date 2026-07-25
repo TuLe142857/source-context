@@ -9,7 +9,7 @@ from app.parser.uast import UASTNode
 from app.parser.exc import UnsupportedLanguageError
 from app.util import TreeFormatter
 
-cli = typer.Typer(name="parse", help = "Parse source code to tree.")
+cli = typer.Typer(name="parse", help="Parse source code to tree.")
 
 
 @cli.command("cst")
