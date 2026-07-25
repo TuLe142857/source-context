@@ -98,7 +98,9 @@ class DefinitionNode(UASTNode):
 @dataclass(kw_only=True)
 class TypeDefinitionNode(DefinitionNode):
     node_type: Literal["type-definition"] = "type-definition"
-    kind: Literal["class", "interface", "enum", "struct", "trait", "protocol"] = "class"
+    kind: Literal[
+        "class", "interface", "enum", "struct", "trait", "protocol", "type_alias"
+    ] = "class"
 
     base_types: list[str] = field(default_factory=list)
     is_abstract: bool = False
