@@ -27,3 +27,7 @@ class ChunkCoverageError(ChunkingError):
         super().__init__(
             f"Generated chunks do not cover the source exactly: {issue_summary}",
         )
+
+
+class RepositoryChunkingError(ChunkingError):
+    """Raised when a repository parse batch violates chunking contracts."""

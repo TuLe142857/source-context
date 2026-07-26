@@ -11,6 +11,7 @@ from .coverage import verify_chunk_coverage
 from .exceptions import (
     ChunkCoverageError,
     ChunkingError,
+    RepositoryChunkingError,
 )
 from .service import ChunkingService
 from .size import (
@@ -19,6 +20,14 @@ from .size import (
     WordSizeMeasurer,
     get_size_measurer,
     measure_source_range,
+)
+
+from .repository_contracts import (
+    ChunkedSourceFile,
+    RepositoryChunkingBatch,
+)
+from .repository_service import (
+    RepositoryChunkingService,
 )
 
 
@@ -37,4 +46,8 @@ __all__ = [
     "ChunkCoverageError",
     "ChunkingError",
     "ChunkingService",
+    "ChunkedSourceFile",
+    "RepositoryChunkingBatch",
+    "RepositoryChunkingError",
+    "RepositoryChunkingService",
 ]
