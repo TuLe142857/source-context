@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.api.dependencies import CurrentUser, DBSession
 from app.core.pat import generate_raw_pat_token
-from app.domain.pat import PersonalAccessToken
+from app.model.pat import PAT
 from app.schemas.pat import PATCreateRequest, PATCreateResponse, PATResponse
 
 router = APIRouter(prefix="/user/tokens", tags=["Personal Access Tokens (API Keys)"])
@@ -42,16 +42,16 @@ async def create_personal_access_token(
     """
     raw_token, token_prefix, hashed_token = generate_raw_pat_token()
 
-    expires_at = None
+    expired_at = None
     if payload.expires_in_days is not None:
-        expires_at = datetime.now(UTC) + timedelta(days=payload.expires_in_days)
+        expired_at = datetime.now(UTC) + timedelta(days=payload.expires_in_days)
 
-    pat = PersonalAccessToken(
+    pat = PAT(
         user_id=current_user.id,
         name=payload.name,
         token_prefix=token_prefix,
         hashed_token=hashed_token,
-        expires_at=expires_at,
+        expired_at=expired_at,
     )
     db.add(pat)
     await db.commit()
@@ -62,8 +62,8 @@ async def create_personal_access_token(
         name=pat.name,
         raw_token=raw_token,
         token_prefix=pat.token_prefix,
-        expires_at=pat.expires_at,
-        created_at=pat.created_at,
+        expires_at=pat.expired_at,
+        created_at=datetime.now(UTC),
     )
 
 
@@ -91,12 +91,10 @@ async def list_personal_access_tokens(
         list[PATResponse]: List of token metadata objects.
     """
     result = await db.execute(
-        select(PersonalAccessToken)
-        .where(
-            PersonalAccessToken.user_id == current_user.id,
-            PersonalAccessToken.is_revoked.is_(False),
+        select(PAT).where(
+            PAT.user_id == current_user.id,
+            PAT.is_revoked.is_(False),
         )
-        .order_by(PersonalAccessToken.created_at.desc())
     )
     pats = result.scalars().all()
     return [PATResponse.model_validate(p) for p in pats]
@@ -123,9 +121,9 @@ async def revoke_personal_access_token(
         HTTPException: If token is not found or does not belong to user.
     """
     result = await db.execute(
-        select(PersonalAccessToken).where(
-            PersonalAccessToken.id == token_id,
-            PersonalAccessToken.user_id == current_user.id,
+        select(PAT).where(
+            PAT.id == token_id,
+            PAT.user_id == current_user.id,
         )
     )
     pat = result.scalar_one_or_none()

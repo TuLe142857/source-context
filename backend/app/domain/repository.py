@@ -1,42 +1,79 @@
-"""SQLAlchemy ORM model for Repository entity."""
+"""Domain models representing managed source repositories."""
 
-from datetime import datetime
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from enum import StrEnum
+from pathlib import Path
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.core.postgres import Base
-
-if TYPE_CHECKING:
-    from app.domain.project import Project
+from app.domain.source_file import ScannedSourceFile
 
 
-class Repository(Base):
-    """Repository database model representing a git repository attached to a project."""
+class RepositorySourceType(StrEnum):
+    """Supported origins of source repositories."""
 
-    __tablename__ = "repositories"
+    LOCAL = "local"
+    GITHUB_PUBLIC = "github_public"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
-    git_url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
-    default_branch: Mapped[str] = mapped_column(
-        String(100), default="main", nullable=False
-    )
-    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
 
-    # Relationships
-    project: Mapped["Project"] = relationship("Project", back_populates="repositories")
+class RepositoryAcquisitionStatus(StrEnum):
+    """How a local repository workspace was obtained."""
+
+    LOCAL = "local"
+    CLONED = "cloned"
+    REUSED = "reused"
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedRepository:
+    """A repository that is ready to be inspected and scanned."""
+
+    repository_id: str
+    source_type: RepositorySourceType
+    acquisition_status: RepositoryAcquisitionStatus
+    name: str
+    owner: str | None
+    local_path: Path
+    remote_url: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class GitRepositoryMetadata:
+    """Git metadata for one repository snapshot."""
+
+    repository_root: Path
+    branch: str | None
+    commit_sha: str
+    remote_url: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RepositoryScanStatistics:
+    """Statistics collected while scanning repository files."""
+
+    discovered_file_count: int
+    included_file_count: int
+    ignored_file_count: int
+    pruned_directory_count: int
+    unsupported_file_count: int
+    oversized_file_count: int
+    binary_file_count: int
+    symlink_file_count: int
+    inaccessible_file_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class RepositoryScanResult:
+    """Source-file scan result before Git metadata is attached."""
+
+    repository_root: Path
+    files: tuple[ScannedSourceFile, ...]
+    statistics: RepositoryScanStatistics
+
+
+@dataclass(frozen=True, slots=True)
+class RepositorySnapshot:
+    """Immutable snapshot returned by the Repository Manager."""
+
+    repository: PreparedRepository
+    git: GitRepositoryMetadata
+    files: tuple[ScannedSourceFile, ...]
+    statistics: RepositoryScanStatistics

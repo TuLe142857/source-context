@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.api.dependencies import CurrentUser, DBSession
 from app.core.config import settings
 from app.core.security import create_access_token, hash_password, verify_password
-from app.domain.user import User
+from app.model.user import User
 from app.schemas.auth import (
     CreateCustomTokenRequest,
     CustomTokenResponse,
@@ -106,7 +106,7 @@ async def login_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not user.is_active:
+    if user.is_active not in ("active", "true", True):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user account.",

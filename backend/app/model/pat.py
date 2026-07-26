@@ -1,21 +1,21 @@
-"""SQLAlchemy ORM model for Personal Access Token (PAT) / API Key entity."""
+"""SQLAlchemy ORM model for Personal Access Token (PAT) entity."""
 
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.postgres import Base
 
 if TYPE_CHECKING:
-    from app.domain.user import User
+    from app.model.user import User
 
 
-class PersonalAccessToken(Base):
-    """Personal Access Token (PAT) model for API authentication."""
+class PAT(Base):
+    """Personal Access Token (PAT) database model."""
 
-    __tablename__ = "personal_access_tokens"
+    __tablename__ = "pats"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
@@ -26,22 +26,18 @@ class PersonalAccessToken(Base):
     hashed_token: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False
     )
-    expires_at: Mapped[datetime | None] = mapped_column(
+    expired_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
     last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="personal_access_tokens")
+    user: Mapped["User"] = relationship("User", back_populates="pats")
+
+    @property
+    def expires_at(self) -> datetime | None:
+        """Alias property for expired_at for backward compatibility."""
+        return self.expired_at

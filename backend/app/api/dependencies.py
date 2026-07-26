@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.pat import hash_pat_token
 from app.core.postgres import database
 from app.core.security import decode_access_token
-from app.domain.pat import PersonalAccessToken
-from app.domain.user import User
+from app.model.pat import PAT
+from app.model.user import User
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -75,11 +75,11 @@ async def get_current_user(
     if token.startswith("sc_live_"):
         hashed_key = hash_pat_token(token)
         result = await db.execute(
-            select(PersonalAccessToken, User)
-            .join(User, PersonalAccessToken.user_id == User.id)
+            select(PAT, User)
+            .join(User, PAT.user_id == User.id)
             .where(
-                PersonalAccessToken.hashed_token == hashed_key,
-                PersonalAccessToken.is_revoked.is_(False),
+                PAT.hashed_token == hashed_key,
+                PAT.is_revoked.is_(False),
             )
         )
         row = result.first()
@@ -90,7 +90,7 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        pat: PersonalAccessToken = row[0]
+        pat: PAT = row[0]
         user_model: User = row[1]
 
         now = datetime.now(UTC)
@@ -101,7 +101,7 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        if not user_model.is_active:
+        if user_model.is_active not in ("active", "true", True):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Inactive user account.",
@@ -149,7 +149,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not user_obj.is_active:
+    if user_obj.is_active not in ("active", "true", True):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user account.",
