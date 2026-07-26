@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_db
-from app.domain.user import User
+from app.model.user import User
 from app.schemas.user import UserCreate, UserResponse, UserTestDBResponse
 
 router = APIRouter(prefix="/users", tags=["Users"])

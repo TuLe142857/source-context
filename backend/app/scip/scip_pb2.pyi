@@ -204,6 +204,7 @@ class Language(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     XSL: _ClassVar[Language]
     YAML: _ClassVar[Language]
     Zig: _ClassVar[Language]
+
 UnspecifiedProtocolVersion: ProtocolVersion
 UnspecifiedTextEncoding: TextEncoding
 UTF8: TextEncoding
@@ -387,7 +388,14 @@ class Index(_message.Message):
     metadata: Metadata
     documents: _containers.RepeatedCompositeFieldContainer[Document]
     external_symbols: _containers.RepeatedCompositeFieldContainer[SymbolInformation]
-    def __init__(self, metadata: _Optional[_Union[Metadata, _Mapping]] = ..., documents: _Optional[_Iterable[_Union[Document, _Mapping]]] = ..., external_symbols: _Optional[_Iterable[_Union[SymbolInformation, _Mapping]]] = ...) -> None: ...
+    def __init__(
+        self,
+        metadata: _Optional[_Union[Metadata, _Mapping]] = ...,
+        documents: _Optional[_Iterable[_Union[Document, _Mapping]]] = ...,
+        external_symbols: _Optional[
+            _Iterable[_Union[SymbolInformation, _Mapping]]
+        ] = ...,
+    ) -> None: ...
 
 class Metadata(_message.Message):
     __slots__ = ("version", "tool_info", "project_root", "text_document_encoding")
@@ -399,7 +407,13 @@ class Metadata(_message.Message):
     tool_info: ToolInfo
     project_root: str
     text_document_encoding: TextEncoding
-    def __init__(self, version: _Optional[_Union[ProtocolVersion, str]] = ..., tool_info: _Optional[_Union[ToolInfo, _Mapping]] = ..., project_root: _Optional[str] = ..., text_document_encoding: _Optional[_Union[TextEncoding, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        version: _Optional[_Union[ProtocolVersion, str]] = ...,
+        tool_info: _Optional[_Union[ToolInfo, _Mapping]] = ...,
+        project_root: _Optional[str] = ...,
+        text_document_encoding: _Optional[_Union[TextEncoding, str]] = ...,
+    ) -> None: ...
 
 class ToolInfo(_message.Message):
     __slots__ = ("name", "version", "arguments")
@@ -409,10 +423,22 @@ class ToolInfo(_message.Message):
     name: str
     version: str
     arguments: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ..., arguments: _Optional[_Iterable[str]] = ...) -> None: ...
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        version: _Optional[str] = ...,
+        arguments: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
 
 class Document(_message.Message):
-    __slots__ = ("language", "relative_path", "occurrences", "symbols", "text", "position_encoding")
+    __slots__ = (
+        "language",
+        "relative_path",
+        "occurrences",
+        "symbols",
+        "text",
+        "position_encoding",
+    )
     LANGUAGE_FIELD_NUMBER: _ClassVar[int]
     RELATIVE_PATH_FIELD_NUMBER: _ClassVar[int]
     OCCURRENCES_FIELD_NUMBER: _ClassVar[int]
@@ -425,7 +451,15 @@ class Document(_message.Message):
     symbols: _containers.RepeatedCompositeFieldContainer[SymbolInformation]
     text: str
     position_encoding: PositionEncoding
-    def __init__(self, language: _Optional[str] = ..., relative_path: _Optional[str] = ..., occurrences: _Optional[_Iterable[_Union[Occurrence, _Mapping]]] = ..., symbols: _Optional[_Iterable[_Union[SymbolInformation, _Mapping]]] = ..., text: _Optional[str] = ..., position_encoding: _Optional[_Union[PositionEncoding, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        language: _Optional[str] = ...,
+        relative_path: _Optional[str] = ...,
+        occurrences: _Optional[_Iterable[_Union[Occurrence, _Mapping]]] = ...,
+        symbols: _Optional[_Iterable[_Union[SymbolInformation, _Mapping]]] = ...,
+        text: _Optional[str] = ...,
+        position_encoding: _Optional[_Union[PositionEncoding, str]] = ...,
+    ) -> None: ...
 
 class Symbol(_message.Message):
     __slots__ = ("scheme", "package", "descriptors")
@@ -435,7 +469,12 @@ class Symbol(_message.Message):
     scheme: str
     package: Package
     descriptors: _containers.RepeatedCompositeFieldContainer[Descriptor]
-    def __init__(self, scheme: _Optional[str] = ..., package: _Optional[_Union[Package, _Mapping]] = ..., descriptors: _Optional[_Iterable[_Union[Descriptor, _Mapping]]] = ...) -> None: ...
+    def __init__(
+        self,
+        scheme: _Optional[str] = ...,
+        package: _Optional[_Union[Package, _Mapping]] = ...,
+        descriptors: _Optional[_Iterable[_Union[Descriptor, _Mapping]]] = ...,
+    ) -> None: ...
 
 class Package(_message.Message):
     __slots__ = ("manager", "name", "version")
@@ -445,7 +484,12 @@ class Package(_message.Message):
     manager: str
     name: str
     version: str
-    def __init__(self, manager: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        manager: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        version: _Optional[str] = ...,
+    ) -> None: ...
 
 class Descriptor(_message.Message):
     __slots__ = ("name", "disambiguator", "suffix")
@@ -462,6 +506,7 @@ class Descriptor(_message.Message):
         Meta: _ClassVar[Descriptor.Suffix]
         Local: _ClassVar[Descriptor.Suffix]
         Macro: _ClassVar[Descriptor.Suffix]
+
     UnspecifiedSuffix: Descriptor.Suffix
     Namespace: Descriptor.Suffix
     Package: Descriptor.Suffix
@@ -479,7 +524,12 @@ class Descriptor(_message.Message):
     name: str
     disambiguator: str
     suffix: Descriptor.Suffix
-    def __init__(self, name: _Optional[str] = ..., disambiguator: _Optional[str] = ..., suffix: _Optional[_Union[Descriptor.Suffix, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        disambiguator: _Optional[str] = ...,
+        suffix: _Optional[_Union[Descriptor.Suffix, str]] = ...,
+    ) -> None: ...
 
 class Signature(_message.Message):
     __slots__ = ("language", "text", "occurrences")
@@ -489,10 +539,23 @@ class Signature(_message.Message):
     language: str
     text: str
     occurrences: _containers.RepeatedCompositeFieldContainer[Occurrence]
-    def __init__(self, language: _Optional[str] = ..., text: _Optional[str] = ..., occurrences: _Optional[_Iterable[_Union[Occurrence, _Mapping]]] = ...) -> None: ...
+    def __init__(
+        self,
+        language: _Optional[str] = ...,
+        text: _Optional[str] = ...,
+        occurrences: _Optional[_Iterable[_Union[Occurrence, _Mapping]]] = ...,
+    ) -> None: ...
 
 class SymbolInformation(_message.Message):
-    __slots__ = ("symbol", "documentation", "relationships", "kind", "display_name", "signature_documentation", "enclosing_symbol")
+    __slots__ = (
+        "symbol",
+        "documentation",
+        "relationships",
+        "kind",
+        "display_name",
+        "signature_documentation",
+        "enclosing_symbol",
+    )
     class Kind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         UnspecifiedKind: _ClassVar[SymbolInformation.Kind]
@@ -581,6 +644,7 @@ class SymbolInformation(_message.Message):
         Union: _ClassVar[SymbolInformation.Kind]
         Value: _ClassVar[SymbolInformation.Kind]
         Variable: _ClassVar[SymbolInformation.Kind]
+
     UnspecifiedKind: SymbolInformation.Kind
     AbstractMethod: SymbolInformation.Kind
     Accessor: SymbolInformation.Kind
@@ -681,10 +745,25 @@ class SymbolInformation(_message.Message):
     display_name: str
     signature_documentation: Signature
     enclosing_symbol: str
-    def __init__(self, symbol: _Optional[str] = ..., documentation: _Optional[_Iterable[str]] = ..., relationships: _Optional[_Iterable[_Union[Relationship, _Mapping]]] = ..., kind: _Optional[_Union[SymbolInformation.Kind, str]] = ..., display_name: _Optional[str] = ..., signature_documentation: _Optional[_Union[Signature, _Mapping]] = ..., enclosing_symbol: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        symbol: _Optional[str] = ...,
+        documentation: _Optional[_Iterable[str]] = ...,
+        relationships: _Optional[_Iterable[_Union[Relationship, _Mapping]]] = ...,
+        kind: _Optional[_Union[SymbolInformation.Kind, str]] = ...,
+        display_name: _Optional[str] = ...,
+        signature_documentation: _Optional[_Union[Signature, _Mapping]] = ...,
+        enclosing_symbol: _Optional[str] = ...,
+    ) -> None: ...
 
 class Relationship(_message.Message):
-    __slots__ = ("symbol", "is_reference", "is_implementation", "is_type_definition", "is_definition")
+    __slots__ = (
+        "symbol",
+        "is_reference",
+        "is_implementation",
+        "is_type_definition",
+        "is_definition",
+    )
     SYMBOL_FIELD_NUMBER: _ClassVar[int]
     IS_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     IS_IMPLEMENTATION_FIELD_NUMBER: _ClassVar[int]
@@ -695,7 +774,14 @@ class Relationship(_message.Message):
     is_implementation: bool
     is_type_definition: bool
     is_definition: bool
-    def __init__(self, symbol: _Optional[str] = ..., is_reference: _Optional[bool] = ..., is_implementation: _Optional[bool] = ..., is_type_definition: _Optional[bool] = ..., is_definition: _Optional[bool] = ...) -> None: ...
+    def __init__(
+        self,
+        symbol: _Optional[str] = ...,
+        is_reference: _Optional[bool] = ...,
+        is_implementation: _Optional[bool] = ...,
+        is_type_definition: _Optional[bool] = ...,
+        is_definition: _Optional[bool] = ...,
+    ) -> None: ...
 
 class SingleLineRange(_message.Message):
     __slots__ = ("line", "start_character", "end_character")
@@ -705,7 +791,12 @@ class SingleLineRange(_message.Message):
     line: int
     start_character: int
     end_character: int
-    def __init__(self, line: _Optional[int] = ..., start_character: _Optional[int] = ..., end_character: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        line: _Optional[int] = ...,
+        start_character: _Optional[int] = ...,
+        end_character: _Optional[int] = ...,
+    ) -> None: ...
 
 class MultiLineRange(_message.Message):
     __slots__ = ("start_line", "start_character", "end_line", "end_character")
@@ -717,10 +808,28 @@ class MultiLineRange(_message.Message):
     start_character: int
     end_line: int
     end_character: int
-    def __init__(self, start_line: _Optional[int] = ..., start_character: _Optional[int] = ..., end_line: _Optional[int] = ..., end_character: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        start_line: _Optional[int] = ...,
+        start_character: _Optional[int] = ...,
+        end_line: _Optional[int] = ...,
+        end_character: _Optional[int] = ...,
+    ) -> None: ...
 
 class Occurrence(_message.Message):
-    __slots__ = ("range", "single_line_range", "multi_line_range", "symbol", "symbol_roles", "override_documentation", "syntax_kind", "diagnostics", "enclosing_range", "single_line_enclosing_range", "multi_line_enclosing_range")
+    __slots__ = (
+        "range",
+        "single_line_range",
+        "multi_line_range",
+        "symbol",
+        "symbol_roles",
+        "override_documentation",
+        "syntax_kind",
+        "diagnostics",
+        "enclosing_range",
+        "single_line_enclosing_range",
+        "multi_line_enclosing_range",
+    )
     RANGE_FIELD_NUMBER: _ClassVar[int]
     SINGLE_LINE_RANGE_FIELD_NUMBER: _ClassVar[int]
     MULTI_LINE_RANGE_FIELD_NUMBER: _ClassVar[int]
@@ -743,7 +852,20 @@ class Occurrence(_message.Message):
     enclosing_range: _containers.RepeatedScalarFieldContainer[int]
     single_line_enclosing_range: SingleLineRange
     multi_line_enclosing_range: MultiLineRange
-    def __init__(self, range: _Optional[_Iterable[int]] = ..., single_line_range: _Optional[_Union[SingleLineRange, _Mapping]] = ..., multi_line_range: _Optional[_Union[MultiLineRange, _Mapping]] = ..., symbol: _Optional[str] = ..., symbol_roles: _Optional[int] = ..., override_documentation: _Optional[_Iterable[str]] = ..., syntax_kind: _Optional[_Union[SyntaxKind, str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., enclosing_range: _Optional[_Iterable[int]] = ..., single_line_enclosing_range: _Optional[_Union[SingleLineRange, _Mapping]] = ..., multi_line_enclosing_range: _Optional[_Union[MultiLineRange, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        range: _Optional[_Iterable[int]] = ...,
+        single_line_range: _Optional[_Union[SingleLineRange, _Mapping]] = ...,
+        multi_line_range: _Optional[_Union[MultiLineRange, _Mapping]] = ...,
+        symbol: _Optional[str] = ...,
+        symbol_roles: _Optional[int] = ...,
+        override_documentation: _Optional[_Iterable[str]] = ...,
+        syntax_kind: _Optional[_Union[SyntaxKind, str]] = ...,
+        diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...,
+        enclosing_range: _Optional[_Iterable[int]] = ...,
+        single_line_enclosing_range: _Optional[_Union[SingleLineRange, _Mapping]] = ...,
+        multi_line_enclosing_range: _Optional[_Union[MultiLineRange, _Mapping]] = ...,
+    ) -> None: ...
 
 class Diagnostic(_message.Message):
     __slots__ = ("severity", "code", "message", "source", "tags")
@@ -757,4 +879,11 @@ class Diagnostic(_message.Message):
     message: str
     source: str
     tags: _containers.RepeatedScalarFieldContainer[DiagnosticTag]
-    def __init__(self, severity: _Optional[_Union[Severity, str]] = ..., code: _Optional[str] = ..., message: _Optional[str] = ..., source: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[DiagnosticTag, str]]] = ...) -> None: ...
+    def __init__(
+        self,
+        severity: _Optional[_Union[Severity, str]] = ...,
+        code: _Optional[str] = ...,
+        message: _Optional[str] = ...,
+        source: _Optional[str] = ...,
+        tags: _Optional[_Iterable[_Union[DiagnosticTag, str]]] = ...,
+    ) -> None: ...
