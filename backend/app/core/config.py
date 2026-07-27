@@ -90,19 +90,19 @@ class Settings(BaseSettings):
         )
 
     # NEO4J CONFIG
-    NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: SecretStr = SecretStr("neo4jpassword")
+    NEO4J_USER: str
+    NEO4J_PASSWORD: SecretStr
 
-    NEO4J_PORT: int = 7687
+    NEO4J_PORT: int
     """Bolt Port"""
 
-    NEO4J_HOST: str = "neo4j"
+    NEO4J_HOST: str
 
     @computed_field
     @property
     def NEO4J_URI(self) -> str:
         """
-        Neo4j URI.
+        Neo4j URI for neomodel, not neo4j driver.
         Format: bolt://[``user``]:[``password``]@[``host``]:[``bolt_port``]
         """
         return f"bolt://{self.NEO4J_USER}:{self.NEO4J_PASSWORD.get_secret_value()}@{self.NEO4J_HOST}:{self.NEO4J_PORT}"
