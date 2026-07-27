@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.postgres import Base
 
 if TYPE_CHECKING:
+    from app.model.indexing_job import IndexingJob
     from app.model.member import Member
     from app.model.repository import Repository
     from app.model.user import User
@@ -19,7 +20,7 @@ class Workspace(Base):
     __tablename__ = "workspaces"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    project_name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    workspace_name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
@@ -33,3 +34,11 @@ class Workspace(Base):
     repositories: Mapped[list["Repository"]] = relationship(
         "Repository", back_populates="workspace", cascade="all, delete-orphan"
     )
+    indexing_jobs: Mapped[list["IndexingJob"]] = relationship(
+        "IndexingJob", back_populates="workspace", cascade="all, delete-orphan"
+    )
+
+    @property
+    def project_name(self) -> str:
+        """Alias property for backward compatibility with dbdiagram spec."""
+        return self.workspace_name

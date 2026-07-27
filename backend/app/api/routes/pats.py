@@ -62,8 +62,8 @@ async def create_personal_access_token(
         name=pat.name,
         raw_token=raw_token,
         token_prefix=pat.token_prefix,
+        expired_at=pat.expired_at,
         expires_at=pat.expired_at,
-        created_at=datetime.now(UTC),
     )
 
 

@@ -1,7 +1,10 @@
 """Parsing and validation for public GitHub repository URLs."""
 
+import json
 import re
+import urllib.request
 from dataclasses import dataclass
+from typing import cast
 from urllib.parse import unquote, urlparse
 
 from app.repository_manager.exceptions import InvalidGitHubUrlError
@@ -93,3 +96,37 @@ class GitHubUrlParser:
             owner=owner,
             repository=repository,
         )
+
+
+def fetch_github_branches(owner: str, repository: str) -> list[str]:
+    """Fetch remote branch names from GitHub API for a public repository.
+
+    Args:
+        owner: GitHub owner/organization name.
+        repository: GitHub repository name.
+
+    Returns:
+        list[str]: List of branch names.
+    """
+    url = f"https://api.github.com/repos/{owner}/{repository}/branches?per_page=100"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Source-Context-Backend",
+            "Accept": "application/vnd.github.v3+json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if isinstance(data, list):
+                branches = [
+                    cast(str, branch["name"])
+                    for branch in data
+                    if isinstance(branch, dict) and "name" in branch
+                ]
+                if branches:
+                    return branches
+    except Exception:
+        pass
+    return ["main", "master"]

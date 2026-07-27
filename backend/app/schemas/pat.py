@@ -24,8 +24,8 @@ class PATCreateResponse(BaseModel):
     name: str
     raw_token: str = Field(..., description="Full token string. Only shown once!")
     token_prefix: str
-    expires_at: datetime | None
-    created_at: datetime
+    expired_at: datetime | None = None
+    expires_at: datetime | None = None
 
 
 class PATResponse(BaseModel):
@@ -36,7 +36,7 @@ class PATResponse(BaseModel):
     id: int
     name: str
     token_prefix: str
-    last_used_at: datetime | None
-    expires_at: datetime | None
+    last_used_at: datetime | None = None
+    expired_at: datetime | None = None
+    expires_at: datetime | None = None
     is_revoked: bool
-    created_at: datetime

@@ -1,4 +1,4 @@
-.PHONY: help dev-up dev-down dev-logs dev-build dev-ps prod-up prod-down prod-logs prod-build prod-ps sync lint format typecheck test clean
+.PHONY: help dev-up dev-down dev-logs dev-build dev-ps db-shell prod-up prod-down prod-logs prod-build prod-ps sync lint format typecheck test clean
 
 # Variables
 COMPOSE_DEV = docker compose -f docker-compose.yml -f docker-compose-dev.yml
@@ -14,6 +14,7 @@ help: ## Hiển thị danh sách các lệnh hỗ trợ trong Makefile
 	@echo "  make dev-build     - Build lại các image và khởi chạy ở chế độ Development"
 	@echo "  make dev-logs      - Xem log các container chế độ Development"
 	@echo "  make dev-ps        - Kiểm tra trạng thái các container chế độ Development"
+	@echo "  make db-shell      - Truy cập vào psql shell của Docker Postgres"
 	@echo ""
 	@echo "Chế độ PROD (Production):"
 	@echo "  make prod-up       - Khởi chạy tất cả container ở chế độ Production (Background)"
@@ -48,6 +49,9 @@ dev-logs: ## Xem logs môi trường Dev
 
 dev-ps: ## Xem trạng thái container Dev
 	$(COMPOSE_DEV) ps
+
+db-shell: ## Truy cập vào psql shell của Docker Postgres
+	$(COMPOSE_DEV) exec postgres psql -U myuser -d mydb_dev
 
 # ==============================================================================
 # PRODUCTION COMMANDS

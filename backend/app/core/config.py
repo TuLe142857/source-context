@@ -46,6 +46,14 @@ class Settings(BaseSettings):
         default="mypassword", validation_alias="POSTGRES_PASSWORD"
     )
 
+    REDIS_HOST: str = Field(default="redis", validation_alias="REDIS_HOST")
+    REDIS_PORT: int = Field(default=6379, validation_alias="REDIS_PORT")
+    REDIS_USER: str = Field(default="myuser", validation_alias="REDIS_USER")
+    REDIS_PASSWORD: str = Field(default="mypassword", validation_alias="REDIS_PASSWORD")
+    CELERY_BROKER_URL_OVERRIDE: str | None = Field(
+        default=None, validation_alias="CELERY_BROKER_URL"
+    )
+
     SECRET_KEY: str = Field(
         default="09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
         validation_alias="SECRET_KEY",
@@ -80,6 +88,16 @@ class Settings(BaseSettings):
             f"{self.POSTGRES_PORT}/"
             f"{self.POSTGRES_DB}"
         )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def CELERY_BROKER_URL(self) -> str:
+        """Returns Celery Redis broker connection URL."""
+        if self.CELERY_BROKER_URL_OVERRIDE:
+            return self.CELERY_BROKER_URL_OVERRIDE
+        if self.REDIS_USER:
+            return f"redis://{self.REDIS_USER}:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+        return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 
 @lru_cache(maxsize=1)
