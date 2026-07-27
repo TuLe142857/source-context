@@ -1,3 +1,9 @@
+x-backend-env: &backend-env
+  SOURCE_CONTEXT_NEO4J_PASSWORD: ${NEO4J_PASSWORD?-Variable is empty or not set}
+  SOURCE_CONTEXT_NEO4J_USER: ${NEO4J_USERNAME?-Variable is empty or not set}
+  SOURCE_CONTEXT_NEO4J_HOST: "neo4j"
+  SOURCE_CONTEXT_NEO4J_PORT: 7687
+
 services:
 
   backend:
@@ -9,7 +15,7 @@ services:
     env_file:
       - .env
     environment:
-      NEO4J_HOST: "neo4j"
+      <<: *backend-env
 
     depends_on:
       postgres:
@@ -26,7 +32,7 @@ services:
     env_file:
       - .env
     environment:
-      NEO4J_HOST: "neo4j"
+      <<: *backend-env
     depends_on:
       backend:
         condition: service_started

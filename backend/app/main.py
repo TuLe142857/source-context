@@ -12,6 +12,8 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.postgres import Base, database
+from neo4j import AsyncGraphDatabase
+from neo4j.exceptions import Neo4jError
 
 from .worker import create_worker
 
@@ -29,6 +31,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Database connected and schema initialized successfully.")
     except Exception as exc:
         logger.warning("Could not connect to Database at startup: %s", exc)
+
+    settings = get_settings()
+    try:
+        async with AsyncGraphDatabase.driver(
+            f"bolt://{settings.NEO4J_HOST}:{settings.NEO4J_PORT}",
+            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD.get_secret_value()),
+        ) as driver:
+            await driver.verify_connectivity()
+            logger.info("Neo4j connect successfully.")
+    except Neo4jError as exc:
+        logger.warning("Could not connect to Neo4j: %s", exc)
 
     yield
 
