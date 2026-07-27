@@ -1,59 +1,34 @@
 import typer
-
-import docker
 from pathlib import Path
 
-from docker.types import Mount
-
 from app.scip import scip_pb2
+from app.scip.sandbox import get_scip_sandbox_registry
 
 cli = typer.Typer(name="scip", help="SCIP Code Intelligence Protocol")
+
+
+@cli.command("ls", help="List all available language sandboxes")
+def list_sandbox():
+    registry = get_scip_sandbox_registry()
+    print("success")
+    for l in registry.get_available_language():
+        print(l)
+        print(f"Supported sandbox: {registry.get_sandbox(l).image_tags}")
 
 
 @cli.command("index", help="Index project. Currently, only python is supported")
 def index_project(
     p: str = typer.Argument(),
+    language: str = typer.Option("python", "--language"),
     out_path: str = typer.Option(
         "index.scip", "--out-file", help="Output file name. Default is index.scip"
     ),
 ):
-    # Dùng resolve() thay vì absolute()
-    project_root = Path(p).resolve()
-    project_name = project_root.name
-
-    if not (project_root.exists()) or not (project_root.is_dir()):
-        raise ValueError("Invalid project path")
-
-    out_file_path = Path(out_path).resolve()
-    if out_file_path.is_dir():
-        out_dir_path = out_file_path
-        out_file_path = out_dir_path / "index.scip"
-    else:
-        out_dir_path = out_file_path.parent.resolve()
-
-    mounts = [
-        Mount(
-            target=f"/sandbox/project/{project_name}",
-            source=str(project_root),
-            type="bind",
-            read_only=False,
-        ),
-        Mount(
-            target="/sandbox/output",
-            source=str(out_dir_path),
-            type="bind",
-            read_only=False,
-        ),
-    ]
-
-    docker_client = docker.from_env()
-    docker_client.containers.run(
-        image="sandbox/python313:latest",
-        command=f"scip-python index --output /sandbox/output/{out_file_path.name}",
-        mounts=mounts,
-        working_dir=f"/sandbox/project/{project_name}",
-        remove=True,
-    )
+    registry = get_scip_sandbox_registry()
+    sandbox = registry.get_sandbox(language)
+    result_bytes = sandbox.index(p)
+    out_file_path = Path(out_path)
+    out_file_path.write_bytes(result_bytes)
 
 
 @cli.command("inspect")

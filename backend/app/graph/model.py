@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from neomodel import (
     StructuredNode,
     StringProperty,
@@ -9,7 +11,6 @@ from neomodel import (
     get_config,
     BooleanProperty,
     RelationshipManager,
-    db,
 )
 
 from app.parser.uast import (
@@ -22,7 +23,9 @@ from app.parser.uast import (
     ExportNode,
     CallNode,
     TypeReferenceNode,
+    AttributeAccessNode,
 )
+from app.core.config import settings
 
 from typing import Self, Any
 
@@ -33,7 +36,7 @@ config.database_url = "bolt://neo4j:changethis@localhost:7687"
 class WorkspaceNodeModel(StructuredNode):
     __label__ = "Workspace"
 
-    uid = StringProperty(required=True, unique_index=True)
+    uid = IntegerProperty(required=True, unique_index=True)
     name = StringProperty(required=True)
 
     repositories: RelationshipManager = RelationshipTo(  # type: ignore[assignment]
@@ -44,12 +47,20 @@ class WorkspaceNodeModel(StructuredNode):
 class RepositoryNodeModel(StructuredNode):
     __label__ = "Repository"
 
-    uid = StringProperty(required=True, unique_index=True)
+    uid = IntegerProperty(required=True, unique_index=True)
     name = StringProperty()
 
-    projects: RelationshipManager = RelationshipTo("ProjectNodeModel", "INCLUDES")  # type: ignore[assignment]
+    branches: RelationshipManager = RelationshipTo("BranchNodeModel", "INCLUDES")  # type: ignore[assignment]
 
     workspace: RelationshipManager = RelationshipFrom("WorkspaceNodeModel", "INCLUDES")  # type: ignore[assignment]
+
+
+class BranchNodeModel(StructuredNode):
+    __label__ = "Branch"
+
+    uid = IntegerProperty(required=True, unique_index=True)
+    name = StringProperty()
+    commit_hash = StringProperty()
 
 
 class ProjectNodeModel(StructuredNode):
@@ -59,19 +70,14 @@ class ProjectNodeModel(StructuredNode):
 
     name = StringProperty()
 
-    branch = StringProperty(default="master")
-    """Repo branch"""
-
     commit_hash = StringProperty()
     """Commit hash of this branch"""
 
     relative_path = StringProperty()
-    """path from root repository"""
+    """path from repository root"""
 
     files: RelationshipManager = RelationshipTo("FileNodeModel", "INCLUDES")  # type: ignore[assignment]
-    repository: RelationshipManager = RelationshipFrom(  # type: ignore[assignment]
-        "RepositoryNodeModel", "INCLUDES"
-    )
+    branch: RelationshipManager = RelationshipFrom("BranchNodeModel", "INCLUDES")  # type: ignore[assignment]
 
 
 class FileNodeModel(StructuredNode):
@@ -83,7 +89,7 @@ class FileNodeModel(StructuredNode):
     """file name"""
 
     relative_path = StringProperty()
-    """path from root repository"""
+    """path from project root"""
 
     nodes: RelationshipManager = RelationshipTo("UASTNodeModel", "DECLARE")  # type: ignore[assignment]
 
@@ -114,11 +120,12 @@ class UASTNodeModel(StructuredNode):
 
     metadata = JSONProperty()
 
-    children: RelationshipManager = RelationshipTo("UASTNodeModel", "CHILDREN_OF")  # type: ignore[assignment]
-    parent: RelationshipManager = RelationshipFrom("UASTNodeModel", "CHILDREN_OF")  # type: ignore[assignment]
+    children: RelationshipManager = RelationshipTo("UASTNodeModel", "PARENT_OF")  # type: ignore[assignment]
+    parent: RelationshipManager = RelationshipFrom("UASTNodeModel", "PARENT_OF")  # type: ignore[assignment]
 
     # for future when implement call graph cross file
-    # references = RelationshipTo("UASTNodeModel", "REFERENCES")
+    references = RelationshipTo("UASTNodeModel", "REFERENCE_TO")
+    referenced_by = RelationshipFrom("UASTNodeModel", "REFERENCE_TO")
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -139,13 +146,11 @@ class UASTNodeModel(StructuredNode):
     @classmethod
     def from_uast(cls, uast_node: UASTNode) -> Self:
         """
-        This method not build relationship.
+        This method not build recursive children and relationship.
         Args:
-            uast_node:
-
-
+            uast_node: UASTNode
         Returns:
-
+            Instance of This class
         """
         return cls(**cls.extract_kwargs(uast_node))
 
@@ -261,40 +266,6 @@ class ImportNodeModel(DependencyNodeModel):
         }
 
 
-if __name__ == "__main__":
-    db.cypher_query("MATCH (n) DETACH DELETE n")
-
-    workspace = WorkspaceNodeModel(uid="1", name="team workspace")
-    workspace.save()
-
-    repository = RepositoryNodeModel(uid="1", name="team repository")
-    repository.save()
-
-    project = ProjectNodeModel(uid="1")
-    project.save()
-
-    file = FileNodeModel(uid="1")
-    file.save()
-
-    cls_node = TypeDefinitionNodeModel(uid="1")
-    cls_node.save()
-
-    func_node = FunctionNodeModel(uid="2")
-    func_node.save()
-
-    workspace.repositories.connect(repository)
-    repository.projects.connect(project)
-    project.files.connect(file)
-    file.nodes.connect(cls_node)
-    file.nodes.connect(func_node)
-
-    func_node.parent.connect(cls_node)
-
-    for c in cls_node.children.all():
-        print(c.uid)
-        print(type(c))
-
-
 class ExportNodeModel(DependencyNodeModel):
     __label__ = "Export"
     exported_names = ArrayProperty(StringProperty())
@@ -352,35 +323,40 @@ class TypeReferenceNodeModel(ReferenceNodeModel):
         }
 
 
-# if __name__ == "__main__":
-#     db.cypher_query("MATCH (n) DETACH DELETE n")
-#
-#     workspace = WorkspaceNodeModel(uid="1", name="team workspace")
-#     workspace.save()
-#
-#     repository = RepositoryNodeModel(uid="1", name="team repository")
-#     repository.save()
-#
-#     project = ProjectNodeModel(uid="1")
-#     project.save()
-#
-#     file = FileNodeModel(uid="1")
-#     file.save()
-#
-#     cls_node = TypeDefinitionNodeModel(uid="1")
-#     cls_node.save()
-#
-#     func_node = FunctionNodeModel(uid="2")
-#     func_node.save()
-#
-#     workspace.repositories.connect(repository)
-#     repository.projects.connect(project)
-#     project.files.connect(file)
-#     file.nodes.connect(cls_node)
-#     file.nodes.connect(func_node)
-#
-#     func_node.parent.connect(cls_node)
-#
-#     for c in cls_node.children.all():
-#         print(c.uid)
-#         print(type(c))
+type UAST_NODE_MODEL_TYPE = (
+    UASTNodeModel
+    | DefinitionNodeModel
+    | TypeDefinitionNodeModel
+    | FunctionNodeModel
+    | VariableNodeModel
+    | DependencyNodeModel
+    | ImportNodeModel
+    | ExportNodeModel
+    | ReferenceNodeModel
+    | CallNodeModel
+    | AttributeAccessNodeModel
+    | TypeReferenceNodeModel
+)
+
+_MODEL_BY_NODE_TYPE: dict[type[UASTNode], type[UAST_NODE_MODEL_TYPE]] = {
+    TypeDefinitionNode: TypeDefinitionNodeModel,
+    FunctionNode: FunctionNodeModel,
+    VariableNode: VariableNodeModel,
+    ImportNode: ImportNodeModel,
+    ExportNode: ExportNodeModel,
+    CallNode: CallNodeModel,
+    AttributeAccessNode: AttributeAccessNodeModel,
+    TypeReferenceNode: TypeReferenceNodeModel,
+}
+
+
+def get_model_cls_for_uast_node(uast_node: UASTNode) -> type[UAST_NODE_MODEL_TYPE]:
+    """
+    Get Model class for uast node.
+    Args:
+        uast_node:
+
+    Returns:
+        type of Neo4jModel
+    """
+    return _MODEL_BY_NODE_TYPE[type(uast_node)]

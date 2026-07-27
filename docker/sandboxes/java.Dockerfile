@@ -18,4 +18,7 @@ RUN java --version && \
 
 RUN cs install scip-java
 
+RUN mkdir -p /sandbox/projects
+RUN mkdir -p /sandbox/output
+
 WORKDIR /workspace
