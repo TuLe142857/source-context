@@ -19,4 +19,7 @@ RUN apt-get update && apt-get install -y \
 # Install SCIP Python CLI
 RUN npm install -g @sourcegraph/scip-python
 
+RUN mkdir -p /sandbox/projects
+RUN mkdir -p /sandbox/output
+
 CMD ["/bin/bash"]

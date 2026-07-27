@@ -86,20 +86,19 @@ async def parse_tree_sitter_ast_stage(
         list[root_node]
     """
 
-    project_root = local_path/root_dir
+    project_root = local_path / root_dir
 
-    if not(project_root.exists()) or not(project_root.is_dir()):
+    if not (project_root.exists()) or not (project_root.is_dir()):
         raise ValueError(f"Invalid root path {str(project_root)}")
 
     logger.info(
         "Stage 2 (Template): Tree-sitter AST parsing for branch_id=%d at %s. Project root dir: %s",
-        project_id, str(project_root),
+        project_id,
+        str(project_root),
         local_path,
     )
 
-
     results: list[UASTNode] = []
-
 
     return results
 
@@ -189,12 +188,9 @@ async def execute_branch_indexing_pipeline(
         uast_parse_results: dict[int, list[UASTNode]] = {}
         for p in projects:
             parse_result = await parse_tree_sitter_ast_stage(
-                project_id=p.id,
-                root_dir=p.root_dir,
-                local_path=destination
+                project_id=p.id, root_dir=p.root_dir, local_path=destination
             )
             uast_parse_results[p.id] = parse_result
-
 
         # Step 3: SCIP Indexing & Code Graph Building (Single Combined Stage)
         job.status = "SCIP_AND_GRAPH"

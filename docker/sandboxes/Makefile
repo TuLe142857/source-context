@@ -21,9 +21,10 @@ build-sandbox-python:
 # 	docker build -f python.Dockerfile -t sandbox/python315:latest  --build-arg PY_VERSION=3.15 .
 
 build-sandbox-java:
-	docker build -f java.Dockerfile -t sandbox/java17:latest --build-arg JAVA_VERSION=17 .
-	docker build -f java.Dockerfile -t sandbox/java21:latest --build-arg JAVA_VERSION=21 .
-	docker build -f java.Dockerfile -t sandbox/java25:latest --build-arg JAVA_VERSION=25 .
+	@echo Note: Currently java docker sandbox not completed yet.
+#	docker build -f java.Dockerfile -t sandbox/java17:latest --build-arg JAVA_VERSION=17 .
+#	docker build -f java.Dockerfile -t sandbox/java21:latest --build-arg JAVA_VERSION=21 .
+#	docker build -f java.Dockerfile -t sandbox/java25:latest --build-arg JAVA_VERSION=25 .
 
 build-sandbox-node:
 	docker build -f node.Dockerfile -t sandbox/node24:latest --build-arg NODE_VERSION=22 .

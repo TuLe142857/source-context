@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["development", "test", "production"]
@@ -88,6 +88,24 @@ class Settings(BaseSettings):
             f"{self.POSTGRES_PORT}/"
             f"{self.POSTGRES_DB}"
         )
+
+    # NEO4J CONFIG
+    NEO4J_USER: str = "neo4j"
+    NEO4J_PASSWORD: SecretStr = SecretStr("changethis")
+
+    NEO4J_PORT: int = 7687
+    """Bolt Port"""
+
+    NEO4J_HOST: str = "localhost"
+
+    @computed_field
+    @property
+    def NEO4J_URI(self) -> str:
+        """
+        Neo4j URI.
+        Format: bolt://[``user``]:[``password``]@[``host``]:[``bolt_port``]
+        """
+        return f"bolt://{self.NEO4J_USER}:{self.NEO4J_PASSWORD.get_secret_value()}@{self.NEO4J_HOST}:{self.NEO4J_PORT}"
 
     @computed_field  # type: ignore[prop-decorator]
     @property

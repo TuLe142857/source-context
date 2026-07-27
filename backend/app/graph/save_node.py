@@ -3,56 +3,23 @@ from pathlib import Path
 from neomodel import db
 
 from app.parser.uast import (
-    AttributeAccessNode,
-    CallNode,
     ContainerNode,
-    ExportNode,
-    FunctionNode,
-    ImportNode,
-    TypeDefinitionNode,
-    TypeReferenceNode,
     UASTNode,
-    VariableNode,
 )
 
 from .model import (
-    AttributeAccessNodeModel,
-    CallNodeModel,
-    ExportNodeModel,
+    ProjectNodeModel,
     FileNodeModel,
-    FunctionNodeModel,
-    ImportNodeModel,
-    TypeDefinitionNodeModel,
-    TypeReferenceNodeModel,
     UASTNodeModel,
-    VariableNodeModel,
+    get_model_cls_for_uast_node,
 )
 
-_MODEL_BY_NODE_TYPE: dict[type[UASTNode], type[UASTNodeModel]] = {
-    TypeDefinitionNode: TypeDefinitionNodeModel,
-    FunctionNode: FunctionNodeModel,
-    VariableNode: VariableNodeModel,
-    ImportNode: ImportNodeModel,
-    ExportNode: ExportNodeModel,
-    CallNode: CallNodeModel,
-    AttributeAccessNode: AttributeAccessNodeModel,
-    TypeReferenceNode: TypeReferenceNodeModel,
-}
 
-
-def build_graph_for_file(uast_root: ContainerNode) -> FileNodeModel:
-    """Persist one file's UAST tree as a `File` node plus its UAST node subtree.
-
-    Creates a `FileNodeModel` for `uast_root`, then recursively converts every
-    descendant `UASTNode` into the matching `UASTNodeModel` subclass via
-    `UASTNodeModel.from_uast`. Top-level UAST nodes are linked to the file via
-    `DECLARE`; every other parent/child pair is linked via `CHILDREN`. The whole
-    subtree is written in a single transaction so a failure partway through
-    does not leave partial data.
-
+def save_file_node(uast_root: ContainerNode, project_id: int) -> FileNodeModel:
+    """
     Args:
         uast_root: UAST container node for one source file (`kind == "file"`).
-
+        project_id:
     Returns:
         The persisted `FileNodeModel` for this file.
 
@@ -66,12 +33,14 @@ def build_graph_for_file(uast_root: ContainerNode) -> FileNodeModel:
         )
 
     with db.transaction:
+        project_node: ProjectNodeModel = ProjectNodeModel.nodes.get(uid=project_id)
+
         file_node: FileNodeModel = FileNodeModel(
             uid=uast_root.id,
             name=Path(uast_root.path).name if uast_root.path else uast_root.name,
             relative_path=uast_root.path,
         ).save()
-
+        project_node.files.connect(file_node)
         for child in uast_root.children:
             child_node = _build_node_tree(child)
             file_node.nodes.connect(child_node)
@@ -89,7 +58,7 @@ def _build_node_tree(node: UASTNode) -> UASTNodeModel:
         The persisted model for `node`, already connected via `CHILDREN` to the
         (already persisted) models of its children.
     """
-    model_cls = _MODEL_BY_NODE_TYPE.get(type(node), UASTNodeModel)
+    model_cls = get_model_cls_for_uast_node(node)
     node_model: UASTNodeModel = model_cls.from_uast(node).save()
 
     for child in node.children:

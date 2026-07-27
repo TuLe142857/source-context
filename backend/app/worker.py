@@ -1,6 +1,7 @@
 from celery import Celery
 from app.core.config import get_settings
 
+
 def create_worker():
     """
     Create the celery worker and set this worker to default
@@ -23,5 +24,6 @@ def create_worker():
     )
     worker.set_default()
     return worker
+
 
 celery_worker = create_worker()
