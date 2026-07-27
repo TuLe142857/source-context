@@ -109,11 +109,16 @@ async def parse_tree_sitter_ast_stage(
 
     files = [f for f in project_root.rglob("*") if f.is_file()]
     logger.info(
-        "Start parsing source code of project: project_id= %d, project_root: %s, total files = %d", project_id, str(project_root), len(files)
+        "Start parsing source code of project: project_id= %d, project_root: %s, total files = %d",
+        project_id,
+        str(project_root),
+        len(files),
     )
 
     # create ProjectNode in neo4j
-    project_node_model: ProjectNodeModel|None = ProjectNodeModel.nodes.get_or_none(uid=project_id) # type: ignore
+    project_node_model: ProjectNodeModel | None = ProjectNodeModel.nodes.get_or_none(
+        uid=project_id
+    )  # type: ignore
     if project_node_model is None:
         new_project_node_model = ProjectNodeModel(uid=project_id)
         new_project_node_model.save()
@@ -127,10 +132,15 @@ async def parse_tree_sitter_ast_stage(
 
             file_content_bytes = file.read_bytes()
 
-
-            logger.info("Start parsing file. Filename= %s, path= %s", file.name, str(file.relative_to(project_root)))
+            logger.info(
+                "Start parsing file. Filename= %s, path= %s",
+                file.name,
+                str(file.relative_to(project_root)),
+            )
             ts_tree = parser.parse(file_content_bytes)
-            uast_root_node = converter.convert(ts_tree, file_content_bytes, str(file.relative_to(project_root)))
+            uast_root_node = converter.convert(
+                ts_tree, file_content_bytes, str(file.relative_to(project_root))
+            )
             results.append(uast_root_node)
 
             logger.info("Parsing file %s completed", file.name)
@@ -140,7 +150,10 @@ async def parse_tree_sitter_ast_stage(
             logger.info("Saving nodes in file %s to neo4j success", file.name)
 
         except UnsupportedLanguageError:
-            logger.info("Ignore file %s, because can't find language config for this file", file.name)
+            logger.info(
+                "Ignore file %s, because can't find language config for this file",
+                file.name,
+            )
 
     return results
 
@@ -183,7 +196,7 @@ async def run_scip_and_build_graph_stage(
     logger.info("SCIP indexing successful")
 
     logger.info("Start building call graph")
-    build_call_graph_for_project(project_id, index)
+    build_call_graph_for_project(project_id, index, project_root)
     logger.info("Build call graph successful")
 
     return {"status": "scip_graph_built", "language": language, "neo4j_nodes": 0}
