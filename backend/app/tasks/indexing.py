@@ -15,6 +15,12 @@ from app.model.project import Project
 from app.model.repository import Repository
 from app.repository_manager.git_client import GitClient
 from app.parser.uast import UASTNode
+from app.parser.languages import get_language_registry
+from app.parser import UnsupportedLanguageError
+from app.scip.sandbox import get_scip_sandbox_registry
+from app.scip import scip_pb2
+from app.graph import save_file_node, build_call_graph_for_project
+from app.graph.model import ProjectNodeModel
 
 logger = logging.getLogger(__name__)
 
@@ -75,15 +81,18 @@ async def parse_tree_sitter_ast_stage(
     root_dir: str,
     local_path: Path,
 ) -> list[UASTNode]:
-    """Stage 2: Template handler for Tree-sitter AST parsing.
-
+    """
+    Stage 2: Template handler for Tree-sitter AST parsing:
+        - Parser files to uast-nodes
+        - Saves to neo4j
     Args:
         project_id (int): Target project ID.
         root_dir (str): Sub-directory root path inside branch.
         local_path (Path): Path to branch source code directory.
 
     Returns:
-        list[root_node]
+        list[root_node], every root node is the root node of a files. root_node.path is relative from project.
+
     """
 
     project_root = local_path / root_dir
@@ -98,7 +107,40 @@ async def parse_tree_sitter_ast_stage(
         local_path,
     )
 
+    files = [f for f in project_root.rglob("*") if f.is_file()]
+    logger.info(
+        "Start parsing source code of project: project_id= %d, project_root: %s, total files = %d", project_id, str(project_root), len(files)
+    )
+
+    # create ProjectNode in neo4j
+    project_node_model: ProjectNodeModel|None = ProjectNodeModel.nodes.get_or_none(uid=project_id) # type: ignore
+    if project_node_model is None:
+        new_project_node_model = ProjectNodeModel(uid=project_id)
+        new_project_node_model.save()
+
     results: list[UASTNode] = []
+    lang_registry = get_language_registry()
+    for file in files:
+        try:
+            parser = lang_registry.get_parser_for_file(file.name)
+            converter = lang_registry.get_converter_for_file(file.name)
+
+            file_content_bytes = file.read_bytes()
+
+
+            logger.info("Start parsing file. Filename= %s, path= %s", file.name, str(file.relative_to(project_root)))
+            ts_tree = parser.parse(file_content_bytes)
+            uast_root_node = converter.convert(ts_tree, file_content_bytes, str(file.relative_to(project_root)))
+            results.append(uast_root_node)
+
+            logger.info("Parsing file %s completed", file.name)
+
+            logger.info("Start saving nodes in file file %s to neo4j", file.name)
+            save_file_node(uast_root_node, project_id)
+            logger.info("Saving nodes in file %s to neo4j success", file.name)
+
+        except UnsupportedLanguageError:
+            logger.info("Ignore file %s, because can't find language config for this file", file.name)
 
     return results
 
@@ -109,7 +151,8 @@ async def run_scip_and_build_graph_stage(
     language: str,
     local_path: Path,
 ) -> dict[str, Any]:
-    """Stage 3: Combined template handler for running SCIP indexer & building Code Graph DB (Neo4j).
+    """
+    Stage 3: Combined template handler for running SCIP indexer & building Code Graph DB (Neo4j).
 
     - Index SCIP
     - Build call graph
@@ -122,13 +165,27 @@ async def run_scip_and_build_graph_stage(
     Returns:
         dict[str, Any]: SCIP indexing and Code Graph construction result placeholder.
     """
-    project_full_path = local_path / root_dir.lstrip("/")
+    project_root = local_path / root_dir
+
     logger.info(
         "Stage 3 (Combined): SCIP indexing and Code Graph DB construction for project_id=%d (%s) at %s",
         project_id,
         language,
-        project_full_path,
+        project_root,
     )
+    sandbox_registry = get_scip_sandbox_registry()
+    sandbox = sandbox_registry.get_sandbox(language)
+
+    logger.info("Start indexing scip")
+    index_bytes = sandbox.index(root_dir)
+    index = scip_pb2.Index()
+    index.ParseFromString(index_bytes)
+    logger.info("SCIP indexing successful")
+
+    logger.info("Start building call graph")
+    build_call_graph_for_project(project_id, index)
+    logger.info("Build call graph successful")
+
     return {"status": "scip_graph_built", "language": language, "neo4j_nodes": 0}
 
 

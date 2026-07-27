@@ -15,7 +15,7 @@ from .model import (
 )
 
 
-def save_file_node(uast_root: ContainerNode, project_id: int) -> FileNodeModel:
+def save_file_node(uast_root: UASTNode, project_id: int) -> FileNodeModel:
     """
     Args:
         uast_root: UAST container node for one source file (`kind == "file"`).
@@ -26,6 +26,8 @@ def save_file_node(uast_root: ContainerNode, project_id: int) -> FileNodeModel:
     Raises:
         ValueError: If `uast_root.kind` is not `"file"`.
     """
+    if not isinstance(uast_root, ContainerNode):
+        raise ValueError("Expected `ContainerNode` for `uast_root`")
     if uast_root.kind != "file":
         raise ValueError(
             f"build_graph_for_file expects a container node with kind='file', "
