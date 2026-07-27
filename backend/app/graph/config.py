@@ -10,7 +10,7 @@ class GraphSettings(BaseSettings):
     NEO4J_PASSWORD: SecretStr = SecretStr("changethis")
 
     NEO4J_PORT: int = 7687
-    NEO4J_HOST: str = "localhost"
+    NEO4J_HOST: str = "neo4j"
 
     @computed_field
     @property

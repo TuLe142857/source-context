@@ -91,12 +91,12 @@ class Settings(BaseSettings):
 
     # NEO4J CONFIG
     NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: SecretStr = SecretStr("changethis")
+    NEO4J_PASSWORD: SecretStr = SecretStr("neo4jpassword")
 
     NEO4J_PORT: int = 7687
     """Bolt Port"""
 
-    NEO4J_HOST: str = "localhost"
+    NEO4J_HOST: str = "neo4j"
 
     @computed_field
     @property

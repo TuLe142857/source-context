@@ -31,7 +31,7 @@ from typing import Self, Any
 
 config = get_config()
 config.database_url = settings.NEO4J_URI
-
+print(settings.NEO4J_URI)
 
 class WorkspaceNodeModel(StructuredNode):
     __label__ = "Workspace"
