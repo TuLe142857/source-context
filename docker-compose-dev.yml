@@ -14,7 +14,7 @@ services:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
-      - ./workspace-repositories:/app/workspace-repositories
+      - workspace_repos:/workspace-repositories
 
   celery-worker:
     image: source-context-backend:dev
@@ -29,10 +29,11 @@ services:
       redis:
         condition: service_healthy
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
-      - ./workspace-repositories:/app/workspace-repositories
+      - workspace_repos:/workspace-repositories
 
   frontend:
     build:
@@ -125,3 +126,5 @@ volumes:
   redis_data_dev:
   redis_insight_data_dev:
   minio_data_dev:
+  workspace_repos:
+    name: workspace_repo

@@ -8,7 +8,6 @@ from docker.types import Mount
 from docker.models.containers import Container
 
 from functools import lru_cache
-from pathlib import Path
 
 
 @lru_cache
@@ -57,21 +56,43 @@ class SCIPSandbox:
 
     def index(self, project_path: str, image_tag: str | None = None) -> bytes:
         """
-        Run index scip from in docker container
+        Run SCIP indexing for a project inside a Docker container.
+
+        This method follows the Docker-out-of-Docker (DooD) pattern:
+            - The process calling this method is itself running inside a
+              Docker container (e.g. a backend or worker container).
+            - That container has the host machine's Docker socket mounted,
+              allowing it to control containers on the host's Docker daemon
+              via the Docker Python SDK.
+            - The container also has a named volume mounted, pointing to
+              where repositories are stored on the host.
+            - The name of this named volume corresponds to
+              ``settings.repository_workspace_root``.
+
         Args:
-            project_path:
-            image_tag: If None, use first image tag
+            project_path: Path to the project, relative to
+                ``settings.repository_workspace_root``.
+            image_tag: Tag of the Docker image to use for indexing. If
+                ``None``, the first tag in ``self.image_tags`` is used.
 
         Returns:
+            bytes: Contents of the generated SCIP index file (``index.scip``).
 
+        Raises:
+            ValueError: If ``image_tag`` is provided but is not found in
+                ``self.image_tags``.
+            RuntimeError: If the indexing container exits with a non-zero
+                status code, or if the generated index file cannot be read
+                from the container.
+
+        Example:
+            Given:
+                - ``settings.repository_workspace_root`` = "/repository-workspaces"
+                - The repository is stored at "/repository-workspaces/repo_name"
+                - The repository contains a project "backend/"
+
+            Then ``project_path`` should be "repo_name/backend".
         """
-        project_root = Path(project_path).resolve().absolute()
-        if not project_root.exists():
-            raise ValueError(f"Project path '{project_path}' not exists")
-        if not project_root.is_dir():
-            raise ValueError(f"Project path '{project_path}' is not a directory")
-        project_name = project_root.name
-
         if image_tag is None:
             image_tag = self.image_tags[0]
         else:
@@ -84,9 +105,9 @@ class SCIPSandbox:
         try:
             mounts = [
                 Mount(
-                    target=f"/sandbox/projects/{project_name}",
-                    source=str(project_root),
-                    type="bind",
+                    target=f"/sandbox/projects/",
+                    source="workspace_repo",
+                    type="volume",
                     read_only=True,
                 )
             ]
@@ -94,18 +115,18 @@ class SCIPSandbox:
             container = docker_client.containers.run(
                 image=image_tag,
                 command=self.command_builder(
-                    f"/sandbox/projects/{project_name}", "/sandbox/output/index.scip"
+                    f"/sandbox/projects/{project_path}", "/sandbox/output/index.scip"
                 ),
                 mounts=mounts,
                 detach=True,
-                working_dir=f"/sandbox/projects/{project_name}",
+                working_dir=f"/sandbox/projects/{project_path}",
             )
 
             result = container.wait()
             status_code = result.get("StatusCode", -1)
             if status_code != 0:
                 raise RuntimeError(
-                    f"Container run failed. Command={self.command_builder(f'/sandbox/projects/{project_name}', '/sandbox/output/index.scip')} Logs={container.logs()}"
+                    f"Container run failed. Command={self.command_builder(f'/sandbox/projects/{project_path}', '/sandbox/output/index.scip')} Logs={container.logs()}"
                 )
 
             index_bytes = self.read_file_in_container(
