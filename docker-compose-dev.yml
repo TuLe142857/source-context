@@ -4,6 +4,7 @@ services:
   backend:
     build:
       target: dev
+    image: source-context-backend:dev
     env_file:
       - .env
     depends_on:
@@ -13,6 +14,25 @@ services:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
+      - ./workspace-repositories:/app/workspace-repositories
+
+  celery-worker:
+    image: source-context-backend:dev
+    command: uv run celery -A app.core.celery.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      backend:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - ./workspace-repositories:/app/workspace-repositories
 
   frontend:
     build:

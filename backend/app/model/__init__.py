@@ -1,6 +1,7 @@
 """ORM models package initialization."""
 
 from app.model.branch import Branch
+from app.model.indexing_job import IndexingJob
 from app.model.member import Member
 from app.model.pat import PAT
 from app.model.project import Project
@@ -10,6 +11,7 @@ from app.model.workspace import Workspace
 
 __all__ = [
     "Branch",
+    "IndexingJob",
     "Member",
     "PAT",
     "Project",

@@ -58,6 +58,71 @@ class GitClient:
                 )
             raise
 
+    def clone_or_update_branch(
+        self,
+        repository_url: str,
+        branch_name: str,
+        destination: Path,
+    ) -> GitRepositoryMetadata:
+        """Clone a specific branch into destination, or fetch latest if already present.
+
+        Args:
+            repository_url: Git clone URL.
+            branch_name: Target branch name (e.g. 'main', 'develop').
+            destination: Path where repository branch should be stored.
+
+        Returns:
+            GitRepositoryMetadata: Metadata including commit_sha and root path.
+        """
+        destination.parent.mkdir(parents=True, exist_ok=True)
+
+        if not destination.exists():
+            try:
+                self._run(
+                    [
+                        "clone",
+                        "--depth",
+                        "1",
+                        "--single-branch",
+                        "--branch",
+                        branch_name,
+                        repository_url,
+                        str(destination),
+                    ],
+                )
+            except Exception:
+                if destination.exists():
+                    shutil.rmtree(destination, ignore_errors=True)
+                raise
+        else:
+            try:
+                self._run(
+                    [
+                        "-C",
+                        str(destination),
+                        "fetch",
+                        "origin",
+                        branch_name,
+                        "--depth",
+                        "1",
+                    ],
+                    check=False,
+                )
+                self._run(
+                    [
+                        "-C",
+                        str(destination),
+                        "reset",
+                        "--hard",
+                        f"origin/{branch_name}",
+                    ],
+                    check=False,
+                )
+            except Exception:
+                pass
+
+        return self.get_metadata(destination)
+
     def get_repository_root(
         self,
         repository_path: Path,

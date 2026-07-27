@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    image: source-context-backend:latest
     restart: unless-stopped
     env_file:
       - .env
@@ -12,6 +13,24 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:${BACKEND_EXTERNAL_PORT:-8000}:8000"
+    volumes:
+      - ./workspace-repositories:/app/workspace-repositories
+
+  celery-worker:
+    image: source-context-backend:latest
+    command: uv run celery -A app.core.celery.celery_app worker --loglevel=info
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      backend:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./workspace-repositories:/app/workspace-repositories
 
 
   frontend:
