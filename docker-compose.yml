@@ -8,6 +8,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      NEO4J_HOST: "neo4j"
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -22,6 +25,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      NEO4J_HOST: "neo4j"
     depends_on:
       backend:
         condition: service_started
