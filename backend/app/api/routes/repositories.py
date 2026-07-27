@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import CurrentUser, DBSession
 from app.api.routes.workspaces import check_workspace_access
-from app.indexing.tasks import index_branch_task
+from app.tasks import index_branch_task
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.project import Project

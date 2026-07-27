@@ -1,14 +1,12 @@
-"""Celery task pipeline & stage handlers for per-branch code indexing."""
-
 import asyncio
 import logging
 from pathlib import Path
 from typing import Any
+from celery import shared_task
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.celery import celery_app
 from app.core.config import settings
 from app.core.postgres import database
 from app.model.branch import Branch
@@ -16,6 +14,7 @@ from app.model.indexing_job import IndexingJob
 from app.model.project import Project
 from app.model.repository import Repository
 from app.repository_manager.git_client import GitClient
+from app.parser.uast import UASTNode
 
 logger = logging.getLogger(__name__)
 
@@ -71,25 +70,38 @@ async def download_branch_source_stage(
     return destination, metadata.commit_sha
 
 
-async def parse_treesitter_ast_stage(
-    branch_id: int,
+async def parse_tree_sitter_ast_stage(
+    project_id: int,
+    root_dir: str,
     local_path: Path,
-) -> dict[str, Any]:
+) -> list[UASTNode]:
     """Stage 2: Template handler for Tree-sitter AST parsing.
 
     Args:
-        branch_id (int): Target branch ID.
+        project_id (int): Target project ID.
+        root_dir (str): Sub-directory root path inside branch.
         local_path (Path): Path to branch source code directory.
 
     Returns:
-        dict[str, Any]: AST parsing result placeholder.
+        list[root_node]
     """
+
+    project_root = local_path/root_dir
+
+    if not(project_root.exists()) or not(project_root.is_dir()):
+        raise ValueError(f"Invalid root path {str(project_root)}")
+
     logger.info(
-        "Stage 2 (Template): Tree-sitter AST parsing for branch_id=%d at %s",
-        branch_id,
+        "Stage 2 (Template): Tree-sitter AST parsing for branch_id=%d at %s. Project root dir: %s",
+        project_id, str(project_root),
         local_path,
     )
-    return {"status": "parsed", "symbols": []}
+
+
+    results: list[UASTNode] = []
+
+
+    return results
 
 
 async def run_scip_and_build_graph_stage(
@@ -100,6 +112,8 @@ async def run_scip_and_build_graph_stage(
 ) -> dict[str, Any]:
     """Stage 3: Combined template handler for running SCIP indexer & building Code Graph DB (Neo4j).
 
+    - Index SCIP
+    - Build call graph
     Args:
         project_id (int): Target project ID.
         root_dir (str): Sub-directory root path inside branch.
@@ -161,17 +175,26 @@ async def execute_branch_indexing_pipeline(
 
         destination, _ = await download_branch_source_stage(branch_id, db)
 
-        # Step 2: Tree-sitter AST Parsing
-        job.status = "PARSING_AST"
-        job.progress_pct = 40
-        await db.commit()
-        await parse_treesitter_ast_stage(branch_id, destination)
-
         # Fetch projects under this branch
         proj_res = await db.execute(
             select(Project).where(Project.branch_id == branch_id)
         )
         projects = proj_res.scalars().all()
+
+        # Step 2: Tree-sitter AST Parsing
+        job.status = "PARSING_AST"
+        job.progress_pct = 40
+
+        await db.commit()
+        uast_parse_results: dict[int, list[UASTNode]] = {}
+        for p in projects:
+            parse_result = await parse_tree_sitter_ast_stage(
+                project_id=p.id,
+                root_dir=p.root_dir,
+                local_path=destination
+            )
+            uast_parse_results[p.id] = parse_result
+
 
         # Step 3: SCIP Indexing & Code Graph Building (Single Combined Stage)
         job.status = "SCIP_AND_GRAPH"
@@ -206,7 +229,7 @@ async def execute_branch_indexing_pipeline(
         await db.commit()
 
 
-@celery_app.task(name="index_branch_task")
+@shared_task(name="index_branch_task")
 def index_branch_task(branch_id: int, job_id: int) -> None:
     """Celery background task wrapper for executing branch indexing pipeline.
 

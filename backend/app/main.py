@@ -13,6 +13,10 @@ from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.postgres import Base, database
 
+from .worker import create_worker
+
+celery_worker = create_worker()
+
 logger = logging.getLogger(__name__)
 
 

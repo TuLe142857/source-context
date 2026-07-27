@@ -18,7 +18,7 @@ services:
 
   celery-worker:
     image: source-context-backend:dev
-    command: uv run celery -A app.core.celery.celery_app worker --loglevel=info
+    command: uv run celery -A app.worker.celery_worker worker --loglevel=info
     env_file:
       - .env
     depends_on:
