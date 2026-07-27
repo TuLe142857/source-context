@@ -120,7 +120,7 @@ async def parse_tree_sitter_ast_stage(
     # create ProjectNode in neo4j
     project_node_model: ProjectNodeModel | None = ProjectNodeModel.nodes.get_or_none(
         uid=project_id
-    )
+    )  # type: ignore
     if project_node_model is None:
         new_project_node_model = ProjectNodeModel(uid=project_id)
         new_project_node_model.save()
@@ -198,7 +198,7 @@ async def run_scip_and_build_graph_stage(
     logger.info("SCIP indexing successful")
 
     logger.info("Start building call graph")
-    build_call_graph_for_project(project_id, index)
+    build_call_graph_for_project(project_id, index, project_root)
     logger.info("Build call graph successful")
 
     return {"status": "scip_graph_built", "language": language, "neo4j_nodes": 0}
