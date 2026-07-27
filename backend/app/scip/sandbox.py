@@ -105,7 +105,7 @@ class SCIPSandbox:
         try:
             mounts = [
                 Mount(
-                    target=f"/sandbox/projects/",
+                    target="/sandbox/projects/",
                     source="workspace_repo",
                     type="volume",
                     read_only=True,

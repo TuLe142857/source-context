@@ -9,18 +9,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.postgres import database
+from app.embedding.embedding_pipeline import process_uast_batch_llm_summaries
+from app.embedding.utils import extract_summarizable_nodes
+from app.graph import build_call_graph_for_project, save_file_node
+from app.graph.model import ProjectNodeModel
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.project import Project
 from app.model.repository import Repository
-from app.repository_manager.git_client import GitClient
-from app.parser.uast import UASTNode
-from app.parser.languages import get_language_registry
 from app.parser import UnsupportedLanguageError
-from app.scip.sandbox import get_scip_sandbox_registry
+from app.parser.languages import get_language_registry
+from app.parser.uast import UASTNode
+from app.repository_manager.git_client import GitClient
 from app.scip import scip_pb2
-from app.graph import save_file_node, build_call_graph_for_project
-from app.graph.model import ProjectNodeModel
+from app.scip.sandbox import get_scip_sandbox_registry
 
 logger = logging.getLogger(__name__)
 
@@ -109,11 +111,16 @@ async def parse_tree_sitter_ast_stage(
 
     files = [f for f in project_root.rglob("*") if f.is_file()]
     logger.info(
-        "Start parsing source code of project: project_id= %d, project_root: %s, total files = %d", project_id, str(project_root), len(files)
+        "Start parsing source code of project: project_id= %d, project_root: %s, total files = %d",
+        project_id,
+        str(project_root),
+        len(files),
     )
 
     # create ProjectNode in neo4j
-    project_node_model: ProjectNodeModel|None = ProjectNodeModel.nodes.get_or_none(uid=project_id) # type: ignore
+    project_node_model: ProjectNodeModel | None = ProjectNodeModel.nodes.get_or_none(
+        uid=project_id
+    )
     if project_node_model is None:
         new_project_node_model = ProjectNodeModel(uid=project_id)
         new_project_node_model.save()
@@ -127,10 +134,15 @@ async def parse_tree_sitter_ast_stage(
 
             file_content_bytes = file.read_bytes()
 
-
-            logger.info("Start parsing file. Filename= %s, path= %s", file.name, str(file.relative_to(project_root)))
+            logger.info(
+                "Start parsing file. Filename= %s, path= %s",
+                file.name,
+                str(file.relative_to(project_root)),
+            )
             ts_tree = parser.parse(file_content_bytes)
-            uast_root_node = converter.convert(ts_tree, file_content_bytes, str(file.relative_to(project_root)))
+            uast_root_node = converter.convert(
+                ts_tree, file_content_bytes, str(file.relative_to(project_root))
+            )
             results.append(uast_root_node)
 
             logger.info("Parsing file %s completed", file.name)
@@ -140,7 +152,10 @@ async def parse_tree_sitter_ast_stage(
             logger.info("Saving nodes in file %s to neo4j success", file.name)
 
         except UnsupportedLanguageError:
-            logger.info("Ignore file %s, because can't find language config for this file", file.name)
+            logger.info(
+                "Ignore file %s, because can't find language config for this file",
+                file.name,
+            )
 
     return results
 
@@ -189,20 +204,57 @@ async def run_scip_and_build_graph_stage(
     return {"status": "scip_graph_built", "language": language, "neo4j_nodes": 0}
 
 
-async def build_vector_embeddings_stage(project_id: int) -> dict[str, Any]:
-    """Stage 4: Template handler for vector embedding generation & Qdrant storage.
+async def build_vector_embeddings_stage(
+    project_id: int,
+    file_roots: list[UASTNode],
+    local_path: Path,
+    root_dir: str,
+) -> dict[str, Any]:
+    """Stage 4: Generates vector embeddings for UAST nodes and upserts to Qdrant Vector DB.
 
     Args:
         project_id (int): Target project ID.
+        file_roots (list[UASTNode]): List of parsed root UAST nodes for each file in project.
+        local_path (Path): Path to branch source code directory.
+        root_dir (str): Sub-directory root path inside branch.
 
     Returns:
-        dict[str, Any]: Embedding task result placeholder.
+        dict[str, Any]: Embedding stage completion status and point count.
     """
+    project_root = local_path / root_dir
     logger.info(
-        "Stage 4 (Template): Building Vector DB Embeddings for project_id=%d",
+        "Stage 4: Building Vector DB Embeddings for project_id=%d (%d files) at %s",
+        project_id,
+        len(file_roots),
+        project_root,
+    )
+
+    candidate_tuples: list[tuple[UASTNode, UASTNode, Path]] = []
+    for root_node in file_roots:
+        file_path_str = getattr(root_node, "file_path", None) or ""
+        file_path = project_root / file_path_str if file_path_str else project_root
+
+        summarizable_nodes = extract_summarizable_nodes(root_node)
+        for target_node in summarizable_nodes:
+            candidate_tuples.append((root_node, target_node, file_path))
+
+    if not candidate_tuples:
+        logger.info("No summarizable nodes found for project_id=%d", project_id)
+        return {"status": "vector_embedded", "qdrant_points": 0}
+
+    embedded_batches = await asyncio.to_thread(
+        process_uast_batch_llm_summaries,
+        candidate_tuples=candidate_tuples,
+        batch_size=50,
+    )
+
+    total_points = sum(len(b) for b in embedded_batches)
+    logger.info(
+        "Stage 4 complete: Embedded and upserted %d vector points to Qdrant for project_id=%d",
+        total_points,
         project_id,
     )
-    return {"status": "vector_embedded", "qdrant_points": 0}
+    return {"status": "vector_embedded", "qdrant_points": total_points}
 
 
 async def execute_branch_indexing_pipeline(
@@ -263,7 +315,13 @@ async def execute_branch_indexing_pipeline(
         job.progress_pct = 90
         await db.commit()
         for p in projects:
-            await build_vector_embeddings_stage(p.id)
+            file_roots = uast_parse_results.get(p.id, [])
+            await build_vector_embeddings_stage(
+                project_id=p.id,
+                file_roots=file_roots,
+                local_path=destination,
+                root_dir=p.root_dir,
+            )
 
         job.status = "COMPLETED"
         job.progress_pct = 100

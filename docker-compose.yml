@@ -101,8 +101,9 @@ services:
       - "127.0.0.1:${QDRANT_EXTERNAL_PORT_HTTP:-6333}:6333"
       - "127.0.0.1:${QDRANT_EXTERNAL_PORT_GRPC:-6334}:6334"
     environment:
-      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-}
       - QDRANT__TELEMETRY_DISABLED=true
+    volumes:
+      - qdrant_data_dev:/qdrant/storage
     healthcheck:
       test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
       interval: 10s
@@ -146,4 +147,5 @@ services:
       start_period: 10s
 
 
-  
+volumes:
+  qdrant_data_dev:

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     """Runtime settings for the Source Context backend."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(Path(__file__).resolve().parents[3] / ".env"), ".env"),
         env_file_encoding="utf-8",
         env_prefix="SOURCE_CONTEXT_",
         case_sensitive=False,
@@ -98,7 +98,7 @@ class Settings(BaseSettings):
 
     NEO4J_HOST: str
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def NEO4J_URI(self) -> str:
         """
@@ -116,6 +116,44 @@ class Settings(BaseSettings):
         if self.REDIS_USER:
             return f"redis://{self.REDIS_USER}:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
         return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+
+    # OpenAI
+    OPENAI_API_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias="OPENAI_API_KEY",
+    )
+
+    OPENAI_MODEL: str = Field(
+        default="gpt-4o-mini",
+        validation_alias="OPENAI_MODEL",
+    )
+
+    OPENAI_BASE_URL: str | None = Field(
+        default=None,
+        validation_alias="OPENAI_BASE_URL",
+    )
+
+    # Voyage AI
+    VOYAGE_API_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias="VOYAGE_API_KEY",
+    )
+
+    VOYAGE_EMBEDDING_MODEL: str = Field(
+        default="voyage-code-3",
+        validation_alias="VOYAGE_EMBEDDING_MODEL",
+    )
+
+    # Qdrant Vector DB
+    QDRANT_HOST: str = Field(default="127.0.0.1", validation_alias="QDRANT_HOST")
+    QDRANT_PORT: int = Field(default=6333, validation_alias="QDRANT_PORT")
+    QDRANT_GRPC_PORT: int = Field(default=6334, validation_alias="QDRANT_GRPC_PORT")
+    QDRANT_API_KEY: SecretStr = Field(
+        default=SecretStr(""), validation_alias="QDRANT_API_KEY"
+    )
+    QDRANT_COLLECTION_NAME: str = Field(
+        default="code_chunks", validation_alias="QDRANT_COLLECTION_NAME"
+    )
 
 
 @lru_cache(maxsize=1)
