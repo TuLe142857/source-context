@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
 
     # Repository Scanner Settings
-    repository_workspace_root: Path = Path("workspace-repositories")
+    repository_workspace_root: Path = Path("/workspace-repositories")
     scanner_max_file_size_bytes: int = Field(default=1_000_000, gt=0)
     git_command_timeout_seconds: int = Field(default=120, gt=0)
 

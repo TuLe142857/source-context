@@ -47,7 +47,7 @@ async def download_branch_source_stage(
 
     destination = Path(
         branch.local_path
-        or f"/app/workspace-repositories/ws_{repo.project_id}/{repo.name}/{branch.branch_name}"
+        or f"{settings.repository_workspace_root}/ws_{repo.project_id}/{repo.name}/{branch.branch_name}"
     )
 
     git_client = GitClient(timeout_seconds=settings.git_command_timeout_seconds)
