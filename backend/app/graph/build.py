@@ -2,6 +2,7 @@ from app.scip import scip_pb2 as scip
 
 import logging
 
+
 def build_call_graph_for_project(project_id: int, index: scip.Index):
     """
     Use scip index result to build a call graph for a project.
@@ -21,5 +22,6 @@ def build_call_graph_for_project(project_id: int, index: scip.Index):
         This method is template and will be implemented soon.
     """
     logger = logging.getLogger(__name__)
-    logger.info("Building call graph for project was call. But this method was not implemented yet")
-
+    logger.info(
+        "Building call graph for project was call. But this method was not implemented yet"
+    )

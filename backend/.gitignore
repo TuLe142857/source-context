@@ -3,6 +3,8 @@
 # See: https://github.com/github/gitignore/blob/main/Python.gitignore
 # =====================================================================
 
+app/embedding/Phi-4-mini-instruct-Q4_K_M.gguf
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
