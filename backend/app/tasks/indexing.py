@@ -53,7 +53,9 @@ async def download_branch_source_stage(
     branch: Branch = row[0]
     repo: Repository = row[1]
 
-    destination = Path(f"{settings.repository_workspace_root}/ws_{repo.project_id}/{repo.name}/{branch.branch_name}")
+    destination = Path(
+        f"{settings.repository_workspace_root}/ws_{repo.project_id}/{repo.name}/{branch.branch_name}"
+    )
 
     git_client = GitClient(timeout_seconds=settings.git_command_timeout_seconds)
     metadata = git_client.clone_or_update_branch(
@@ -145,7 +147,7 @@ async def parse_tree_sitter_ast_stage(
             logger.info("Parsing file %s completed", file.name)
 
             logger.info("Start saving nodes in file file %s to neo4j", file.name)
-            save_file_node(uast_root_node, project_id)
+            save_file_node(uast_root_node, project_id, file_content_bytes, file.suffix)
             logger.info("Saving nodes in file %s to neo4j success", file.name)
 
         except UnsupportedLanguageError:

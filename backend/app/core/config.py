@@ -107,6 +107,16 @@ class Settings(BaseSettings):
         """
         return f"bolt://{self.NEO4J_USER}:{self.NEO4J_PASSWORD.get_secret_value()}@{self.NEO4J_HOST}:{self.NEO4J_PORT}"
 
+    # S3 Setting
+    S3_DEFAULT_BUCKET: str = Field(
+        default="default", validation_alias="S3_DEFAULT_BUCKET"
+    )
+    S3_ENDPOINT: str = Field(
+        default="http://minio:9000", validation_alias="S3_ENDPOINT"
+    )
+    S3_ACCESS_KEY: str = Field(validation_alias="MINIO_ROOT_USER")
+    S3_SECRET_KEY: SecretStr = Field(validation_alias="MINIO_ROOT_PASSWORD")
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def CELERY_BROKER_URL(self) -> str:

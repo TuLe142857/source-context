@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from fastapi import FastAPI
+from fastapi.concurrency import run_in_threadpool
 
 from app.api.routes import api_router
 from app.api.routes.health import router as health_router
@@ -12,6 +13,7 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.postgres import Base, database
+from app.core.s3 import get_s3_client, create_default_bucket_if_not_exists
 from neo4j import AsyncGraphDatabase
 from neo4j.exceptions import Neo4jError
 
@@ -25,6 +27,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manages application lifecycle including database connection and table creation."""
+
+    settings = get_settings()
+
+    # POSTGRES
     try:
         async with database.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -32,7 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning("Could not connect to Database at startup: %s", exc)
 
-    settings = get_settings()
+    # NEO4J
     try:
         async with AsyncGraphDatabase.driver(
             f"bolt://{settings.NEO4J_HOST}:{settings.NEO4J_PORT}",
@@ -42,6 +48,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("Neo4j connect successfully.")
     except Neo4jError as exc:
         logger.warning("Could not connect to Neo4j: %s", exc)
+
+    # S3
+    s3_client = get_s3_client()
+    try:
+        await run_in_threadpool(s3_client.list_buckets)
+        logger.info("S3 client connected successfully.")
+
+        await run_in_threadpool(create_default_bucket_if_not_exists, s3_client)
+        logger.info(
+            f"S3 client create default bucket {settings.S3_DEFAULT_BUCKET} successfully."
+        )
+    except (
+        s3_client.exceptions.BucketAlreadyExists,
+        s3_client.exceptions.BucketAlreadyOwnedByYou,
+    ):
+        logger.info("Bucket Already Exists. No need to create")
 
     yield
 
