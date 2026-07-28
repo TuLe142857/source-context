@@ -3,9 +3,9 @@ from typing import Callable
 import tarfile
 import io
 import docker
-from docker import DockerClient
-from docker.types import Mount
-from docker.models.containers import Container
+from docker import DockerClient  # type: ignore[attr-defined]
+from docker.types import Mount  # type: ignore[import-not-found]
+from docker.models.containers import Container  # type: ignore[import-not-found]
 
 from functools import lru_cache
 
@@ -13,7 +13,7 @@ from functools import lru_cache
 @lru_cache
 def get_docker_client() -> DockerClient:
     """Docker Client singleton"""
-    return docker.from_env()
+    return docker.from_env()  # type: ignore[attr-defined]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -30,7 +30,7 @@ class SCIPSandbox:
     image_tags: list[str]
     """Docker image tags"""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         docker_client = get_docker_client()
         all_images = docker_client.images.list()
         all_tags = [t for image in all_images for t in image.tags]
@@ -147,7 +147,7 @@ class SCIPSandboxRegistry:
     def get_available_language(self) -> list[str]:
         return list(self._sandboxes.keys())
 
-    def get_sandbox(self, language):
+    def get_sandbox(self, language: str) -> SCIPSandbox | None:
         return self._sandboxes.get(language)
 
 

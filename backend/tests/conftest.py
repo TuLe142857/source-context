@@ -10,6 +10,9 @@ from app.core.config import Settings, settings
 
 # Force host to 127.0.0.1 for running tests outside docker container
 settings.POSTGRES_HOST = "127.0.0.1"
+settings.NEO4J_HOST = "127.0.0.1"
+settings.REDIS_HOST = "127.0.0.1"
+settings.QDRANT_HOST = "127.0.0.1"
 
 from app.main import create_app  # noqa: E402
 
@@ -26,6 +29,9 @@ def test_settings() -> Settings:
         log_level="WARNING",
         api_v1_prefix="/api/v1",
         POSTGRES_HOST="127.0.0.1",
+        NEO4J_HOST="127.0.0.1",
+        REDIS_HOST="127.0.0.1",
+        QDRANT_HOST="127.0.0.1",
     )
 
 

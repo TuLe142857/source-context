@@ -15,8 +15,10 @@ Coming soon :)
 
 git clone https://github.com/TuLe142857/source-context.git
 cd source-context
-cp .env.example .env
-docker compose -f docker-compose.yml -f docker-compose-dev.yml up --build -d
+cp .env.example .env.dev
+make dev-build
+# Or manually:
+# docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
 
 These are the default configurations. You can modify them by editing your .env file.
@@ -101,7 +103,7 @@ Because `pyproject.toml` and `uv.lock` are directly mounted into the `backend` c
 
 Instead, simply run `uv sync` inside the running container to update its environment instantly:
 ```shell
-docker compose -f docker-compose.yml -f docker-compose-dev.yml exec -it backend uv sync
+docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml exec -it backend uv sync
 ```
 *(If the backend server doesn't hot-reload the new library automatically, you can restart it with `docker compose restart backend`)*
 

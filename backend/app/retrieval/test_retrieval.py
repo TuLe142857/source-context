@@ -3,9 +3,7 @@
 from pathlib import Path
 import sys
 
-from app.core.qdrant import QdrantVectorStore, get_qdrant_client
-from app.embedding.embedding_pipeline import run_embedding_pipeline
-from app.embedding.utils import scan_python_files
+from app.core.qdrant import get_qdrant_client
 from app.retrieval.retriever import CodeRetriever
 
 
@@ -16,13 +14,12 @@ def main() -> None:
 
     # Re-use single Qdrant client connection (connects to Qdrant Docker service)
     client = get_qdrant_client()
-    store = QdrantVectorStore(client=client)
 
     # 1. Determine target directory from CLI argument or default
     if len(sys.argv) > 1:
-        target_dir = Path(sys.argv[1]).resolve()
+        _target_dir = Path(sys.argv[1]).resolve()
     else:
-        target_dir = Path(
+        _target_dir = Path(
             r"C:\Hieu\TTTN\source-context\backend\data\sample_data"
         ).resolve()
 
