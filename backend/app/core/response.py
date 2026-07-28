@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Any, Generic, Literal, Mapping, Sequence, TypeVar
+from typing import Annotated, Any, Literal, Mapping, Sequence
 
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse

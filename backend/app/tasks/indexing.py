@@ -212,6 +212,7 @@ async def build_vector_embeddings_stage(
     local_path: Path,
     root_dir: str,
     branch_id: int,
+    workspace_id: int,
 ) -> dict[str, Any]:
     """Stage 4: Generates vector embeddings for UAST nodes and upserts to Qdrant Vector DB.
 
@@ -220,6 +221,8 @@ async def build_vector_embeddings_stage(
         file_roots (list[UASTNode]): List of parsed root UAST nodes for each file in project.
         local_path (Path): Path to branch source code directory.
         root_dir (str): Sub-directory root path inside branch.
+        branch_id (int): Target branch ID.
+        workspace_id (int): Target workspace ID.
 
     Returns:
         dict[str, Any]: Embedding stage completion status and point count.
@@ -247,6 +250,7 @@ async def build_vector_embeddings_stage(
 
     embedded_batches = await asyncio.to_thread(
         process_uast_batch_llm_summaries,
+        workspace_id=workspace_id,
         branch_id=branch_id,
         candidate_tuples=candidate_tuples,
         batch_size=50,
@@ -262,6 +266,7 @@ async def build_vector_embeddings_stage(
 
 
 async def execute_branch_indexing_pipeline(
+    workspace_id: int,
     branch_id: int,
     job_id: int,
     db: AsyncSession,
@@ -269,6 +274,7 @@ async def execute_branch_indexing_pipeline(
     """Executes the complete indexing pipeline for one Branch.
 
     Args:
+        workspace_id (int): Target workspace ID.
         branch_id (int): Target branch ID.
         job_id (int): IndexingJob ID.
         db (AsyncSession): Database session.
@@ -326,6 +332,7 @@ async def execute_branch_indexing_pipeline(
                 local_path=destination,
                 root_dir=p.root_dir,
                 branch_id=branch_id,
+                workspace_id=workspace_id,
             )
 
         job.status = "COMPLETED"
@@ -333,9 +340,10 @@ async def execute_branch_indexing_pipeline(
         job.error_message = None
         await db.commit()
         logger.info(
-            "IndexingJob %d for branch_id=%d COMPLETED successfully.",
+            "IndexingJob %d for branch_id=%d (workspace_id=%d) COMPLETED successfully.",
             job_id,
             branch_id,
+            workspace_id,
         )
 
     except Exception as exc:
@@ -346,21 +354,25 @@ async def execute_branch_indexing_pipeline(
 
 
 @shared_task(name="index_branch_task")
-def index_branch_task(branch_id: int, job_id: int) -> None:
+def index_branch_task(workspace_id: int, branch_id: int, job_id: int) -> None:
     """Celery background task wrapper for executing branch indexing pipeline.
 
     Args:
+        workspace_id (int): Target workspace ID.
         branch_id (int): Target branch ID.
         job_id (int): IndexingJob ID.
     """
     logger.info(
-        "Celery worker received index_branch_task(branch_id=%d, job_id=%d)",
+        "Celery worker received index_branch_task(workspace_id=%d, branch_id=%d, job_id=%d)",
+        workspace_id,
         branch_id,
         job_id,
     )
 
     async def _runner() -> None:
         async with database.async_session_factory() as session:
-            await execute_branch_indexing_pipeline(branch_id, job_id, session)
+            await execute_branch_indexing_pipeline(
+                workspace_id, branch_id, job_id, session
+            )
 
     asyncio.run(_runner())

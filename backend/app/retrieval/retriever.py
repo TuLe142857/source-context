@@ -29,6 +29,7 @@ class QueryResult:
     formatted_embed_text: str | None
     payload: dict[str, Any]
     branch_id: int | None = None
+    workspace_id: int | None = None
 
 
 class CodeRetriever:
@@ -58,6 +59,7 @@ class CodeRetriever:
         query: str,
         top_k: int = 5,
         branch_id: int | None = None,
+        workspace_id: int | None = None,
     ) -> list[QueryResult]:
         """Embeds natural language search query with Voyage AI and retrieves top-k results from Qdrant.
 
@@ -65,6 +67,7 @@ class CodeRetriever:
             query (str): Natural language search prompt/query.
             top_k (int): Number of top search results to return (default 5).
             branch_id (int | None): Optional target branch ID filter.
+            workspace_id (int | None): Optional target workspace ID filter.
 
         Returns:
             list[QueryResult]: Ordered list of top-k search results with similarity scores.
@@ -73,27 +76,34 @@ class CodeRetriever:
             return []
 
         logger.info(
-            "Searching Qdrant collection '%s' for query: '%s' (top_k=%d, branch_id=%s)...",
+            "Searching Qdrant collection '%s' for query: '%s' (top_k=%d, workspace_id=%s, branch_id=%s)...",
             self.collection_name,
             query,
             top_k,
+            workspace_id,
             branch_id,
         )
 
         # 1. Embed search query using Voyage AI input_type="query"
         query_vector = self.embedder.embed_query(query)
 
-        # 2. Build filter if branch_id is specified
-        query_filter = None
-        if branch_id is not None:
-            query_filter = Filter(
-                must=[
-                    FieldCondition(
-                        key="branch_id",
-                        match=MatchValue(value=branch_id),
-                    )
-                ]
+        # 2. Build filter conditions if workspace_id or branch_id is specified
+        conditions: list[Any] = []
+        if workspace_id is not None:
+            conditions.append(
+                FieldCondition(
+                    key="workspace_id",
+                    match=MatchValue(value=workspace_id),
+                )
             )
+        if branch_id is not None:
+            conditions.append(
+                FieldCondition(
+                    key="branch_id",
+                    match=MatchValue(value=branch_id),
+                )
+            )
+        query_filter = Filter(must=conditions) if conditions else None
 
         # 3. Search Qdrant collection for top-k nearest vector hits
         try:
@@ -135,6 +145,7 @@ class CodeRetriever:
                 formatted_embed_text=payload.get("formatted_embed_text"),
                 payload=payload,
                 branch_id=payload.get("branch_id"),
+                workspace_id=payload.get("workspace_id"),
             )
             results.append(res)
 
