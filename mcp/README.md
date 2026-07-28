@@ -1,2 +1,1 @@
-# Source Context MCP
-Local MCP server for your agents.
+# Readme for MCP Server
