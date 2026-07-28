@@ -743,7 +743,7 @@ class SymbolInformation(_message.Message):
     relationships: _containers.RepeatedCompositeFieldContainer[Relationship]
     kind: SymbolInformation.Kind
     display_name: str
-    signature_documentation: Signature
+    signature_documentation: SymbolInformation.Signature  # type: ignore[valid-type]
     enclosing_symbol: str
     def __init__(
         self,
@@ -752,7 +752,9 @@ class SymbolInformation(_message.Message):
         relationships: _Optional[_Iterable[_Union[Relationship, _Mapping]]] = ...,
         kind: _Optional[_Union[SymbolInformation.Kind, str]] = ...,
         display_name: _Optional[str] = ...,
-        signature_documentation: _Optional[_Union[Signature, _Mapping]] = ...,
+        signature_documentation: _Optional[  # type: ignore[valid-type]
+            _Union[SymbolInformation.Signature, _Mapping]
+        ] = ...,
         enclosing_symbol: _Optional[str] = ...,
     ) -> None: ...
 

@@ -1,8 +1,11 @@
 .PHONY: help dev-up dev-down dev-logs dev-build dev-ps db-shell prod-up prod-down prod-logs prod-build prod-ps sync lint format typecheck test clean
 
 # Variables
-COMPOSE_DEV = docker compose -f docker-compose.yml -f docker-compose-dev.yml
-COMPOSE_PROD = docker compose -f docker-compose.yml
+ENV_FILE_DEV ?= .env.dev
+ENV_FILE_PROD ?= .env
+
+COMPOSE_DEV = docker compose --env-file $(ENV_FILE_DEV) -f docker-compose.yml -f docker-compose.dev.yml
+COMPOSE_PROD = docker compose --env-file $(ENV_FILE_PROD) -f docker-compose.yml
 
 help: ## Hiển thị danh sách các lệnh hỗ trợ trong Makefile
 	@echo "=========================================================================="

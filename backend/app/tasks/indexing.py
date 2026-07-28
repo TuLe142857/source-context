@@ -2,7 +2,7 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Any
-from celery import shared_task
+from celery import shared_task  # type: ignore[import-untyped]
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -119,7 +119,7 @@ async def parse_tree_sitter_ast_stage(
     # create ProjectNode in neo4j
     project_node_model: ProjectNodeModel | None = ProjectNodeModel.nodes.get_or_none(
         uid=project_id
-    )  # type: ignore
+    )
     if project_node_model is None:
         new_project_node_model = ProjectNodeModel(uid=project_id)
         new_project_node_model.save()
@@ -190,6 +190,8 @@ async def run_scip_and_build_graph_stage(
     )
     sandbox_registry = get_scip_sandbox_registry()
     sandbox = sandbox_registry.get_sandbox(language)
+    if sandbox is None:
+        raise ValueError(f"No SCIP sandbox available for language: {language}")
 
     logger.info("Start indexing scip")
     index_bytes = sandbox.index(str(project_root_relative))

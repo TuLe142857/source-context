@@ -1,8 +1,8 @@
-from celery import Celery
+from celery import Celery  # type: ignore[import-untyped]
 from app.core.config import get_settings
 
 
-def create_worker():
+def create_worker() -> Celery:
     """
     Create the celery worker and set this worker to default
     Returns:
