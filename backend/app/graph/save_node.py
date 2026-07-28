@@ -74,13 +74,13 @@ def save_file_node(
         ).save()
         project_node.files.connect(file_node)
         for child in uast_root.children:
-            child_node = _build_node_tree(child)
+            child_node = _build_node_tree(child, file_node.uid)
             file_node.nodes.connect(child_node)
 
     return file_node
 
 
-def _build_node_tree(node: UASTNode) -> UASTNodeModel:
+def _build_node_tree(node: UASTNode, file_node_uid: str) -> UASTNodeModel:
     """Recursively convert and save `node` and all of its descendants.
 
     Args:
@@ -91,10 +91,12 @@ def _build_node_tree(node: UASTNode) -> UASTNodeModel:
         (already persisted) models of its children.
     """
     model_cls = get_model_cls_for_uast_node(node)
-    node_model: UASTNodeModel = model_cls.from_uast(node).save()
+    node_model: UASTNodeModel = model_cls.from_uast(node)
+    node_model.file_node_uid = file_node_uid
+    node_model.save()
 
     for child in node.children:
-        child_model = _build_node_tree(child)
+        child_model = _build_node_tree(child, file_node_uid)
         node_model.children.connect(child_model)
 
     return node_model

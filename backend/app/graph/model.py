@@ -106,6 +106,9 @@ class UASTNodeModel(StructuredNode):
     __label__ = "Node"
     uid: str = StringProperty(required=True, unique_index=True)  # type: ignore[assignment]
 
+    file_node_uid: str = StringProperty()  # type: ignore[assignment]
+    """UID of file node contain this node"""
+
     node_type: str = StringProperty()  # type: ignore[assignment]
     name: str | None = StringProperty()  # type: ignore[assignment]
 
