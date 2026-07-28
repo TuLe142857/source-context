@@ -75,7 +75,7 @@ def save_file_node(
         project_node.files.connect(file_node)
         for child in uast_root.children:
             child_node = _build_node_tree(child, file_node.uid)
-            file_node.nodes.connect(child_node)
+            file_node.children.connect(child_node)
 
     return file_node
 

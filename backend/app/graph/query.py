@@ -54,14 +54,13 @@ class GraphQuery:
         def build_result(n: TypeDefinitionNodeModel | FunctionNodeModel) -> dict:
             res = {"id": n.uid, "name": n.name, "type": n.kind, "children": []}
             for c in n.children.all():
-                if not (
-                    isinstance(c, TypeDefinitionNodeModel)
-                    or isinstance(c, FunctionNodeModel)
+                if isinstance(c, TypeDefinitionNodeModel) or isinstance(
+                    c, FunctionNodeModel
                 ):
                     res["children"].append(build_result(c))
             return res
 
-        nodes: list[UASTNodeModel] = file_node.nodes.all()
+        nodes: list[UASTNodeModel] = file_node.children.all()
         result = []
         for node in nodes:
             if not (
@@ -74,7 +73,7 @@ class GraphQuery:
         return result
 
     @staticmethod
-    def get_source_code_of_file(file_node_uid: str) -> bytes | None:
+    def get_file_content(file_node_uid: str) -> bytes | None:
         """
         Get the source code of an `FileNodeModel`
         Args:
@@ -102,7 +101,7 @@ class GraphQuery:
         return response["Body"].read()
 
     @staticmethod
-    def get_source_code_of_node(node_uid: str) -> str | None:
+    def get_node_content(node_uid: str) -> str | None:
         """
         Get the source code of an `UASTNodeModel`
         Args:
@@ -118,7 +117,7 @@ class GraphQuery:
             logger.warning("Node with uid %s not have field 'file_node_uid", node_uid)
             return None
 
-        source_bytes = GraphQuery.get_source_code_of_file(node.file_node_uid)
+        source_bytes = GraphQuery.get_file_content(node.file_node_uid)
         return source_bytes[node.start_byte : node.end_byte].decode("utf-8")
 
     @staticmethod
@@ -167,3 +166,7 @@ class GraphQuery:
                 result += child_callees
 
         return result
+
+    @staticmethod
+    def get_node(node_id: str) -> UASTNodeModel | None:
+        return UASTNodeModel.nodes.get_or_none(uid=node_id)
