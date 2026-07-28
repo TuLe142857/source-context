@@ -53,10 +53,7 @@ async def download_branch_source_stage(
     branch: Branch = row[0]
     repo: Repository = row[1]
 
-    destination = Path(
-        branch.local_path
-        or f"{settings.repository_workspace_root}/ws_{repo.project_id}/{repo.name}/{branch.branch_name}"
-    )
+    destination = Path(f"{settings.repository_workspace_root}/ws_{repo.project_id}/{repo.name}/{branch.branch_name}")
 
     git_client = GitClient(timeout_seconds=settings.git_command_timeout_seconds)
     metadata = git_client.clone_or_update_branch(
@@ -181,6 +178,7 @@ async def run_scip_and_build_graph_stage(
         dict[str, Any]: SCIP indexing and Code Graph construction result placeholder.
     """
     project_root = local_path / root_dir
+    project_root_relative = project_root.relative_to(settings.repository_workspace_root)
 
     logger.info(
         "Stage 3 (Combined): SCIP indexing and Code Graph DB construction for project_id=%d (%s) at %s",
@@ -192,10 +190,10 @@ async def run_scip_and_build_graph_stage(
     sandbox = sandbox_registry.get_sandbox(language)
 
     logger.info("Start indexing scip")
-    index_bytes = sandbox.index(root_dir)
+    index_bytes = sandbox.index(str(project_root_relative))
     index = scip_pb2.Index()
     index.ParseFromString(index_bytes)
-    logger.info("SCIP indexing successful")
+    logger.info(f"SCIP indexing successful, total documents = {len(index.documents)}")
 
     logger.info("Start building call graph")
     build_call_graph_for_project(project_id, index, project_root)
