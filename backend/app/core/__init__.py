@@ -5,11 +5,8 @@ from .response import (
     APIResponse,
     ResponseErrorSchema,
     ResponsePaginationSchema,
-<<<<<<< Updated upstream
     build_error_docs,
-=======
     ResponseSuccessSchema,
->>>>>>> Stashed changes
 )
 
 __all__ = [
