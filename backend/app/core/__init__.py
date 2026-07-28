@@ -6,4 +6,5 @@ from .response import (
     ResponseSuccessSchema,
     ResponseErrorSchema,
     ResponsePaginationSchema,
+    build_error_docs,
 )
