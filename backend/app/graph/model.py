@@ -36,8 +36,8 @@ config.database_url = settings.NEO4J_URI
 class WorkspaceNodeModel(StructuredNode):
     __label__ = "Workspace"
 
-    uid: int = IntegerProperty(required=True, unique_index=True) # type: ignore[assignment]
-    name: str = StringProperty(required=True) # type: ignore[assignment]
+    uid: int = IntegerProperty(required=True, unique_index=True)  # type: ignore[assignment]
+    name: str = StringProperty(required=True)  # type: ignore[assignment]
 
     repositories: RelationshipManager = RelationshipTo(  # type: ignore[assignment]
         "RepositoryNodeModel", "INCLUDES"
@@ -47,8 +47,8 @@ class WorkspaceNodeModel(StructuredNode):
 class RepositoryNodeModel(StructuredNode):
     __label__ = "Repository"
 
-    uid: int = IntegerProperty(required=True, unique_index=True) # type: ignore[assignment]
-    name: str = StringProperty() # type: ignore[assignment]
+    uid: int = IntegerProperty(required=True, unique_index=True)  # type: ignore[assignment]
+    name: str = StringProperty()  # type: ignore[assignment]
 
     branches: RelationshipManager = RelationshipTo("BranchNodeModel", "INCLUDES")  # type: ignore[assignment]
     workspace: RelationshipManager = RelationshipFrom("WorkspaceNodeModel", "INCLUDES")  # type: ignore[assignment]
@@ -57,22 +57,22 @@ class RepositoryNodeModel(StructuredNode):
 class BranchNodeModel(StructuredNode):
     __label__ = "Branch"
 
-    uid: int = IntegerProperty(required=True, unique_index=True) # type: ignore[assignment]
-    name: str = StringProperty() # type: ignore[assignment]
-    commit_hash: str = StringProperty() # type: ignore[assignment]
+    uid: int = IntegerProperty(required=True, unique_index=True)  # type: ignore[assignment]
+    name: str = StringProperty()  # type: ignore[assignment]
+    commit_hash: str = StringProperty()  # type: ignore[assignment]
 
 
 class ProjectNodeModel(StructuredNode):
     __label__ = "Project"
 
-    uid: int = IntegerProperty(required=True, unique_index=True) # type: ignore[assignment]
+    uid: int = IntegerProperty(required=True, unique_index=True)  # type: ignore[assignment]
 
-    name: str = StringProperty() # type: ignore[assignment]
+    name: str = StringProperty()  # type: ignore[assignment]
 
-    commit_hash: str = StringProperty() # type: ignore[assignment]
+    commit_hash: str = StringProperty()  # type: ignore[assignment]
     """Commit hash of this branch"""
 
-    relative_path: str = StringProperty() # type: ignore[assignment]
+    relative_path: str = StringProperty()  # type: ignore[assignment]
     """path from repository root"""
 
     files: RelationshipManager = RelationshipTo("FileNodeModel", "INCLUDES")  # type: ignore[assignment]
@@ -82,13 +82,16 @@ class ProjectNodeModel(StructuredNode):
 class FileNodeModel(StructuredNode):
     __label__ = "File"
 
-    uid: str = StringProperty(required=True, unique_index=True) # type: ignore[assignment]
+    uid: str = StringProperty(required=True, unique_index=True)  # type: ignore[assignment]
 
-    name: str = StringProperty() # type: ignore[assignment]
+    name: str = StringProperty()  # type: ignore[assignment]
     """file name"""
 
     relative_path: str | None = StringProperty()  # type: ignore[assignment]
     """path from project root"""
+
+    source_code_key: str | None = StringProperty()  # type: ignore[assignment]
+    """S3 key if source code was saved on S3"""
 
     nodes: RelationshipManager = RelationshipTo("UASTNodeModel", "DECLARE")  # type: ignore[assignment]
     project: RelationshipManager = RelationshipFrom("ProjectNodeModel", "INCLUDES")  # type: ignore[assignment]
@@ -101,29 +104,29 @@ class UASTNodeModel(StructuredNode):
     """
 
     __label__ = "Node"
-    uid: str = StringProperty(required=True, unique_index=True) # type: ignore[assignment]
+    uid: str = StringProperty(required=True, unique_index=True)  # type: ignore[assignment]
 
-    node_type:str = StringProperty() # type: ignore[assignment]
+    node_type: str = StringProperty()  # type: ignore[assignment]
     name: str | None = StringProperty()  # type: ignore[assignment]
 
     start_byte: int = IntegerProperty()  # type: ignore[assignment]
     end_byte: int = IntegerProperty()  # type: ignore[assignment]
 
-    start_row: int = IntegerProperty() # type: ignore[assignment]
-    start_column: int = IntegerProperty() # type: ignore[assignment]
-    end_row: int = IntegerProperty() # type: ignore[assignment]
-    end_column: int = IntegerProperty() # type: ignore[assignment]
+    start_row: int = IntegerProperty()  # type: ignore[assignment]
+    start_column: int = IntegerProperty()  # type: ignore[assignment]
+    end_row: int = IntegerProperty()  # type: ignore[assignment]
+    end_column: int = IntegerProperty()  # type: ignore[assignment]
 
-    docstring: str | None = StringProperty() # type: ignore[assignment]
+    docstring: str | None = StringProperty()  # type: ignore[assignment]
 
-    metadata: dict | None = JSONProperty() # type: ignore[assignment]
+    metadata: dict | None = JSONProperty()  # type: ignore[assignment]
 
     children: RelationshipManager = RelationshipTo("UASTNodeModel", "PARENT_OF")  # type: ignore[assignment]
     parent: RelationshipManager = RelationshipFrom("UASTNodeModel", "PARENT_OF")  # type: ignore[assignment]
 
     # call graph edges, written by app/graph/build.py
     references: RelationshipManager = RelationshipTo("UASTNodeModel", "REFERENCE_TO")  # type: ignore[assignment]
-    referenced_by: RelationshipManager = RelationshipFrom( # type: ignore[assignment]
+    referenced_by: RelationshipManager = RelationshipFrom(  # type: ignore[assignment]
         "UASTNodeModel", "REFERENCE_TO"
     )
 
@@ -158,9 +161,9 @@ class UASTNodeModel(StructuredNode):
 class DefinitionNodeModel(UASTNodeModel):
     __label__ = "Definition"
 
-    visibility: str = StringProperty() # type: ignore[assignment]
-    modifiers: list[str] = ArrayProperty(StringProperty()) # type: ignore[assignment]
-    decorators: list[str] = ArrayProperty(StringProperty()) # type: ignore[assignment]
+    visibility: str = StringProperty()  # type: ignore[assignment]
+    modifiers: list[str] = ArrayProperty(StringProperty())  # type: ignore[assignment]
+    decorators: list[str] = ArrayProperty(StringProperty())  # type: ignore[assignment]
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -181,10 +184,10 @@ class DefinitionNodeModel(UASTNodeModel):
 class TypeDefinitionNodeModel(DefinitionNodeModel):
     __label__ = "TypeDefinition"
 
-    kind: str = StringProperty() # type: ignore[assignment]
-    base_types: list[str] = ArrayProperty(StringProperty()) # type: ignore[assignment]
-    enum_values: list[str] = ArrayProperty(StringProperty()) # type: ignore[assignment]
-    is_abstract: bool = BooleanProperty() # type: ignore[assignment]
+    kind: str = StringProperty()  # type: ignore[assignment]
+    base_types: list[str] = ArrayProperty(StringProperty())  # type: ignore[assignment]
+    enum_values: list[str] = ArrayProperty(StringProperty())  # type: ignore[assignment]
+    is_abstract: bool = BooleanProperty()  # type: ignore[assignment]
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -200,13 +203,13 @@ class TypeDefinitionNodeModel(DefinitionNodeModel):
 class FunctionNodeModel(DefinitionNodeModel):
     __label__ = "Function"
 
-    kind: str = StringProperty() # type: ignore[assignment]
-    return_type: str = StringProperty() # type: ignore[assignment]
-    is_async: bool = BooleanProperty() # type: ignore[assignment]
-    is_generator: bool = BooleanProperty() # type: ignore[assignment]
-    is_static: bool = BooleanProperty() # type: ignore[assignment]
-    is_abstract: bool = BooleanProperty() # type: ignore[assignment]
-    is_override: bool = BooleanProperty() # type: ignore[assignment]
+    kind: str = StringProperty()  # type: ignore[assignment]
+    return_type: str = StringProperty()  # type: ignore[assignment]
+    is_async: bool = BooleanProperty()  # type: ignore[assignment]
+    is_generator: bool = BooleanProperty()  # type: ignore[assignment]
+    is_static: bool = BooleanProperty()  # type: ignore[assignment]
+    is_abstract: bool = BooleanProperty()  # type: ignore[assignment]
+    is_override: bool = BooleanProperty()  # type: ignore[assignment]
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -225,10 +228,10 @@ class FunctionNodeModel(DefinitionNodeModel):
 class VariableNodeModel(DefinitionNodeModel):
     __label__ = "Variable"
 
-    kind: str = StringProperty(required=True) # type: ignore[assignment]
+    kind: str = StringProperty(required=True)  # type: ignore[assignment]
 
-    data_type: str|None = StringProperty() # type: ignore[assignment]
-    initial_value: str|None = StringProperty() # type: ignore[assignment]
+    data_type: str | None = StringProperty()  # type: ignore[assignment]
+    initial_value: str | None = StringProperty()  # type: ignore[assignment]
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -252,9 +255,9 @@ class DependencyNodeModel(UASTNodeModel):
 class ImportNodeModel(DependencyNodeModel):
     __label__ = "Import"
 
-    module_path: str = StringProperty() # type: ignore[assignment]
-    imported_names: list[str] = ArrayProperty(StringProperty()) # type: ignore[assignment]
-    alias: dict[str, str] = JSONProperty() # type: ignore[assignment]
+    module_path: str = StringProperty()  # type: ignore[assignment]
+    imported_names: list[str] = ArrayProperty(StringProperty())  # type: ignore[assignment]
+    alias: dict[str, str] = JSONProperty()  # type: ignore[assignment]
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -269,8 +272,8 @@ class ImportNodeModel(DependencyNodeModel):
 class ExportNodeModel(DependencyNodeModel):
     __label__ = "Export"
 
-    exported_names: list[str] = ArrayProperty(StringProperty()) # type: ignore[assignment]
-    alias: dict[str, str] = JSONProperty() # type: ignore[assignment]
+    exported_names: list[str] = ArrayProperty(StringProperty())  # type: ignore[assignment]
+    alias: dict[str, str] = JSONProperty()  # type: ignore[assignment]
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -293,7 +296,7 @@ class ReferenceNodeModel(UASTNodeModel):
 class CallNodeModel(ReferenceNodeModel):
     __label__ = "Call"
 
-    subject: str | None = StringProperty() # type: ignore[assignment]
+    subject: str | None = StringProperty()  # type: ignore[assignment]
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -310,9 +313,9 @@ class AttributeAccessNodeModel(ReferenceNodeModel):
 class TypeReferenceNodeModel(ReferenceNodeModel):
     __label__ = "TypeReference"
 
-    namespace: str = StringProperty() # type: ignore[assignment]
+    namespace: str = StringProperty()  # type: ignore[assignment]
 
-    type_arguments: list[str] = ArrayProperty(StringProperty()) # type: ignore[assignment]
+    type_arguments: list[str] = ArrayProperty(StringProperty())  # type: ignore[assignment]
     """For generic type"""
 
     @classmethod
