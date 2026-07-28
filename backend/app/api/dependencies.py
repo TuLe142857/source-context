@@ -1,11 +1,11 @@
 """Shared FastAPI dependencies."""
 
-from typing import cast
+from typing import cast, Literal
 
 from fastapi import Request
 
 from app.core.config import Settings
-
+from app.core import ErrorCode, AppException
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Annotated
@@ -46,33 +46,22 @@ AuthCredentials = Annotated[
 ]
 
 
-async def get_current_user(
-    db: DBSession,
-    credentials: AuthCredentials,
-) -> User:
-    """Authenticates current user via JWT Bearer Token or Personal Access Token (PAT).
+class CurrentUserProvider:
+    type AUTH_METHOD = Literal["jwt", "pat"]
 
-    Args:
-        db (AsyncSession): Database session.
-        credentials (HTTPAuthorizationCredentials | None): Bearer token credentials.
+    def __init__(
+            self,
+            auth_methods: list[AUTH_METHOD] | tuple[AUTH_METHOD] = ("jwt",),
+            required_not_none: bool = True,
 
-    Returns:
-        User: Authenticated User instance.
+    ) -> None:
+        self.auth_methods = auth_methods
+        self.required_not_none = required_not_none
 
-    Raises:
-        HTTPException: If credentials missing, token invalid/expired, or user inactive.
-    """
-    if credentials is None or not credentials.credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication token is missing.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    async def get_current_user_by_pat(self, db: AsyncSession, token: str) -> User | None:
+        if not token.startswith("sc_live_"):
+            return None
 
-    token = credentials.credentials
-
-    # Case A: Personal Access Token (PAT) authentication (e.g. sc_live_...)
-    if token.startswith("sc_live_"):
         hashed_key = hash_pat_token(token)
         result = await db.execute(
             select(PAT, User)
@@ -113,49 +102,64 @@ async def get_current_user(
 
         return user_model
 
-    # Case B: Standard JWT Bearer token authentication
-    payload = decode_access_token(token)
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired JWT token.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
 
-    user_id_str = payload.get("sub")
-    if not user_id_str:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token payload missing subject identifier.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    async def get_current_user_by_jwt(self, db: AsyncSession, token: str) -> User | None:
+        payload = decode_access_token(token)
+        if payload is None:
+            return None
 
-    try:
-        user_id = int(user_id_str)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid subject in token.",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from None
+        user_id_str = payload.get("sub")
+        if not user_id_str:
+            return None
 
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    user_obj = user_result.scalar_one_or_none()
+        try:
+            user_id = int(user_id_str)
+        except ValueError:
+            return None
 
-    if user_obj is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User belonging to this token no longer exists.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        user_result = await db.execute(select(User).where(User.id == user_id))
+        user_obj: User | None = user_result.scalar_one_or_none()
 
-    if user_obj.is_active not in ("active", "true", True):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user account.",
-        )
+        if user_obj is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User belonging to this token no longer exists.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    return user_obj
+        if user_obj.is_active not in ("active", "true", True):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Inactive user account.",
+            )
+
+        return user_obj
+
+    async def __call__(self, db: DBSession, credentials: AuthCredentials)-> User | None:
+        user_obj: User | None = None
+
+        if (credentials is not None) and (len(credentials.credentials) > 0):
+            token = credentials.credentials
+
+            if "pat" in self.auth_methods:
+                user_obj = await self.get_current_user_by_pat(db, token)
+            elif ("jwt" in self.auth_methods) and user_obj is None:
+                user_obj = await self.get_current_user_by_jwt(db, token)
+
+        if (user_obj is None) and self.required_not_none:
+            raise AppException(ErrorCode.UNAUTHORIZED)
+
+        return user_obj
 
 
-CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentAgent = Annotated[User, Depends(CurrentUserProvider(auth_methods=["pat"]))]
+"""Auth with PAT For MCP"""
+
+CurrentAgentOrNone = Annotated[User, Depends(CurrentUserProvider(auth_methods=["pat"], required_not_none=False))]
+"""Auth(Optional) with PAT for MCP"""
+
+CurrentUser = Annotated[User, Depends(CurrentUserProvider(auth_methods=["jwt"]))]
+"""Auth with JWT for normal user"""
+
+CurrentUserOrNone = Annotated[User, Depends(CurrentUserProvider(auth_methods=["jwt"], required_not_none=False))]
+"""Auth(Optional) with JWT for normal user"""

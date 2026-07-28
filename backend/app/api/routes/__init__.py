@@ -9,7 +9,7 @@ from app.api.routes.repositories import router as repositories_router
 from app.api.routes.search import router as search_router
 from app.api.routes.users import router as users_router
 from app.api.routes.workspaces import router as workspaces_router
-from app.api.routes.graph import router as graph_router
+
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health_router)
@@ -19,4 +19,3 @@ api_router.include_router(pats_router)
 api_router.include_router(workspaces_router)
 api_router.include_router(repositories_router)
 api_router.include_router(search_router)
-api_router.include_router(graph_router)

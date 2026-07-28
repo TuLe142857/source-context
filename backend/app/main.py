@@ -7,7 +7,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 
-from app.api.routes import api_router
+from app.api.router import api_router, mcp_router
 from app.api.routes.health import router as health_router
 from app.core.config import Settings, get_settings
 from app.core.exceptions import register_exception_handlers
@@ -92,7 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_exception_handlers(application)
     application.include_router(health_router)
     application.include_router(api_router)
-
+    application.include_router(mcp_router)
     logger.info(
         "Backend application configured: environment=%s", app_settings.environment
     )
