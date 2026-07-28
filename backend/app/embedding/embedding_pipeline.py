@@ -106,6 +106,7 @@ def batch_embed_nodes_template(
 
 
 def process_uast_batch_llm_summaries(
+    workspace_id: int,
     branch_id: int,
     candidate_tuples: list[tuple[UASTNode, UASTNode, Path]],
     batch_size: int = 50,
@@ -117,6 +118,8 @@ def process_uast_batch_llm_summaries(
     """Enhances node metadata, generates LLM summaries, computes Voyage AI embeddings, and upserts points to Qdrant in batches.
 
     Args:
+        workspace_id (int): Target workspace ID.
+        branch_id (int): Target branch ID.
         candidate_tuples (list[tuple[UASTNode, UASTNode, Path]]): Tuples of (root_node, target_node, file_path).
         batch_size (int, optional): Number of nodes per batch (default 50).
         max_nodes (int | None, optional): Optional max node limit (e.g. 5 or 10 to save tokens).
@@ -195,6 +198,7 @@ def process_uast_batch_llm_summaries(
 
             # 3. Build enriched node data
             item = EnrichedNodeData(
+                workspace_id=workspace_id,
                 branch_id=branch_id,
                 node_id=target_node.id,
                 node_type=target_node.node_type,
@@ -226,6 +230,7 @@ def process_uast_batch_llm_summaries(
 
 def run_embedding_pipeline(
     source_paths: list[Path],
+    workspace_id: int = 1,
     branch_id: int = 1,
     batch_size: int = 50,
     max_nodes: int | None = None,
@@ -237,6 +242,7 @@ def run_embedding_pipeline(
 
     Args:
         source_paths (list[Path]): List of source code file paths to process.
+        workspace_id (int, optional): Target workspace ID (defaults to 1).
         branch_id (int, optional): Target branch ID (defaults to 1).
         batch_size (int, optional): Batch size threshold (default 50).
         max_nodes (int | None, optional): Max nodes limit to process (e.g. 5 or 10 to save tokens).
@@ -259,6 +265,7 @@ def run_embedding_pipeline(
             candidate_tuples.append((root_node, target_node, file_path))
 
     return process_uast_batch_llm_summaries(
+        workspace_id=workspace_id,
         branch_id=branch_id,
         candidate_tuples=candidate_tuples,
         batch_size=batch_size,

@@ -404,7 +404,7 @@ async def trigger_workspace_indexing(
         await db.flush()
 
         # Dispatch Celery background task
-        index_branch_task.delay(branch.id, job.id)
+        index_branch_task.delay(workspace_id, branch.id, job.id)
         jobs.append(job)
 
     await db.commit()
@@ -460,7 +460,7 @@ async def trigger_branch_indexing(
     await db.flush()
 
     # Dispatch Celery background task
-    index_branch_task.delay(branch.id, job.id)
+    index_branch_task.delay(workspace_id, branch.id, job.id)
     await db.commit()
     await db.refresh(job)
     return job

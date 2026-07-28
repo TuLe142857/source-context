@@ -1,25 +1,25 @@
 """Shared FastAPI dependencies."""
 
-from typing import cast, Literal
-
-from fastapi import Request
-
-from app.core.config import Settings
-from app.core import ErrorCode, AppException
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal, cast
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from qdrant_client import QdrantClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import AppException, ErrorCode
+from app.core.config import Settings
 from app.core.pat import hash_pat_token
 from app.core.postgres import database
+from app.core.qdrant import get_qdrant_client
 from app.core.security import decode_access_token
 from app.model.pat import PAT
 from app.model.user import User
+from app.retrieval.retriever import CodeRetriever
+from app.services.vector_service import VectorService
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -40,25 +40,45 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+def get_vector_retriever(
+    qdrant_client: QdrantClient = Depends(get_qdrant_client),
+) -> CodeRetriever:
+    return CodeRetriever(client=qdrant_client)
+
+
 DBSession = Annotated[AsyncSession, Depends(get_db)]
+
 AuthCredentials = Annotated[
     HTTPAuthorizationCredentials | None, Depends(security_bearer)
 ]
+
+CodeRetrieverDep = Annotated[CodeRetriever, Depends(get_vector_retriever)]
+
+
+def get_vector_service(
+    code_retriever: CodeRetrieverDep,
+    db: DBSession,
+) -> VectorService:
+    return VectorService(retriever=code_retriever, db_session=db)
+
+
+VectorServiceDep = Annotated[VectorService, Depends(get_vector_service)]
 
 
 class CurrentUserProvider:
     type AUTH_METHOD = Literal["jwt", "pat"]
 
     def __init__(
-            self,
-            auth_methods: list[AUTH_METHOD] | tuple[AUTH_METHOD] = ("jwt",),
-            required_not_none: bool = True,
-
+        self,
+        auth_methods: list[AUTH_METHOD] | tuple[AUTH_METHOD] = ("jwt",),
+        required_not_none: bool = True,
     ) -> None:
         self.auth_methods = auth_methods
         self.required_not_none = required_not_none
 
-    async def get_current_user_by_pat(self, db: AsyncSession, token: str) -> User | None:
+    async def get_current_user_by_pat(
+        self, db: AsyncSession, token: str
+    ) -> User | None:
         if not token.startswith("sc_live_"):
             return None
 
@@ -102,8 +122,9 @@ class CurrentUserProvider:
 
         return user_model
 
-
-    async def get_current_user_by_jwt(self, db: AsyncSession, token: str) -> User | None:
+    async def get_current_user_by_jwt(
+        self, db: AsyncSession, token: str
+    ) -> User | None:
         payload = decode_access_token(token)
         if payload is None:
             return None
@@ -135,7 +156,9 @@ class CurrentUserProvider:
 
         return user_obj
 
-    async def __call__(self, db: DBSession, credentials: AuthCredentials)-> User | None:
+    async def __call__(
+        self, db: DBSession, credentials: AuthCredentials
+    ) -> User | None:
         user_obj: User | None = None
 
         if (credentials is not None) and (len(credentials.credentials) > 0):
@@ -155,11 +178,15 @@ class CurrentUserProvider:
 CurrentAgent = Annotated[User, Depends(CurrentUserProvider(auth_methods=["pat"]))]
 """Auth with PAT For MCP"""
 
-CurrentAgentOrNone = Annotated[User, Depends(CurrentUserProvider(auth_methods=["pat"], required_not_none=False))]
+CurrentAgentOrNone = Annotated[
+    User, Depends(CurrentUserProvider(auth_methods=["pat"], required_not_none=False))
+]
 """Auth(Optional) with PAT for MCP"""
 
 CurrentUser = Annotated[User, Depends(CurrentUserProvider(auth_methods=["jwt"]))]
 """Auth with JWT for normal user"""
 
-CurrentUserOrNone = Annotated[User, Depends(CurrentUserProvider(auth_methods=["jwt"], required_not_none=False))]
+CurrentUserOrNone = Annotated[
+    User, Depends(CurrentUserProvider(auth_methods=["jwt"], required_not_none=False))
+]
 """Auth(Optional) with JWT for normal user"""
