@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 from qdrant_client import QdrantClient
+from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from app.core.config import settings
 from app.core.qdrant import get_qdrant_client
@@ -27,6 +28,7 @@ class QueryResult:
     identifiers: list[str]
     formatted_embed_text: str | None
     payload: dict[str, Any]
+    branch_id: int | None = None
 
 
 class CodeRetriever:
@@ -51,12 +53,18 @@ class CodeRetriever:
             collection_name or settings.QDRANT_COLLECTION_NAME or "code_chunks"
         )
 
-    def retrieve(self, query: str, top_k: int = 5) -> list[QueryResult]:
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        branch_id: int | None = None,
+    ) -> list[QueryResult]:
         """Embeds natural language search query with Voyage AI and retrieves top-k results from Qdrant.
 
         Args:
             query (str): Natural language search prompt/query.
             top_k (int): Number of top search results to return (default 5).
+            branch_id (int | None): Optional target branch ID filter.
 
         Returns:
             list[QueryResult]: Ordered list of top-k search results with similarity scores.
@@ -65,21 +73,35 @@ class CodeRetriever:
             return []
 
         logger.info(
-            "Searching Qdrant collection '%s' for query: '%s' (top_k=%d)...",
+            "Searching Qdrant collection '%s' for query: '%s' (top_k=%d, branch_id=%s)...",
             self.collection_name,
             query,
             top_k,
+            branch_id,
         )
 
         # 1. Embed search query using Voyage AI input_type="query"
         query_vector = self.embedder.embed_query(query)
 
-        # 2. Search Qdrant collection for top-k nearest vector hits
+        # 2. Build filter if branch_id is specified
+        query_filter = None
+        if branch_id is not None:
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="branch_id",
+                        match=MatchValue(value=branch_id),
+                    )
+                ]
+            )
+
+        # 3. Search Qdrant collection for top-k nearest vector hits
         try:
             if hasattr(self.client, "query_points"):
                 query_res = self.client.query_points(
                     collection_name=self.collection_name,
                     query=query_vector,
+                    query_filter=query_filter,
                     limit=top_k,
                 )
                 hits = query_res.points
@@ -87,6 +109,7 @@ class CodeRetriever:
                 hits = getattr(self.client, "search")(
                     collection_name=self.collection_name,
                     query_vector=query_vector,
+                    query_filter=query_filter,
                     limit=top_k,
                 )
         except Exception as exc:
@@ -111,6 +134,7 @@ class CodeRetriever:
                 identifiers=payload.get("identifiers", []),
                 formatted_embed_text=payload.get("formatted_embed_text"),
                 payload=payload,
+                branch_id=payload.get("branch_id"),
             )
             results.append(res)
 

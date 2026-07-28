@@ -75,7 +75,11 @@ async def retrieve_code_post(
 
     # 3. Perform code retrieval via CodeRetriever
     retriever = CodeRetriever()
-    hits = retriever.retrieve(query=request_data.query, top_k=request_data.top_k)
+    hits = retriever.retrieve(
+        query=request_data.query,
+        top_k=request_data.top_k,
+        branch_id=request_data.branch_id,
+    )
 
     results = [
         CodeSearchResult(

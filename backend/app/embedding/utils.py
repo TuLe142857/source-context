@@ -60,6 +60,7 @@ NOISE_STOPWORDS = {
 class EnrichedNodeData:
     """Enriched node metadata container ready for batch vector embedding."""
 
+    branch_id: int
     node_id: str
     node_type: str
     kind: str

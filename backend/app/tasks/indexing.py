@@ -2,7 +2,7 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Any
-from celery import shared_task  # type: ignore[import-untyped]
+from celery import shared_task
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -211,6 +211,7 @@ async def build_vector_embeddings_stage(
     file_roots: list[UASTNode],
     local_path: Path,
     root_dir: str,
+    branch_id: int,
 ) -> dict[str, Any]:
     """Stage 4: Generates vector embeddings for UAST nodes and upserts to Qdrant Vector DB.
 
@@ -246,6 +247,7 @@ async def build_vector_embeddings_stage(
 
     embedded_batches = await asyncio.to_thread(
         process_uast_batch_llm_summaries,
+        branch_id=branch_id,
         candidate_tuples=candidate_tuples,
         batch_size=50,
     )
@@ -323,6 +325,7 @@ async def execute_branch_indexing_pipeline(
                 file_roots=file_roots,
                 local_path=destination,
                 root_dir=p.root_dir,
+                branch_id=branch_id,
             )
 
         job.status = "COMPLETED"

@@ -74,6 +74,7 @@ def batch_embed_nodes_template(
     enhanced_batch: list[EnrichedNodeData],
     vector_store: QdrantVectorStore | None = None,
 ) -> list[EnrichedNodeData]:
+    print(enhanced_batch[0].branch_id)
     """Embeds enriched node chunks with Voyage AI (voyage-code-3) and upserts vector points to Qdrant Vector DB.
 
     Args:
@@ -105,6 +106,7 @@ def batch_embed_nodes_template(
 
 
 def process_uast_batch_llm_summaries(
+    branch_id: int,
     candidate_tuples: list[tuple[UASTNode, UASTNode, Path]],
     batch_size: int = 50,
     max_nodes: int | None = None,
@@ -193,6 +195,7 @@ def process_uast_batch_llm_summaries(
 
             # 3. Build enriched node data
             item = EnrichedNodeData(
+                branch_id=branch_id,
                 node_id=target_node.id,
                 node_type=target_node.node_type,
                 kind=getattr(target_node, "kind", target_node.node_type),
@@ -223,6 +226,7 @@ def process_uast_batch_llm_summaries(
 
 def run_embedding_pipeline(
     source_paths: list[Path],
+    branch_id: int = 1,
     batch_size: int = 50,
     max_nodes: int | None = None,
     client: Any | None = None,
@@ -233,6 +237,7 @@ def run_embedding_pipeline(
 
     Args:
         source_paths (list[Path]): List of source code file paths to process.
+        branch_id (int, optional): Target branch ID (defaults to 1).
         batch_size (int, optional): Batch size threshold (default 50).
         max_nodes (int | None, optional): Max nodes limit to process (e.g. 5 or 10 to save tokens).
         client (Any | None, optional): Optional preloaded OpenAI client instance.
@@ -254,6 +259,7 @@ def run_embedding_pipeline(
             candidate_tuples.append((root_node, target_node, file_path))
 
     return process_uast_batch_llm_summaries(
+        branch_id=branch_id,
         candidate_tuples=candidate_tuples,
         batch_size=batch_size,
         max_nodes=max_nodes,

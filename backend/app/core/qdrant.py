@@ -127,6 +127,7 @@ class QdrantVectorStore:
             point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, item.node_id))
 
             payload = {
+                "branch_id": item.branch_id,
                 "node_id": item.node_id,
                 "name": item.name,
                 "kind": item.kind,

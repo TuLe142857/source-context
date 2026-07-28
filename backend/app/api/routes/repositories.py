@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from app.core.config import settings
 
 from app.api.dependencies import CurrentUser, DBSession
 from app.api.routes.workspaces import check_workspace_access
@@ -106,7 +107,7 @@ async def create_repository_with_branches(
     await db.flush()
 
     for branch_req in payload.branches:
-        local_path = f"/app/workspace-repositories/ws_{workspace_id}/{payload.name}/{branch_req.branch_name}"
+        local_path = f"{settings.repository_workspace_root}/ws_{workspace_id}/{payload.name}/{branch_req.branch_name}"
         branch = Branch(
             repository_id=repo.id,
             branch_name=branch_req.branch_name,
