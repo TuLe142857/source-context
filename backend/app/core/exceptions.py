@@ -1,52 +1,65 @@
 """Application exceptions and FastAPI exception handlers."""
 
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException, RequestValidationError
+from sqlalchemy.exc import IntegrityError
 
-from app.schemas.common import ErrorResponse
+from .response import APIResponse
+from .error_code import ErrorCode
 
 
-class ApplicationError(Exception):
+class AppException(Exception):
     """Base exception for expected application-level failures."""
 
     def __init__(
         self,
-        *,
-        code: str,
-        message: str,
-        status_code: int = status.HTTP_400_BAD_REQUEST,
+        error_code: ErrorCode = ErrorCode.UNKNOWN_ERROR,
+        message: str | None = None,
     ) -> None:
+        self.__error_code = error_code
+        if message is not None:
+            self.__message = message
+        else:
+            self.__message = error_code.name.lower().replace("_", " ").capitalize()
+
         super().__init__(message)
 
-        self.code = code
-        self.message = message
-        self.status_code = status_code
+    @property
+    def error_code(self) -> ErrorCode:
+        return self.__error_code
+
+    @property
+    def message(self) -> str | None:
+        return self.__message
 
 
-async def application_error_handler(
-    _request: Request,
-    exc: Exception,
-) -> JSONResponse:
-    """Convert an ApplicationError into a standard JSON response."""
-
-    if not isinstance(exc, ApplicationError):
-        raise exc
-
-    response = ErrorResponse(
-        code=exc.code,
-        message=exc.message,
-    )
-
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=response.model_dump(mode="json"),
-    )
-
-
-def register_exception_handlers(application: FastAPI) -> None:
+def register_exception_handlers(app: FastAPI) -> None:
     """Register application exception handlers."""
 
-    application.add_exception_handler(
-        ApplicationError,
-        application_error_handler,
-    )
+    @app.exception_handler(AppException)
+    def app_exception_handler(request: Request, exc: AppException) -> APIResponse:
+        return APIResponse.error(exc.error_code, exc.message)
+
+    @app.exception_handler(IntegrityError)
+    def sqlalchemy_integrity_error_handler(
+        request: Request, exc: IntegrityError
+    ) -> APIResponse:
+        return APIResponse.error(ErrorCode.DATA_INTEGRITY_ERROR, str(exc))
+
+    @app.exception_handler(RequestValidationError)
+    def request_validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ) -> APIResponse:
+        return APIResponse.error(ErrorCode.VALIDATION_ERROR, str(exc.errors()))
+
+    @app.exception_handler(HTTPException)
+    def http_exception_handler(request: Request, exc: HTTPException) -> APIResponse:
+        return APIResponse.error(ErrorCode.UNKNOWN_ERROR, str(exc))
+
+    @app.exception_handler(Exception)
+    def unexpected_exception_handler(request: Request, exc: Exception) -> APIResponse:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning("Unexpected exception occurred")
+        return APIResponse.error(ErrorCode.UNKNOWN_ERROR, str(exc))
