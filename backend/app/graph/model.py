@@ -93,7 +93,7 @@ class FileNodeModel(StructuredNode):
     source_code_key: str | None = StringProperty()  # type: ignore[assignment]
     """S3 key if source code was saved on S3"""
 
-    nodes: RelationshipManager = RelationshipTo("UASTNodeModel", "DECLARE")  # type: ignore[assignment]
+    children: RelationshipManager = RelationshipTo("UASTNodeModel", "DECLARE")  # type: ignore[assignment]
     project: RelationshipManager = RelationshipFrom("ProjectNodeModel", "INCLUDES")  # type: ignore[assignment]
 
 
@@ -105,6 +105,9 @@ class UASTNodeModel(StructuredNode):
 
     __label__ = "Node"
     uid: str = StringProperty(required=True, unique_index=True)  # type: ignore[assignment]
+
+    file_node_uid: str = StringProperty()  # type: ignore[assignment]
+    """UID of file node contain this node"""
 
     node_type: str = StringProperty()  # type: ignore[assignment]
     name: str | None = StringProperty()  # type: ignore[assignment]
