@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 class QueryResult:
     """Dataclass holding a single search result hit from Qdrant."""
 
+    node_id: str
     score: float
     name: str
     kind: str
@@ -134,6 +135,7 @@ class CodeRetriever:
         for hit in hits:
             payload = hit.payload or {}
             res = QueryResult(
+                node_id=payload.get("node_id"),
                 score=float(hit.score),
                 name=payload.get("name", "unnamed"),
                 kind=payload.get("kind", "unknown"),

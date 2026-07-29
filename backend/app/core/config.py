@@ -37,12 +37,12 @@ def get_env_file_path() -> tuple[str, ...]:
         primary = root_dir / f".env.{env_state}"
 
     files: list[str] = []
-    if primary.exists():
-        files.append(str(primary))
-
     fallback = root_dir / ".env"
-    if fallback.exists() and str(fallback) not in files:
+    if fallback.exists():
         files.append(str(fallback))
+
+    if primary.exists() and str(primary) not in files:
+        files.append(str(primary))
 
     return tuple(files) if files else (".env",)
 
@@ -241,12 +241,6 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = Field(
         default="gpt-4o-mini",
         validation_alias=AliasChoices("SOURCE_CONTEXT_OPENAI_MODEL", "OPENAI_MODEL"),
-    )
-    OPENAI_BASE_URL: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices(
-            "SOURCE_CONTEXT_OPENAI_BASE_URL", "OPENAI_BASE_URL"
-        ),
     )
 
     # Voyage AI Settings
