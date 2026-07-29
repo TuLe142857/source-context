@@ -44,13 +44,22 @@ class RepositoryCreateRequest(BaseModel):
     )
 
 
+class SimpleRepositoryResponse(BaseModel):
+    """Simple schema for returning basic repository information without relational fields."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    git_url: str
+
+
 class RepositoryResponse(BaseModel):
     """Schema for returning repository information and its branches."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    workspace_id: int
     name: str
     git_url: str
     branches: list[BranchResponse] = Field(default_factory=list)
@@ -81,5 +90,6 @@ __all__ = [
     "RepositoryScanStatistics",
     "RepositorySnapshot",
     "RepositorySourceType",
+    "SimpleRepositoryResponse",
     "WorkspaceHierarchyResponse",
 ]

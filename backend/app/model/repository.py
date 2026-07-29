@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.postgres import Base
@@ -13,20 +13,19 @@ if TYPE_CHECKING:
 
 
 class Repository(Base):
-    """Repository database model representing a repository in a workspace."""
+    """Repository database model representing a repository shared across workspaces."""
 
     __tablename__ = "repositories"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    workspace_id: Mapped[int] = mapped_column(
-        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
-    )
     name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     git_url: Mapped[str] = mapped_column(String(1024), nullable=False)
 
     # Relationships
-    workspace: Mapped["Workspace"] = relationship(
-        "Workspace", back_populates="repositories"
+    workspaces: Mapped[list["Workspace"]] = relationship(
+        "Workspace",
+        secondary="workspace_repositories",
+        back_populates="repositories",
     )
     branches: Mapped[list["Branch"]] = relationship(
         "Branch", back_populates="repository", cascade="all, delete-orphan"

@@ -8,6 +8,8 @@ from app.model.project import Project
 from app.model.repository import Repository
 from app.model.user import User
 from app.model.workspace import Workspace
+from app.model.workspace_branch import WorkspaceBranch
+from app.model.workspace_repository import WorkspaceRepository
 
 __all__ = [
     "Branch",
@@ -18,4 +20,6 @@ __all__ = [
     "Repository",
     "User",
     "Workspace",
+    "WorkspaceBranch",
+    "WorkspaceRepository",
 ]
