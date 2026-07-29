@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.postgres import Base
 
 if TYPE_CHECKING:
+    from app.model.branch import Branch
     from app.model.indexing_job import IndexingJob
     from app.model.member import Member
     from app.model.repository import Repository
@@ -32,7 +33,14 @@ class Workspace(Base):
         "Member", back_populates="workspace", cascade="all, delete-orphan"
     )
     repositories: Mapped[list["Repository"]] = relationship(
-        "Repository", back_populates="workspace", cascade="all, delete-orphan"
+        "Repository",
+        secondary="workspace_repositories",
+        back_populates="workspaces",
+    )
+    branches: Mapped[list["Branch"]] = relationship(
+        "Branch",
+        secondary="workspace_branches",
+        back_populates="workspaces",
     )
     indexing_jobs: Mapped[list["IndexingJob"]] = relationship(
         "IndexingJob", back_populates="workspace", cascade="all, delete-orphan"

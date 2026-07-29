@@ -55,7 +55,7 @@ async def download_branch_source_stage(
     repo: Repository = row[1]
 
     destination = Path(
-        f"{settings.repository_workspace_root}/ws_{repo.project_id}/{repo.name}/{branch.branch_name}"
+        f"{settings.repository_workspace_root}/repo_{repo.id}/{branch.branch_name}"
     )
 
     git_client = GitClient(timeout_seconds=settings.git_command_timeout_seconds)
@@ -301,9 +301,13 @@ async def execute_branch_indexing_pipeline(
             branch.indexing_status = BranchIndexingStatus.INDEXING
             await db.commit()
 
-        # Fetch projects under this branch
+        # Fetch projects under this branch for this workspace
         proj_res = await db.execute(
-            select(Project).where(Project.branch_id == branch_id)
+            select(Project).where(
+                Project.branch_id == branch_id,
+                (Project.workspace_id == workspace_id)
+                | (Project.workspace_id.is_(None)),
+            )
         )
         projects = proj_res.scalars().all()
 
