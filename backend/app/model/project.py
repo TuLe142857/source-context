@@ -18,6 +18,12 @@ class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    workspace_id: Mapped[int | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        default=None,
+    )
     branch_id: Mapped[int] = mapped_column(
         ForeignKey("branches.id", ondelete="CASCADE"), nullable=False, index=True
     )
