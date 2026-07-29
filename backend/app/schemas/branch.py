@@ -15,6 +15,19 @@ class BranchCreateRequest(BaseModel):
     commit_hashed: str = Field(default="HEAD", description="Commit hash SHA or HEAD")
 
 
+class SimpleBranchResponse(BaseModel):
+    """Simple schema for returning branch information without sub-projects."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    repository_id: int
+    branch_name: str
+    commit_hashed: str
+    indexing_status: BranchIndexingStatus = BranchIndexingStatus.UNINDEXED
+    local_path: str | None = None
+
+
 class BranchResponse(BaseModel):
     """Schema for returning branch information and its configured projects."""
 
