@@ -1,21 +1,102 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* shadcn/ui semantic tokens, mapped onto this app's existing dark palette
+     so shadcn primitives (Button, Dialog, Input...) match the glass aesthetic
+     already used by the hand-built components. App is dark-only today. */
+  --radius: 1rem;
+  --background: #07090e;
+  --foreground: #f3f4f6;
+  --card: #11141c;
+  --card-foreground: #f3f4f6;
+  --popover: #11141c;
+  --popover-foreground: #f3f4f6;
+  --primary: #6366f1;
+  --primary-foreground: #f9fafb;
+  --secondary: #171b26;
+  --secondary-foreground: #f3f4f6;
+  --muted: #171b26;
+  --muted-foreground: #9ca3af;
+  --accent: #1c2331;
+  --accent-foreground: #f3f4f6;
+  --destructive: #f43f5e;
+  --destructive-foreground: #fff1f2;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #6366f1;
+
+  /* legacy tokens kept for the existing glass-* utility classes below */
+  --bg-primary: #0a0c10;
+  --bg-card: rgba(18, 22, 31, 0.75);
+  --bg-card-hover: rgba(28, 35, 49, 0.85);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --accent-indigo: #6366f1;
+  --accent-purple: #a855f7;
+  --accent-cyan: #06b6d4;
+}
+
+/* No light/dark toggle yet — .dark mirrors :root so shadcn components that
+   key off the .dark class (e.g. via next-themes later) still resolve correctly. */
+.dark {
+  --background: #07090e;
+  --foreground: #f3f4f6;
+  --card: #11141c;
+  --card-foreground: #f3f4f6;
+  --popover: #11141c;
+  --popover-foreground: #f3f4f6;
+  --primary: #6366f1;
+  --primary-foreground: #f9fafb;
+  --secondary: #171b26;
+  --secondary-foreground: #f3f4f6;
+  --muted: #171b26;
+  --muted-foreground: #9ca3af;
+  --accent: #1c2331;
+  --accent-foreground: #f3f4f6;
+  --destructive: #f43f5e;
+  --destructive-foreground: #fff1f2;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #6366f1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
 
 @layer base {
-  :root {
-    --bg-primary: #0a0c10;
-    --bg-card: rgba(18, 22, 31, 0.75);
-    --bg-card-hover: rgba(28, 35, 49, 0.85);
-    --border-color: rgba(255, 255, 255, 0.08);
-    --text-primary: #f3f4f6;
-    --text-secondary: #9ca3af;
-    --accent-indigo: #6366f1;
-    --accent-purple: #a855f7;
-    --accent-cyan: #06b6d4;
+  * {
+    @apply border-border outline-ring/50;
   }
 
   body {
-    background-color: #07090e;
-    color: var(--text-primary);
+    @apply bg-background text-foreground;
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     min-height: 100vh;
     overflow-x: hidden;

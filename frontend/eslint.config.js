@@ -18,5 +18,22 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // `_`-prefixed params are the convention for intentionally-unused args
+      // (e.g. template stub API functions matching a future real signature).
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  {
+    // shadcn/ui primitives intentionally co-export variant helpers (e.g.
+    // buttonVariants) alongside the component — upstream convention, not
+    // something to restructure.
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
   },
 ])
