@@ -107,7 +107,7 @@ def check_node_usages(node_id: str, graph_service: GraphServiceDep, user: Curren
 
 
 @router.get(
-    "/nodes/{node_id}/callees}",
+    "/nodes/{node_id}/callees",
     response_model=ResponseSuccessSchema[list[str]],
     responses=build_error_docs(ErrorCode.RESOURCE_NOT_FOUND),
 )

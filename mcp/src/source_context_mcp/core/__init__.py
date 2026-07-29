@@ -1,6 +1,7 @@
 from .api_client import ApiClient as ApiClient
 from .api_client import ApiResponse as ApiResponse
 from .context import AppContext as AppContext
+from .dependencies import ApiClientDep as ApiClientDep
 from .settings import CONFIG_FILE as CONFIG_FILE
 from .settings import Settings as Settings
 from .settings import get_settings as get_settings

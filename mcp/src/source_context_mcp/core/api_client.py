@@ -82,6 +82,8 @@ class ApiClient:
 
                 try:
                     raw_data = resp.json()
+                    if isinstance(raw_data, dict) and "data" in raw_data:
+                        raw_data = raw_data["data"]
                 except ValueError:
                     raw_data = resp.text
 
