@@ -1,7 +1,8 @@
-from mcp.server import MCPServer
-from mcp.server.mcpserver import Context
+from typing import Any
 
-from source_context_mcp.core import AppContext
+from mcp.server import MCPServer
+
+from source_context_mcp.core import ApiClientDep
 
 
 def register_tools(mcp: MCPServer) -> None:
@@ -16,26 +17,25 @@ def register_tools(mcp: MCPServer) -> None:
         mcp: MCPServer instance
     """
 
-    @mcp.tool()
-    def list_workspaces(ctx: Context[AppContext]) -> list[str]:
+    @mcp.tool(description="List all available workspaces that current user can access")
+    async def list_workspaces(client: ApiClientDep) -> Any:
+        res = await client.get("/general/workspaces", response_model=list)
+        return res.data
+
+    @mcp.tool(description="List all available repositories in workspace")
+    async def list_repositories(
+        client: ApiClientDep,
+        workspace_id: int,
+    ) -> Any:
+        res = await client.post("/general/repositories", {"workspace_id": workspace_id})
+        return res.data
+
+    @mcp.tool(description="List all available branches in specified repository.")
+    async def list_branches(client: ApiClientDep, project_id: int) -> Any:
         """This tool is not implemented yet"""
+        return ["This tool is not implemented yet"]
 
-        app_context: AppContext = ctx.request_context.lifespan_context
-        api_client = app_context.api_client
-
-        return ["wk1", "wk2"]
-
-    @mcp.tool()
-    def list_repositories() -> list[str]:
+    @mcp.tool(description="List all available projects in specific branch.")
+    def list_projects(client: ApiClientDep, branch_id: int) -> Any:
         """This tool is not implemented yet"""
-        return ["repo1", "repo2"]
-
-    @mcp.tool()
-    def list_branches() -> list[str]:
-        """This tool is not implemented yet"""
-        return ["branch1", "branch2"]
-
-    @mcp.tool()
-    def list_projects() -> list[str]:
-        """This tool is not implemented yet"""
-        return ["project1", "project2"]
+        return ["This tool is not implemented yet"]
