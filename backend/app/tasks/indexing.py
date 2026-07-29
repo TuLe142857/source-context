@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.postgres import database
 from app.embedding.embedding_pipeline import process_uast_batch_llm_summaries
 from app.embedding.utils import extract_summarizable_nodes
+from app.enums import BranchIndexingStatus
 from app.graph import build_call_graph_for_project, save_file_node
 from app.graph.model import ProjectNodeModel
 from app.model.branch import Branch
@@ -293,6 +294,13 @@ async def execute_branch_indexing_pipeline(
 
         destination, _ = await download_branch_source_stage(branch_id, db)
 
+        # Update branch status to INDEXING
+        branch_res = await db.execute(select(Branch).where(Branch.id == branch_id))
+        branch = branch_res.scalar_one_or_none()
+        if branch is not None:
+            branch.indexing_status = BranchIndexingStatus.INDEXING
+            await db.commit()
+
         # Fetch projects under this branch
         proj_res = await db.execute(
             select(Project).where(Project.branch_id == branch_id)
@@ -338,6 +346,10 @@ async def execute_branch_indexing_pipeline(
         job.status = "COMPLETED"
         job.progress_pct = 100
         job.error_message = None
+
+        if branch is not None:
+            branch.indexing_status = BranchIndexingStatus.INDEXED
+
         await db.commit()
         logger.info(
             "IndexingJob %d for branch_id=%d (workspace_id=%d) COMPLETED successfully.",
@@ -350,6 +362,12 @@ async def execute_branch_indexing_pipeline(
         logger.exception("IndexingJob %d failed: %s", job_id, exc)
         job.status = "FAILED"
         job.error_message = str(exc)
+
+        branch_err_res = await db.execute(select(Branch).where(Branch.id == branch_id))
+        err_branch = branch_err_res.scalar_one_or_none()
+        if err_branch is not None:
+            err_branch.indexing_status = BranchIndexingStatus.FAILED
+
         await db.commit()
 
 

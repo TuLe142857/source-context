@@ -25,5 +25,6 @@ class ProjectResponse(BaseModel):
 
     id: int
     branch_id: int
+    workspace_id: int | None = None
     root_dir: str
     language: SourceLanguage

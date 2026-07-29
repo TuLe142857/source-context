@@ -17,5 +17,6 @@ __all__ = [
     "ResponsePaginationSchema",
     "ResponseSuccessSchema",
     "Settings",
+    "build_error_docs",
     "get_settings",
 ]

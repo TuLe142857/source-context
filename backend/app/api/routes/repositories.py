@@ -7,7 +7,7 @@ from app.core.config import settings
 
 from app.api.dependencies import CurrentUser, DBSession
 from app.api.routes.workspaces import check_workspace_access
-from app.tasks import index_branch_task
+from app.enums import BranchIndexingStatus
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.project import Project
@@ -27,6 +27,7 @@ from app.schemas.repository import (
     RepositoryResponse,
     WorkspaceHierarchyResponse,
 )
+from app.tasks import index_branch_task
 
 router = APIRouter(prefix="/workspaces", tags=["Workspace Repositories & Hierarchy"])
 
@@ -85,36 +86,58 @@ async def create_repository_with_branches(
     current_user: CurrentUser,
     db: DBSession,
 ) -> RepositoryResponse:
-    """Creates a Repository record and registers selected Branch records with persistent local paths.
+    """Attaches or reuses a repository and registers selected branches to a workspace.
 
     Args:
         workspace_id (int): Target workspace ID.
-        payload (RepositoryCreateRequest): Repository details and branches.
+        payload (RepositoryCreateRequest): Repository creation payload with git_url and branches.
         current_user (CurrentUser): Authenticated user.
         db (DBSession): Database session.
 
     Returns:
-        RepositoryResponse: Created repository and registered branch information.
+        RepositoryResponse: Repository information and registered branch list.
     """
     await check_workspace_access(workspace_id, current_user.id, db)
 
-    repo = Repository(
-        project_id=workspace_id,
-        name=payload.name,
-        git_url=payload.git_url,
+    repo_res = await db.execute(
+        select(Repository).where(Repository.git_url == payload.git_url)
     )
-    db.add(repo)
-    await db.flush()
+    repo = repo_res.scalar_one_or_none()
+
+    if repo is None:
+        repo = Repository(
+            workspace_id=workspace_id,
+            name=payload.name,
+            git_url=payload.git_url,
+        )
+        db.add(repo)
+        await db.flush()
 
     for branch_req in payload.branches:
-        local_path = f"{settings.repository_workspace_root}/ws_{workspace_id}/{payload.name}/{branch_req.branch_name}"
-        branch = Branch(
-            repository_id=repo.id,
-            branch_name=branch_req.branch_name,
-            commit_hashed=branch_req.commit_hashed,
-            local_path=local_path,
+        branch_res = await db.execute(
+            select(Branch).where(
+                Branch.repository_id == repo.id,
+                Branch.branch_name == branch_req.branch_name,
+            )
         )
-        db.add(branch)
+        existing_branch = branch_res.scalar_one_or_none()
+
+        if existing_branch is None:
+            local_path = f"{settings.repository_workspace_root}/ws_{workspace_id}/{payload.name}/{branch_req.branch_name}"
+            branch = Branch(
+                repository_id=repo.id,
+                branch_name=branch_req.branch_name,
+                commit_hashed=branch_req.commit_hashed,
+                indexing_status=BranchIndexingStatus.UNINDEXED,
+                local_path=local_path,
+            )
+            db.add(branch)
+        else:
+            if branch_req.commit_hashed and branch_req.commit_hashed != "HEAD":
+                if existing_branch.commit_hashed != branch_req.commit_hashed:
+                    existing_branch.commit_hashed = branch_req.commit_hashed
+                    if existing_branch.indexing_status == BranchIndexingStatus.INDEXED:
+                        existing_branch.indexing_status = BranchIndexingStatus.OUTDATED
 
     await db.commit()
 
@@ -127,7 +150,7 @@ async def create_repository_with_branches(
 
     return RepositoryResponse(
         id=created_repo.id,
-        project_id=created_repo.project_id,
+        workspace_id=created_repo.workspace_id,
         name=created_repo.name,
         git_url=created_repo.git_url,
         branches=[
@@ -136,15 +159,18 @@ async def create_repository_with_branches(
                 repository_id=b.repository_id,
                 branch_name=b.branch_name,
                 commit_hashed=b.commit_hashed,
+                indexing_status=b.indexing_status,
                 local_path=b.local_path,
                 projects=[
                     ProjectResponse(
                         id=p.id,
                         branch_id=p.branch_id,
+                        workspace_id=p.workspace_id,
                         root_dir=p.root_dir,
                         language=p.language,
                     )
                     for p in b.projects
+                    if p.workspace_id is None or p.workspace_id == workspace_id
                 ],
             )
             for b in created_repo.branches
@@ -165,7 +191,7 @@ async def create_project_under_branch(
     current_user: CurrentUser,
     db: DBSession,
 ) -> ProjectResponse:
-    """Configures a Project sub-directory and language target under a specific branch.
+    """Configures or updates a Project sub-directory and language target under a specific branch in a workspace.
 
     Args:
         workspace_id (int): Target workspace ID.
@@ -175,34 +201,46 @@ async def create_project_under_branch(
         db (DBSession): Database session.
 
     Returns:
-        ProjectResponse: Created sub-project configuration.
+        ProjectResponse: Created or updated sub-project configuration.
     """
     await check_workspace_access(workspace_id, current_user.id, db)
 
-    branch_res = await db.execute(
-        select(Branch)
-        .join(Repository, Branch.repository_id == Repository.id)
-        .where(Branch.id == branch_id, Repository.project_id == workspace_id)
-    )
+    branch_res = await db.execute(select(Branch).where(Branch.id == branch_id))
     branch = branch_res.scalar_one_or_none()
     if branch is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Branch with ID {branch_id} not found in this workspace.",
+            detail=f"Branch with ID {branch_id} not found.",
         )
 
-    project = Project(
-        branch_id=branch_id,
-        root_dir=payload.root_dir,
-        language=payload.language,
+    proj_res = await db.execute(
+        select(Project).where(
+            Project.workspace_id == workspace_id,
+            Project.branch_id == branch_id,
+            Project.root_dir == payload.root_dir,
+        )
     )
-    db.add(project)
+    existing_project = proj_res.scalar_one_or_none()
+
+    if existing_project is not None:
+        existing_project.language = payload.language
+        project = existing_project
+    else:
+        project = Project(
+            workspace_id=workspace_id,
+            branch_id=branch_id,
+            root_dir=payload.root_dir,
+            language=payload.language,
+        )
+        db.add(project)
+
     await db.commit()
     await db.refresh(project)
 
     return ProjectResponse(
         id=project.id,
         branch_id=project.branch_id,
+        workspace_id=project.workspace_id,
         root_dir=project.root_dir,
         language=project.language,
     )
@@ -251,7 +289,7 @@ async def get_workspace_hierarchy(
         repositories=[
             RepositoryResponse(
                 id=r.id,
-                project_id=r.project_id,
+                workspace_id=r.workspace_id,
                 name=r.name,
                 git_url=r.git_url,
                 branches=[
@@ -260,15 +298,18 @@ async def get_workspace_hierarchy(
                         repository_id=b.repository_id,
                         branch_name=b.branch_name,
                         commit_hashed=b.commit_hashed,
+                        indexing_status=b.indexing_status,
                         local_path=b.local_path,
                         projects=[
                             ProjectResponse(
                                 id=p.id,
                                 branch_id=p.branch_id,
+                                workspace_id=p.workspace_id,
                                 root_dir=p.root_dir,
                                 language=p.language,
                             )
                             for p in b.projects
+                            if p.workspace_id is None or p.workspace_id == workspace_id
                         ],
                     )
                     for b in r.branches
@@ -302,7 +343,7 @@ async def delete_repository(
 
     repo_res = await db.execute(
         select(Repository).where(
-            Repository.id == repository_id, Repository.project_id == workspace_id
+            Repository.id == repository_id, Repository.workspace_id == workspace_id
         )
     )
     repo = repo_res.scalar_one_or_none()
@@ -338,10 +379,10 @@ async def delete_sub_project(
     await check_workspace_access(workspace_id, current_user.id, db)
 
     proj_res = await db.execute(
-        select(Project)
-        .join(Branch, Project.branch_id == Branch.id)
-        .join(Repository, Branch.repository_id == Repository.id)
-        .where(Project.id == project_id, Repository.project_id == workspace_id)
+        select(Project).where(
+            Project.id == project_id,
+            (Project.workspace_id == workspace_id) | (Project.workspace_id.is_(None)),
+        )
     )
     project = proj_res.scalar_one_or_none()
     if project is None:
@@ -383,7 +424,7 @@ async def trigger_workspace_indexing(
     branches_res = await db.execute(
         select(Branch)
         .join(Repository, Branch.repository_id == Repository.id)
-        .where(Repository.project_id == workspace_id)
+        .where(Repository.workspace_id == workspace_id)
     )
     branches = branches_res.scalars().all()
     if not branches:
@@ -394,6 +435,7 @@ async def trigger_workspace_indexing(
 
     jobs: list[IndexingJob] = []
     for branch in branches:
+        branch.indexing_status = BranchIndexingStatus.INDEXING
         job = IndexingJob(
             workspace_id=workspace_id,
             branch_id=branch.id,
@@ -441,7 +483,7 @@ async def trigger_branch_indexing(
     branch_res = await db.execute(
         select(Branch)
         .join(Repository, Branch.repository_id == Repository.id)
-        .where(Branch.id == branch_id, Repository.project_id == workspace_id)
+        .where(Branch.id == branch_id, Repository.workspace_id == workspace_id)
     )
     branch = branch_res.scalar_one_or_none()
     if branch is None:
@@ -450,6 +492,7 @@ async def trigger_branch_indexing(
             detail=f"Branch with ID {branch_id} not found in this workspace.",
         )
 
+    branch.indexing_status = BranchIndexingStatus.INDEXING
     job = IndexingJob(
         workspace_id=workspace_id,
         branch_id=branch_id,

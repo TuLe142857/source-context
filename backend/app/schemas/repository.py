@@ -50,7 +50,7 @@ class RepositoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    project_id: int
+    workspace_id: int
     name: str
     git_url: str
     branches: list[BranchResponse] = Field(default_factory=list)

@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.enums import BranchIndexingStatus
 from app.schemas.project import ProjectResponse
 
 
@@ -23,5 +24,6 @@ class BranchResponse(BaseModel):
     repository_id: int
     branch_name: str
     commit_hashed: str
+    indexing_status: BranchIndexingStatus = BranchIndexingStatus.UNINDEXED
     local_path: str | None = None
     projects: list[ProjectResponse] = Field(default_factory=list)

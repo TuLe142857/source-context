@@ -2,10 +2,11 @@
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import Enum as SQLEnum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.postgres import Base
+from app.enums import BranchIndexingStatus
 
 if TYPE_CHECKING:
     from app.model.indexing_job import IndexingJob
@@ -25,6 +26,15 @@ class Branch(Base):
     branch_name: Mapped[str] = mapped_column(String(255), nullable=False)
     commit_hashed: Mapped[str] = mapped_column(
         String(255), nullable=False, default="HEAD"
+    )
+    indexing_status: Mapped[BranchIndexingStatus] = mapped_column(
+        SQLEnum(
+            BranchIndexingStatus,
+            name="branch_indexing_status_enum",
+            native_enum=False,
+        ),
+        nullable=False,
+        default=BranchIndexingStatus.UNINDEXED,
     )
     local_path: Mapped[str | None] = mapped_column(
         String(1024), nullable=True, default=None
