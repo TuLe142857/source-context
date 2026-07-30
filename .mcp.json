@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "uvx": {
+      "type": "stdio",
+      "command": "source-context-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {}
+    }
+  }
+}

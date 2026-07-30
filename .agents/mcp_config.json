@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+        "source-context-mcp": {
+            "command": "uvx",
+            "args": [
+                "source-context-mcp",
+                "run"
+            ]
+        }
+    }
+}

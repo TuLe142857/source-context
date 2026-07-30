@@ -21,7 +21,7 @@ def register_tools(mcp: MCPServer) -> None:
     @mcp.tool(description="List all available workspaces that current user can access")
     async def list_workspaces(client: ApiClientDep) -> Any:
         res = await client.get("/general/workspaces", response_model=list)
-        return res.data
+        return res.result()
 
     @mcp.tool(
         description=(
@@ -53,7 +53,7 @@ def register_tools(mcp: MCPServer) -> None:
         workspace_id: int,
     ) -> Any:
         res = await client.post("/general/repositories", {"workspace_id": workspace_id})
-        return res.data
+        return res.result()
 
     @mcp.tool(description="List all available branches in specified repository.")
     async def list_branches(client: ApiClientDep, workspace_id: int, repository_id: int) -> Any:
@@ -62,7 +62,7 @@ def register_tools(mcp: MCPServer) -> None:
             "repository_id": repository_id,
         }
         res = await client.post("/general/branches", req_body)
-        return res.data
+        return res.result()
 
     @mcp.tool(description="List all available projects in specific branch.")
     async def list_projects(client: ApiClientDep, workspace_id: int, repository_id: int, branch_name: str) -> Any:
@@ -72,4 +72,4 @@ def register_tools(mcp: MCPServer) -> None:
             "branch_name": branch_name,
         }
         res = await client.post("/general/projects", req_body)
-        return res.data
+        return res.result()

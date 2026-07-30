@@ -37,7 +37,9 @@ def create_server(
     life_span = make_life_span(
         base_url_override=base_url_override, pat_override=pat_override, workspace_id_override=workspace_id_override
     )
+    import sys
 
+    print("hello", file=sys.stderr)
     server = MCPServer(
         name="SourceContextMCP",
         lifespan=life_span,
