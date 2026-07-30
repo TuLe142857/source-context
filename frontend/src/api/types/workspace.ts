@@ -7,13 +7,8 @@ export interface WorkspaceResponse {
   owner_id: number;
 }
 
-export interface WorkspaceCreate {
+export interface CreateWorkspaceRequest {
   workspace_name: string;
-  description?: string | null;
-}
-
-export interface WorkspaceUpdate {
-  workspace_name?: string | null;
   description?: string | null;
 }
 
@@ -23,14 +18,18 @@ export interface WorkspaceUpdate {
  * (not renamed client-side) per plans/frontend_dev_plan.md.
  */
 export interface MemberResponse {
-  project_id: number;
+  workspace_id?: number | null;
+  project_id?: number | null;
   user_id: number;
   email?: string | null;
   username?: string | null;
+  full_name?: string | null;
 }
 
+/** Backend accepts either — at least one must be provided. */
 export interface AddMemberRequest {
-  email: string;
+  email?: string;
+  user_id?: number;
 }
 
 /** Full nested tree: Workspace -> Repositories -> Branches -> Projects, plus Members. */

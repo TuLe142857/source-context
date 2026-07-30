@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { TemplateBadge } from '@/components/TemplateBadge';
 import { useSession } from '@/hooks/useAuth';
 import { useDeleteWorkspaceMutation, useUpdateWorkspaceMutation } from '@/hooks/useWorkspaces';
 import type { WorkspaceResponse } from '@/api/types/workspace';
@@ -56,6 +57,10 @@ export function OverviewPanel({ workspace }: { workspace: WorkspaceResponse }) {
 
   return (
     <div className="space-y-6 max-w-lg">
+      <div className="flex items-center gap-2">
+        <h3 className="font-semibold text-foreground">Thông tin workspace</h3>
+        {isOwner && <TemplateBadge />}
+      </div>
       <form onSubmit={handleSave} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="ws-overview-name">Tên workspace</Label>
