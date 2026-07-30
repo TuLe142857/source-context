@@ -7,7 +7,12 @@ from app.core import (
     build_error_docs,
 )
 from app.schemas.branch import SimpleBranchResponse
-from app.schemas.general import BranchRequest, RepositoryRequest
+from app.schemas.general import (
+    BranchProjectsRequest,
+    BranchRequest,
+    RepositoryRequest,
+)
+from app.schemas.project import ProjectResponse
 from app.schemas.repository import SimpleRepositoryResponse
 from app.schemas.workspace import WorkspaceResponse
 from app.services.general_service import GeneralServiceDep
@@ -68,3 +73,25 @@ async def get_branches(
         repository_id=payload.repository_id,
     )
     return APIResponse.ok(data=branches)
+
+
+@router.post(
+    "/projects",
+    response_model=ResponseSuccessSchema[list[ProjectResponse]],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Get sub-projects of a branch in a workspace",
+)
+async def get_projects(
+    payload: BranchProjectsRequest,
+    general_service: GeneralServiceDep,
+) -> APIResponse:
+    projects = await general_service.get_projects(
+        workspace_id=payload.workspace_id,
+        repo_id=payload.repo_id,
+        branch_name=payload.branch_name,
+    )
+    return APIResponse.ok(data=projects)
