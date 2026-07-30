@@ -21,9 +21,9 @@ def register_tools(mcp: MCPServer) -> None:
 
         res = await client.post(f"/vector/search/{workspace_id}", req_body)
 
-        return res.data
+        return res.result()
 
-    @mcp.tool()
+    @mcp.tool(description="Sematic search.")
     async def search_in_repo_and_branch(
         client: ApiClientDep, repository_id: int, branch_name: str, query: str, top_k: int = 5
     ) -> Any:
@@ -34,4 +34,4 @@ def register_tools(mcp: MCPServer) -> None:
 
         res = await client.post(f"/vector/search/{repository_id}/{branch_name}", req_body)
 
-        return res.data
+        return res.result()

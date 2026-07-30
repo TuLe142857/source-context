@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, overload
 
 import httpx
+from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import TypeAdapter, ValidationError
 
 
@@ -14,6 +15,27 @@ class ApiResponse[T]:
     data: T | None
     error_code: str | None
     message: str | None
+
+    def result(self) -> T:
+        """
+        Return the response data if the API request succeeded.
+
+        Raises:
+            ToolError:
+                If the API request failed. This exception is intended to propagate to the MCP framework, which
+                automatically converts it into an MCP tool error response (`isError=True`). It does not need to be
+                caught by tool implementations.
+        """
+        if self.success:
+            return self.data
+        if self.error_code is None and self.message is None:
+            msg = "UNKNOWN_ERROR"
+        else:
+            msg = (
+                f"{self.error_code if self.error_code is not None else ''} "
+                f"{self.message if self.message is not None else ''}"
+            )
+        raise ToolError(msg)
 
     @staticmethod
     def ok(data: T | None, message: str | None = None, status_code: int = 200) -> ApiResponse[T]:
@@ -111,6 +133,14 @@ class ApiClient:
                     status_code=0,
                     error_code="CONNECTION_ERROR",
                 )
+
+            except httpx.HTTPStatusError as exc:
+                res = exc.response
+                try:
+                    res_json = res.json()
+                    return ApiResponse.error(exc.response.status_code, res_json.get("error_code", "UNKNOW_ERROR"))
+                except ValueError:
+                    return ApiResponse.error(0, str(exc))
 
             except httpx.HTTPError as exc:
                 return ApiResponse.error(0, str(exc))
