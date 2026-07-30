@@ -392,9 +392,13 @@ def index_branch_task(workspace_id: int, branch_id: int, job_id: int) -> None:
     )
 
     async def _runner() -> None:
-        async with database.async_session_factory() as session:
-            await execute_branch_indexing_pipeline(
-                workspace_id, branch_id, job_id, session
-            )
+        try:
+            await database.engine.dispose()
+            async with database.async_session_factory() as session:
+                await execute_branch_indexing_pipeline(
+                    workspace_id, branch_id, job_id, session
+                )
+        finally:
+            await database.engine.dispose()
 
     asyncio.run(_runner())
