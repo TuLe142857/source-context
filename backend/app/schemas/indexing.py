@@ -1,13 +1,15 @@
-"""Pydantic schemas for Indexing Job status and trigger requests."""
-
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
 
-class IndexingJobResponse(BaseModel):
-    """Schema for returning IndexingJob status information."""
+class TriggerBranchIndexingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
+    commit_hashed: str | None = None
+
+
+class IndexingJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

@@ -55,7 +55,7 @@ class ResponseErrorSchema(BaseModel):
 
 def build_error_docs(
     *errors: ErrorCode | tuple[ErrorCode, str],
-) -> dict[int, dict[str, Any]]:
+) -> dict[int | str, dict[str, Any]]:
     """
      Build OpenAPI-compatible error response documentation for FastAPI endpoints
     Args:
@@ -76,7 +76,7 @@ def build_error_docs(
         >>> def some_func():
         >>>     pass
     """
-    responses: dict[int, dict[str, Any]] = {}
+    responses: dict[int | str, dict[str, Any]] = {}
 
     for item in errors:
         if isinstance(item, ErrorCode):

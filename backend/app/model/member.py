@@ -17,7 +17,7 @@ class Member(Base):
 
     __tablename__ = "members"
 
-    project_id: Mapped[int] = mapped_column(
+    workspace_id: Mapped[int] = mapped_column(
         ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True, index=True
     )
     user_id: Mapped[int] = mapped_column(
@@ -26,4 +26,4 @@ class Member(Base):
 
     # Relationships
     workspace: Mapped["Workspace"] = relationship("Workspace", back_populates="members")
-    user: Mapped["User"] = relationship("User", back_populates="project_memberships")
+    user: Mapped["User"] = relationship("User", back_populates="workspace_memberships")

@@ -1,31 +1,28 @@
-"""Pydantic schemas for Workspace API requests and responses."""
-
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class WorkspaceBase(BaseModel):
-    """Base schema for Workspace attributes."""
-
     workspace_name: str
     description: str | None = None
 
 
 class WorkspaceCreate(WorkspaceBase):
-    """Schema for workspace creation request."""
-
     pass
 
 
-class WorkspaceUpdate(BaseModel):
-    """Schema for workspace update request."""
+class CreateWorkspaceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
+    workspace_name: str
+    description: str | None = None
+
+
+class WorkspaceUpdate(BaseModel):
     workspace_name: str | None = None
     description: str | None = None
 
 
 class WorkspaceResponse(WorkspaceBase):
-    """Schema for returning workspace information."""
-
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -33,17 +30,18 @@ class WorkspaceResponse(WorkspaceBase):
 
 
 class AddMemberRequest(BaseModel):
-    """Schema for adding a member to workspace by email."""
+    model_config = ConfigDict(extra="forbid")
 
-    email: EmailStr
+    email: EmailStr | None = None
+    user_id: int | None = None
 
 
 class MemberResponse(BaseModel):
-    """Schema for returning workspace member information."""
-
     model_config = ConfigDict(from_attributes=True)
 
-    project_id: int
+    workspace_id: int | None = None
+    project_id: int | None = None
     user_id: int
     email: str | None = None
     username: str | None = None
+    full_name: str | None = None

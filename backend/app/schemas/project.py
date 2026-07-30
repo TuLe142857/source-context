@@ -1,13 +1,9 @@
-"""Pydantic schemas for Project (SCIP Target) configuration."""
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.source_file import SourceLanguage
 
 
 class ProjectCreateRequest(BaseModel):
-    """Schema for configuring a sub-project under a branch."""
-
     root_dir: str = Field(
         ...,
         description="Relative sub-folder path inside the branch repository, e.g. '.' or 'backend/'",
@@ -18,9 +14,14 @@ class ProjectCreateRequest(BaseModel):
     )
 
 
-class ProjectResponse(BaseModel):
-    """Schema for returning configured sub-project details."""
+class ProjectUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
+    root_dir: str | None = None
+    language: SourceLanguage | None = None
+
+
+class ProjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int

@@ -1,356 +1,230 @@
-"""API routes for Workspace management and Member operations."""
+"""API routes for Workspace operations using WorkspaceService."""
 
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from fastapi import APIRouter
 
-from app.api.dependencies import CurrentUser, DBSession
-from app.model.member import Member
-from app.model.user import User
-from app.model.workspace import Workspace
+from app.core import (
+    APIResponse,
+    ErrorCode,
+    ResponseSuccessSchema,
+    build_error_docs,
+)
 from app.schemas.workspace import (
     AddMemberRequest,
+    CreateWorkspaceRequest,
     MemberResponse,
-    WorkspaceCreate,
     WorkspaceResponse,
-    WorkspaceUpdate,
 )
+from app.services.workspace_service import WorkspaceServiceDep
+
 
 router = APIRouter(prefix="/workspaces", tags=["Workspaces"])
 
 
-async def get_workspace_or_404(
-    workspace_id: int,
-    db: AsyncSession,
-) -> Workspace:
-    """Helper to fetch workspace by ID or raise 404.
-
-    Args:
-        workspace_id (int): Target workspace ID.
-        db (AsyncSession): Database session.
-
-    Returns:
-        Workspace: Retrieved workspace model.
-
-    Raises:
-        HTTPException: 404 if workspace does not exist.
-    """
-    result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
-    workspace = result.scalar_one_or_none()
-    if workspace is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Workspace with ID {workspace_id} not found.",
-        )
-    return workspace
-
-
-async def check_workspace_access(
-    workspace_id: int,
-    user_id: int,
-    db: AsyncSession,
-) -> Workspace:
-    """Verifies that user is either owner or member of the workspace.
-
-    Args:
-        workspace_id (int): Target workspace ID.
-        user_id (int): Current user ID.
-        db (AsyncSession): Database session.
-
-    Returns:
-        Workspace: Verified workspace model.
-
-    Raises:
-        HTTPException: 404 if workspace not found, 403 if unauthorized.
-    """
-    workspace = await get_workspace_or_404(workspace_id, db)
-    if workspace.owner_id == user_id:
-        return workspace
-
-    member_res = await db.execute(
-        select(Member).where(
-            Member.project_id == workspace_id,
-            Member.user_id == user_id,
-        )
-    )
-    if member_res.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. You are not a member of this workspace.",
-        )
-    return workspace
-
-
-@router.post(
+@router.get(
     "",
-    response_model=WorkspaceResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new workspace",
+    response_model=ResponseSuccessSchema[list[WorkspaceResponse]],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="List accessible workspaces",
 )
+async def get_accessible_workspace(
+    workspace_service: WorkspaceServiceDep,
+) -> APIResponse:
+    """Retrieves all workspaces accessible by the current user.
+
+    Args:
+        workspace_service (WorkspaceServiceDep): Injected WorkspaceService.
+
+    Returns:
+        APIResponse: Success response with list of accessible workspaces.
+    """
+    workspaces = await workspace_service.get_accessible_workspace()
+    return APIResponse.ok(data=workspaces)
+
+
 @router.post(
     "/",
-    response_model=WorkspaceResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new workspace",
+    response_model=ResponseSuccessSchema[WorkspaceResponse],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_ALREADY_EXISTS,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.BAD_REQUEST,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Create a workspace",
 )
 async def create_workspace(
-    payload: WorkspaceCreate,
-    current_user: CurrentUser,
-    db: DBSession,
-) -> Workspace:
-    """Creates a new workspace and adds the owner into the member table.
+    workspace_service: WorkspaceServiceDep,
+    payload: CreateWorkspaceRequest,
+) -> APIResponse:
+    """Creates a new workspace and adds current user as a member.
 
     Args:
-        payload (WorkspaceCreate): Workspace creation payload.
-        current_user (CurrentUser): Authenticated user.
-        db (DBSession): Database session.
+        workspace_service (WorkspaceServiceDep): Injected WorkspaceService.
+        payload (CreateWorkspaceRequest): Creation payload.
 
     Returns:
-        Workspace: Created workspace model.
+        APIResponse: Success response with created workspace.
     """
-    workspace = Workspace(
+    workspace = await workspace_service.create_workspace(
         workspace_name=payload.workspace_name,
         description=payload.description,
-        owner_id=current_user.id,
     )
-    db.add(workspace)
-    await db.flush()
-
-    member = Member(
-        project_id=workspace.id,
-        user_id=current_user.id,
-    )
-    db.add(member)
-    await db.commit()
-    await db.refresh(workspace)
-
-    return workspace
-
-
-@router.get(
-    "",
-    response_model=list[WorkspaceResponse],
-    summary="List accessible workspaces",
-)
-@router.get(
-    "/",
-    response_model=list[WorkspaceResponse],
-    summary="List accessible workspaces",
-)
-async def list_workspaces(
-    current_user: CurrentUser,
-    db: DBSession,
-    skip: int = 0,
-    limit: int = 100,
-) -> list[Workspace]:
-    """Lists workspaces that current user owns or is a member of.
-
-    Args:
-        current_user (CurrentUser): Authenticated user.
-        db (DBSession): Database session.
-        skip (int, optional): Pagination offset. Defaults to 0.
-        limit (int, optional): Pagination limit. Defaults to 100.
-
-    Returns:
-        list[Workspace]: Accessible workspaces.
-    """
-    query = (
-        select(Workspace)
-        .outerjoin(Member, Workspace.id == Member.project_id)
-        .where(
-            (Workspace.owner_id == current_user.id)
-            | (Member.user_id == current_user.id)
-        )
-        .distinct()
-        .offset(skip)
-        .limit(limit)
-    )
-    result = await db.execute(query)
-    return list(result.scalars().all())
+    return APIResponse.ok(data=workspace)
 
 
 @router.get(
     "/{workspace_id}",
-    response_model=WorkspaceResponse,
+    response_model=ResponseSuccessSchema[WorkspaceResponse],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.FORBIDDEN,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
     summary="Get workspace by ID",
 )
-async def get_workspace(
+async def get_workspace_by_id(
     workspace_id: int,
-    current_user: CurrentUser,
-    db: DBSession,
-) -> Workspace:
-    """Retrieves workspace details if user has access.
+    workspace_service: WorkspaceServiceDep,
+) -> APIResponse:
+    """Retrieves details of a workspace by ID.
 
     Args:
         workspace_id (int): Target workspace ID.
-        current_user (CurrentUser): Authenticated user.
-        db (DBSession): Database session.
+        workspace_service (WorkspaceServiceDep): Injected WorkspaceService.
 
     Returns:
-        Workspace: Workspace object.
+        APIResponse: Success response with workspace details.
     """
-    return await check_workspace_access(workspace_id, current_user.id, db)
-
-
-@router.patch(
-    "/{workspace_id}",
-    response_model=WorkspaceResponse,
-    summary="Update workspace details",
-)
-async def update_workspace(
-    workspace_id: int,
-    payload: WorkspaceUpdate,
-    current_user: CurrentUser,
-    db: DBSession,
-) -> Workspace:
-    """Updates workspace name and description.
-
-    Args:
-        workspace_id (int): Target workspace ID.
-        payload (WorkspaceUpdate): Updatable fields.
-        current_user (CurrentUser): Authenticated user.
-        db (DBSession): Database session.
-
-    Returns:
-        Workspace: Updated workspace.
-    """
-    workspace = await check_workspace_access(workspace_id, current_user.id, db)
-
-    if payload.workspace_name is not None:
-        workspace.workspace_name = payload.workspace_name
-    if payload.description is not None:
-        workspace.description = payload.description
-
-    await db.commit()
-    await db.refresh(workspace)
-    return workspace
+    workspace = await workspace_service.get_workspace_by_id(workspace_id=workspace_id)
+    return APIResponse.ok(data=workspace)
 
 
 @router.delete(
     "/{workspace_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete a workspace",
+    response_model=ResponseSuccessSchema[None],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.FORBIDDEN,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Delete workspace",
 )
 async def delete_workspace(
     workspace_id: int,
-    current_user: CurrentUser,
-    db: DBSession,
-) -> None:
-    """Deletes a workspace. Only owner is allowed to delete.
+    workspace_service: WorkspaceServiceDep,
+) -> APIResponse:
+    """Deletes a workspace. Only workspace owner is permitted.
 
     Args:
         workspace_id (int): Target workspace ID.
-        current_user (CurrentUser): Authenticated user.
-        db (DBSession): Database session.
+        workspace_service (WorkspaceServiceDep): Injected WorkspaceService.
 
-    Raises:
-        HTTPException: 403 if user is not workspace owner.
+    Returns:
+        APIResponse: Success response confirming deletion.
     """
-    workspace = await get_workspace_or_404(workspace_id, db)
-    if workspace.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permission denied. Only the workspace owner can delete this workspace.",
-        )
-    await db.delete(workspace)
-    await db.commit()
+    await workspace_service.delete_workspace(workspace_id=workspace_id)
+    return APIResponse.ok(message="Workspace deleted successfully")
 
 
 @router.post(
     "/{workspace_id}/members",
-    response_model=MemberResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Add a member directly to workspace by email",
+    response_model=ResponseSuccessSchema[MemberResponse],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.RESOURCE_ALREADY_EXISTS,
+        ErrorCode.FORBIDDEN,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.BAD_REQUEST,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Add member to workspace",
 )
-async def add_member_by_email(
+async def add_member(
     workspace_id: int,
     payload: AddMemberRequest,
-    current_user: CurrentUser,
-    db: DBSession,
-) -> MemberResponse:
-    """Adds a registered user directly as a workspace member by email.
+    workspace_service: WorkspaceServiceDep,
+) -> APIResponse:
+    """Adds a new member to the workspace by email or user ID.
 
     Args:
         workspace_id (int): Target workspace ID.
-        payload (AddMemberRequest): Target user email.
-        current_user (CurrentUser): Authenticated user.
-        db (DBSession): Database session.
+        payload (AddMemberRequest): Payload containing target user's email or user_id.
+        workspace_service (WorkspaceServiceDep): Injected WorkspaceService.
 
     Returns:
-        MemberResponse: Added member information.
+        APIResponse: Success response with added member details.
     """
-    await check_workspace_access(workspace_id, current_user.id, db)
-
-    user_res = await db.execute(select(User).where(User.email == payload.email))
-    target_user = user_res.scalar_one_or_none()
-    if target_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User with email '{payload.email}' was not found.",
-        )
-
-    existing_member = await db.execute(
-        select(Member).where(
-            Member.project_id == workspace_id,
-            Member.user_id == target_user.id,
-        )
+    member_data = await workspace_service.add_member(
+        workspace_id=workspace_id,
+        email=payload.email,
+        user_id=payload.user_id,
     )
-    if existing_member.scalar_one_or_none() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User is already a member of this workspace.",
-        )
-
-    new_member = Member(
-        project_id=workspace_id,
-        user_id=target_user.id,
-    )
-    db.add(new_member)
-    await db.commit()
-
-    return MemberResponse(
-        project_id=workspace_id,
-        user_id=target_user.id,
-        email=target_user.email,
-        username=target_user.username,
-    )
+    return APIResponse.ok(data=member_data)
 
 
 @router.get(
     "/{workspace_id}/members",
-    response_model=list[MemberResponse],
+    response_model=ResponseSuccessSchema[list[MemberResponse]],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.FORBIDDEN,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
     summary="List workspace members",
 )
-async def list_workspace_members(
+async def get_workspace_members(
     workspace_id: int,
-    current_user: CurrentUser,
-    db: DBSession,
-) -> list[MemberResponse]:
-    """Lists all members of a workspace.
+    workspace_service: WorkspaceServiceDep,
+) -> APIResponse:
+    """Retrieves all members of a workspace.
 
     Args:
         workspace_id (int): Target workspace ID.
-        current_user (CurrentUser): Authenticated user.
-        db (DBSession): Database session.
+        workspace_service (WorkspaceServiceDep): Injected WorkspaceService.
 
     Returns:
-        list[MemberResponse]: List of workspace members.
+        APIResponse: Success response containing list of workspace members.
     """
-    await check_workspace_access(workspace_id, current_user.id, db)
+    members = await workspace_service.get_workspace_members(workspace_id=workspace_id)
+    return APIResponse.ok(data=members)
 
-    result = await db.execute(
-        select(Member)
-        .where(Member.project_id == workspace_id)
-        .options(selectinload(Member.user))
+
+@router.delete(
+    "/{workspace_id}/members/{user_id}",
+    response_model=ResponseSuccessSchema[None],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.FORBIDDEN,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.BAD_REQUEST,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Remove member from workspace",
+)
+async def remove_member(
+    workspace_id: int,
+    user_id: int,
+    workspace_service: WorkspaceServiceDep,
+) -> APIResponse:
+    """Removes a member from a workspace.
+
+    Args:
+        workspace_id (int): Target workspace ID.
+        user_id (int): ID of user to remove.
+        workspace_service (WorkspaceServiceDep): Injected WorkspaceService.
+
+    Returns:
+        APIResponse: Success response confirming removal.
+    """
+    await workspace_service.remove_member(
+        workspace_id=workspace_id,
+        target_user_id=user_id,
     )
-    members = result.scalars().all()
-    return [
-        MemberResponse(
-            project_id=m.project_id,
-            user_id=m.user_id,
-            email=m.user.email if m.user else None,
-            username=m.user.username if m.user else None,
-        )
-        for m in members
-    ]
+    return APIResponse.ok(message="Member removed successfully")
