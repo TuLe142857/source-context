@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     DEFAULT_WORKSPACE_ID: int = 1
     """Default Workspace ID"""
 
+    PATH_WORKSPACE: dict[str, int] = {}
+    PATH_REPO: dict[str, int] = {}
+
     @classmethod
     def settings_customise_sources(
         cls,

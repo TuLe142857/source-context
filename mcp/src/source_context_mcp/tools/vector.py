@@ -12,7 +12,7 @@ def register_tools(mcp: MCPServer) -> None:
         mcp: MCP server instance
     """
 
-    @mcp.tool()
+    @mcp.tool(description="Sematic search.")
     async def search_in_workspace(client: ApiClientDep, query: str, workspace_id: int, top_k: int = 5) -> Any:
         req_body = {
             "query": query,
