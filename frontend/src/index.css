@@ -3,6 +3,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * shadcn/ui component source (Tabs, Dialog, AlertDialog, Select,
+ * DropdownMenu...) uses these bare `data-*` shorthand variants throughout —
+ * they map to Radix's `data-state`/`data-orientation`/boolean attributes.
+ * A full `shadcn init` normally ships these in the base registry CSS; ours
+ * was interrupted before that step (see plans/frontend_dev_plan.md), so they
+ * were silently never applying — most visibly, Tabs never got its
+ * horizontal layout (`data-horizontal:flex-col`), making the tab list and
+ * content render side-by-side and stretch to the tallest panel.
+ */
+@custom-variant data-active (&[data-state="active"]);
+@custom-variant data-open (&[data-state="open"]);
+@custom-variant data-closed (&[data-state="closed"]);
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
+@custom-variant data-disabled (&[data-disabled]);
+@custom-variant data-inset (&[data-inset]);
+@custom-variant data-placeholder (&[data-placeholder]);
+
 :root {
   /* shadcn/ui semantic tokens, mapped onto this app's existing dark palette
      so shadcn primitives (Button, Dialog, Input...) match the glass aesthetic

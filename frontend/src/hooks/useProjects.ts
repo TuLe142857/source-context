@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createProjectApi, deleteProjectApi } from '@/api/projects.api';
-import { reindexProjectApi, updateProjectApi } from '@/api/projects.template';
-import type { ProjectCreateRequest } from '@/api/types/project';
-import type { UpdateProjectRequest } from '@/api/types/templates';
+import { createProjectApi, deleteProjectApi, updateProjectApi } from '@/api/projects.api';
+import { reindexProjectApi } from '@/api/projects.template';
+import type { ProjectCreateRequest, ProjectUpdateRequest } from '@/api/types/project';
 
 const workspaceHierarchyKey = (workspaceId: number) => ['workspaces', workspaceId, 'hierarchy'] as const;
 
@@ -27,11 +26,15 @@ export function useDeleteProjectMutation(workspaceId: number) {
   });
 }
 
-/** Template only — no update-project endpoint exists on the backend yet. */
+/** Promoted to real — PATCH /branches/{workspaceId}/projects/{projectId} now exists. */
 export function useUpdateProjectMutation(workspaceId: number) {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ projectId, data }: { projectId: number; data: UpdateProjectRequest }) =>
+    mutationFn: ({ projectId, data }: { projectId: number; data: ProjectUpdateRequest }) =>
       updateProjectApi(workspaceId, projectId, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: workspaceHierarchyKey(workspaceId) });
+    },
   });
 }
 

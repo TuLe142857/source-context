@@ -4,8 +4,6 @@
  * guess at what a future endpoint would need — adjust once the real
  * contract exists.
  */
-import type { SourceLanguage } from './project';
-
 export interface UpdateRepositoryRequest {
   name: string;
 }
@@ -14,9 +12,10 @@ export interface UpdateBranchRequest {
   commit_hashed: string;
 }
 
-export interface UpdateProjectRequest {
-  root_dir: string;
-  language: SourceLanguage;
+/** Backend removed PATCH /workspaces/{id} — demoted from real to template. */
+export interface UpdateWorkspaceRequest {
+  workspace_name?: string | null;
+  description?: string | null;
 }
 
 export interface ChangePasswordRequest {

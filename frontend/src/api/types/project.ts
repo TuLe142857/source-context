@@ -20,3 +20,9 @@ export interface ProjectCreateRequest {
   root_dir: string;
   language: SourceLanguage;
 }
+
+/** PATCH /branches/{workspaceId}/projects/{projectId} — both fields optional. */
+export interface ProjectUpdateRequest {
+  root_dir?: string;
+  language?: SourceLanguage;
+}

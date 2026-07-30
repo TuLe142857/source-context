@@ -46,7 +46,7 @@ export function AddRepositoryDialog({ workspaceId, open, onOpenChange }: AddRepo
   const handleInspect = (e: FormEvent) => {
     e.preventDefault();
     inspectMutation.mutate(
-      { workspaceId, data: { git_url: gitUrl } },
+      { git_url: gitUrl },
       {
         onSuccess: (res) => {
           setInspectResult(res);
