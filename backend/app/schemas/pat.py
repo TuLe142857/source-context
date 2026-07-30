@@ -1,14 +1,12 @@
-"""Pydantic schemas for Personal Access Token (PAT) management."""
-
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class PATCreateRequest(BaseModel):
-    """Schema for requesting creation of a new Personal Access Token."""
+    model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(..., description="Token name, e.g. 'My Macbook CLI'")
+    name: str = Field(..., description="Token name")
     expires_in_days: int | None = Field(
         default=365,
         description="Expiration in days. Default is 365 days (1 year). Set None for no expiration.",
@@ -16,8 +14,6 @@ class PATCreateRequest(BaseModel):
 
 
 class PATCreateResponse(BaseModel):
-    """Schema returned ONCE upon creation containing the raw token secret."""
-
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -29,8 +25,6 @@ class PATCreateResponse(BaseModel):
 
 
 class PATResponse(BaseModel):
-    """Schema for listing user's Personal Access Tokens."""
-
     model_config = ConfigDict(from_attributes=True)
 
     id: int

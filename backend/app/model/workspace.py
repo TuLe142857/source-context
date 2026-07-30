@@ -47,6 +47,6 @@ class Workspace(Base):
     )
 
     @property
-    def project_name(self) -> str:
+    def name(self) -> str:
         """Alias property for backward compatibility with dbdiagram spec."""
         return self.workspace_name

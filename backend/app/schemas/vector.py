@@ -1,13 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
-class SearchReponse(BaseModel):
-    source_text: str
-    function_name: str
-    file_path: str
-
-
-class SearchRequest(BaseModel):
-    query: str
-    repository_id: int
-    branch_name: str
+class VectorSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, description="Natural language search prompt")
+    top_k: int = Field(default=5, ge=1, le=50, description="Max search results")

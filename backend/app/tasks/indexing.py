@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.postgres import database
 from app.embedding.embedding_pipeline import process_uast_batch_llm_summaries
 from app.embedding.utils import extract_summarizable_nodes
-from app.enums import BranchIndexingStatus
+from app.enums import BranchIndexingStatus, IndexingJobStatus
 from app.graph import build_call_graph_for_project, save_file_node
 from app.graph.model import ProjectNodeModel
 from app.model.branch import Branch
@@ -288,7 +288,7 @@ async def execute_branch_indexing_pipeline(
 
     try:
         # Step 1: Download/Clone Branch Source
-        job.status = "DOWNLOADING_SOURCE"
+        job.status = IndexingJobStatus.PROCESSING
         job.progress_pct = 20
         await db.commit()
 
@@ -312,7 +312,7 @@ async def execute_branch_indexing_pipeline(
         projects = proj_res.scalars().all()
 
         # Step 2: Tree-sitter AST Parsing
-        job.status = "PARSING_AST"
+        job.status = IndexingJobStatus.PROCESSING
         job.progress_pct = 40
 
         await db.commit()
@@ -324,7 +324,7 @@ async def execute_branch_indexing_pipeline(
             uast_parse_results[p.id] = parse_result
 
         # Step 3: SCIP Indexing & Code Graph Building (Single Combined Stage)
-        job.status = "SCIP_AND_GRAPH"
+        job.status = IndexingJobStatus.PROCESSING
         job.progress_pct = 70
         await db.commit()
         for p in projects:
@@ -333,7 +333,7 @@ async def execute_branch_indexing_pipeline(
             )
 
         # Step 4: Vector DB Embeddings Construction
-        job.status = "BUILDING_EMBEDDINGS"
+        job.status = IndexingJobStatus.PROCESSING
         job.progress_pct = 90
         await db.commit()
         for p in projects:
@@ -347,7 +347,7 @@ async def execute_branch_indexing_pipeline(
                 workspace_id=workspace_id,
             )
 
-        job.status = "COMPLETED"
+        job.status = IndexingJobStatus.COMPLETED
         job.progress_pct = 100
         job.error_message = None
 
@@ -364,7 +364,7 @@ async def execute_branch_indexing_pipeline(
 
     except Exception as exc:
         logger.exception("IndexingJob %d failed: %s", job_id, exc)
-        job.status = "FAILED"
+        job.status = IndexingJobStatus.FAILED
         job.error_message = str(exc)
 
         branch_err_res = await db.execute(select(Branch).where(Branch.id == branch_id))

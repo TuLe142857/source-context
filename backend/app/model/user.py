@@ -35,7 +35,7 @@ class User(Base):
     owned_workspaces: Mapped[list["Workspace"]] = relationship(
         "Workspace", back_populates="owner", cascade="all, delete-orphan"
     )
-    project_memberships: Mapped[list["Member"]] = relationship(
+    workspace_memberships: Mapped[list["Member"]] = relationship(
         "Member", back_populates="user", cascade="all, delete-orphan"
     )
     pats: Mapped[list["PAT"]] = relationship(
