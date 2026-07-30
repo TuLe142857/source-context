@@ -4,12 +4,15 @@ from fastapi import Depends
 from sqlalchemy import select
 
 from app.api.dependencies import CurrentAgent, DBSession
+from app.core import AppException, ErrorCode
 from app.model.branch import Branch
+from app.model.project import Project
 from app.model.repository import Repository
 from app.model.workspace import Workspace
 from app.model.workspace_branch import WorkspaceBranch
 from app.model.workspace_repository import WorkspaceRepository
 from app.schemas.branch import SimpleBranchResponse
+from app.schemas.project import ProjectResponse
 from app.schemas.repository import SimpleRepositoryResponse
 from app.schemas.workspace import WorkspaceResponse
 
@@ -55,6 +58,38 @@ class GeneralService:
         results = await self.session.scalars(stmt)
         branches = list(results.all())
         return [SimpleBranchResponse.model_validate(b) for b in branches]
+
+    async def get_projects(
+        self, workspace_id: int, repo_id: int, branch_name: str
+    ) -> list[ProjectResponse]:
+        branch_stmt = select(Branch).where(
+            Branch.repository_id == repo_id,
+            Branch.branch_name == branch_name,
+        )
+        branch_res = await self.session.scalars(branch_stmt)
+        branch = branch_res.one_or_none()
+        if branch is None:
+            raise AppException(
+                error_code=ErrorCode.RESOURCE_NOT_FOUND,
+                message=f"Branch '{branch_name}' for repository ID {repo_id} not found.",
+            )
+
+        stmt = select(Project).where(
+            Project.branch_id == branch.id,
+            (Project.workspace_id == workspace_id) | (Project.workspace_id.is_(None)),
+        )
+        results = await self.session.scalars(stmt)
+        projects = list(results.all())
+        return [
+            ProjectResponse(
+                id=p.id,
+                branch_id=p.branch_id,
+                workspace_id=p.workspace_id,
+                root_dir=p.root_dir,
+                language=p.language,
+            )
+            for p in projects
+        ]
 
 
 def get_general_service(

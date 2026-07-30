@@ -8,3 +8,9 @@ class RepositoryRequest(BaseModel):
 class BranchRequest(BaseModel):
     workspace_id: int
     repository_id: int
+
+
+class BranchProjectsRequest(BaseModel):
+    workspace_id: int
+    repo_id: int
+    branch_name: str
