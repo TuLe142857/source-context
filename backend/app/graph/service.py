@@ -50,7 +50,7 @@ class GraphService:
             AppException:
                 ErrorCode.RESOURCE_NOT_FOUND
         """
-        file_node: FileNodeModel | None = FileNodeModel.nodes.get_or_none(ui=file_id)
+        file_node: FileNodeModel | None = FileNodeModel.nodes.get_or_none(uid=file_id)
         if file_node is None:
             raise AppException(ErrorCode.RESOURCE_NOT_FOUND)
         return file_node
