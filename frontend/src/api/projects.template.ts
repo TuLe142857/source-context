@@ -1,16 +1,5 @@
 import { notImplemented } from './template';
-import type { ProjectResponse } from './types/project';
-import type { UpdateProjectRequest } from './types/templates';
 import type { IndexingJobResponse } from './types/indexing';
-
-/** No PATCH/PUT endpoint for Project (sub-project) exists in the backend spec yet — create+delete only. */
-export function updateProjectApi(
-  _workspaceId: number,
-  _projectId: number,
-  _data: UpdateProjectRequest
-): Promise<ProjectResponse> {
-  return notImplemented('Cập nhật cấu hình sub-project');
-}
 
 /**
  * Indexing only exists at workspace/branch granularity on the backend today

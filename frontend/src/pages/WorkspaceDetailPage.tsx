@@ -4,8 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OverviewPanel } from '@/components/workspace/OverviewPanel';
 import { MembersPanel } from '@/components/workspace/MembersPanel';
 import { RepositoriesPanel } from '@/components/workspace/RepositoriesPanel';
+import { BranchesPanel } from '@/components/workspace/BranchesPanel';
 import { IndexingPanel } from '@/components/workspace/IndexingPanel';
-import { useWorkspaceHierarchyQuery, useWorkspaceQuery } from '@/hooks/useWorkspaces';
+import { useWorkspaceHierarchyQuery, useWorkspaceMembersQuery, useWorkspaceQuery } from '@/hooks/useWorkspaces';
 
 export function WorkspaceDetailPage() {
   const params = useParams<{ workspaceId: string }>();
@@ -13,6 +14,7 @@ export function WorkspaceDetailPage() {
 
   const workspaceQuery = useWorkspaceQuery(workspaceId);
   const hierarchyQuery = useWorkspaceHierarchyQuery(workspaceId);
+  const membersQuery = useWorkspaceMembersQuery(workspaceId);
 
   if (workspaceQuery.isLoading || hierarchyQuery.isLoading) {
     return (
@@ -28,13 +30,14 @@ export function WorkspaceDetailPage() {
 
   const workspace = workspaceQuery.data;
   const hierarchy = hierarchyQuery.data;
+  const members = membersQuery.data ?? [];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">{workspace.workspace_name}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {hierarchy.repositories.length} repositories · {hierarchy.members.length} thành viên
+          {hierarchy.repositories.length} repositories · {members.length} thành viên
         </p>
       </div>
 
@@ -43,6 +46,7 @@ export function WorkspaceDetailPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="members">Thành viên</TabsTrigger>
           <TabsTrigger value="repositories">Repositories</TabsTrigger>
+          <TabsTrigger value="branches">Branches</TabsTrigger>
           <TabsTrigger value="indexing">Indexing</TabsTrigger>
         </TabsList>
 
@@ -51,11 +55,15 @@ export function WorkspaceDetailPage() {
         </TabsContent>
 
         <TabsContent value="members">
-          <MembersPanel workspaceId={workspaceId} ownerId={hierarchy.owner_id} members={hierarchy.members} />
+          <MembersPanel workspaceId={workspaceId} ownerId={hierarchy.owner_id} members={members} />
         </TabsContent>
 
         <TabsContent value="repositories">
           <RepositoriesPanel workspaceId={workspaceId} repositories={hierarchy.repositories} />
+        </TabsContent>
+
+        <TabsContent value="branches">
+          <BranchesPanel workspaceId={workspaceId} repositories={hierarchy.repositories} />
         </TabsContent>
 
         <TabsContent value="indexing">

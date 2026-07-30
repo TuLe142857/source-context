@@ -54,7 +54,9 @@ export function MembersPanel({
 
   const handleRemove = () => {
     if (!removeTarget) return;
+    const label = removeTarget.username ?? removeTarget.email ?? `#${removeTarget.user_id}`;
     removeMutation.mutate(removeTarget.user_id, {
+      onSuccess: () => toast.success(`Đã xoá "${label}" khỏi workspace.`),
       onError: (err) => toast.error(getErrorMessage(err)),
       onSettled: () => setRemoveTarget(null),
     });
@@ -105,7 +107,9 @@ export function MembersPanel({
               <div className="flex items-center gap-2 min-w-0">
                 <UserRound className="w-4 h-4 text-muted-foreground shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-sm text-foreground truncate">{member.username ?? member.email ?? `#${member.user_id}`}</p>
+                  <p className="text-sm text-foreground truncate">
+                    {member.full_name ?? member.username ?? member.email ?? `#${member.user_id}`}
+                  </p>
                   {member.email && <p className="text-xs text-muted-foreground truncate">{member.email}</p>}
                 </div>
                 {memberIsOwner && (
@@ -116,11 +120,10 @@ export function MembersPanel({
               </div>
               {!memberIsOwner && (
                 <div className="flex items-center gap-1 shrink-0">
-                  <TemplateBadge />
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Xoá thành viên (template)"
+                    title="Xoá thành viên"
                     onClick={() => setRemoveTarget(member)}
                   >
                     <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -136,13 +139,13 @@ export function MembersPanel({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xoá thành viên này khỏi workspace?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tính năng này chưa được backend hỗ trợ — đây là giao diện chuẩn bị trước.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Huỷ</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemove}>Xoá</AlertDialogAction>
+            <AlertDialogAction onClick={handleRemove} disabled={removeMutation.isPending}>
+              Xoá
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

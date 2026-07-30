@@ -1,13 +1,16 @@
 import { http } from './http';
-import type { IndexingJobResponse } from './types/indexing';
+import type { BranchResponse } from './types/branch';
 
 export function deleteBranchApi(workspaceId: number, branchId: number): Promise<void> {
-  return http.delete(`/workspaces/${workspaceId}/branches/${branchId}`).then(() => undefined);
+  return http.delete(`/branches/${workspaceId}/${branchId}`).then(() => undefined);
 }
 
-/** Triggers indexing for a single branch (all its sub-projects). */
-export function triggerBranchIndexApi(workspaceId: number, branchId: number): Promise<IndexingJobResponse> {
+/** Flat list of a workspace's branches, optionally filtered by repository. */
+export function listWorkspaceBranchesApi(
+  workspaceId: number,
+  params?: { repository_id?: number }
+): Promise<BranchResponse[]> {
   return http
-    .post<IndexingJobResponse>(`/workspaces/${workspaceId}/branches/${branchId}/index`)
+    .get<BranchResponse[]>(`/branches/${workspaceId}/workspace-branches`, { params })
     .then((res) => res.data);
 }

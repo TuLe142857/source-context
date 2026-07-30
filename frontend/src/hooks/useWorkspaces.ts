@@ -5,15 +5,18 @@ import {
   deleteWorkspaceApi,
   getWorkspaceApi,
   getWorkspaceHierarchyApi,
+  listWorkspaceMembersApi,
   listWorkspacesApi,
-  updateWorkspaceApi,
+  removeMemberApi,
 } from '@/api/workspaces.api';
-import { leaveWorkspaceApi, removeMemberApi } from '@/api/workspaces.template';
-import type { AddMemberRequest, WorkspaceCreate, WorkspaceUpdate } from '@/api/types/workspace';
+import { leaveWorkspaceApi, updateWorkspaceApi } from '@/api/workspaces.template';
+import type { AddMemberRequest, CreateWorkspaceRequest } from '@/api/types/workspace';
+import type { UpdateWorkspaceRequest } from '@/api/types/templates';
 
 const WORKSPACES_KEY = ['workspaces'] as const;
 const workspaceKey = (workspaceId: number) => ['workspaces', workspaceId] as const;
 const workspaceHierarchyKey = (workspaceId: number) => ['workspaces', workspaceId, 'hierarchy'] as const;
+const workspaceMembersKey = (workspaceId: number) => ['workspaces', workspaceId, 'members'] as const;
 
 export function useWorkspacesQuery() {
   return useQuery({ queryKey: WORKSPACES_KEY, queryFn: () => listWorkspacesApi() });
@@ -40,25 +43,35 @@ export function useWorkspaceHierarchyQuery(workspaceId: number) {
   });
 }
 
+/**
+ * `WorkspaceHierarchyResponse.members` currently comes back empty from
+ * `GET /branches/{id}/hierarchy` (observed backend inconsistency after the
+ * Round 2 router move) — the dedicated `GET /workspaces/{id}/members`
+ * endpoint returns correct data (including the owner), so the Members tab
+ * sources from here instead of the hierarchy response.
+ */
+export function useWorkspaceMembersQuery(workspaceId: number) {
+  return useQuery({
+    queryKey: workspaceMembersKey(workspaceId),
+    queryFn: () => listWorkspaceMembersApi(workspaceId),
+    enabled: Number.isFinite(workspaceId),
+  });
+}
+
 export function useCreateWorkspaceMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: WorkspaceCreate) => createWorkspaceApi(data),
+    mutationFn: (data: CreateWorkspaceRequest) => createWorkspaceApi(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: WORKSPACES_KEY });
     },
   });
 }
 
+/** Template only — backend removed PATCH /workspaces/{id} (see Migration Plan Round 2, Step C). */
 export function useUpdateWorkspaceMutation(workspaceId: number) {
-  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: WorkspaceUpdate) => updateWorkspaceApi(workspaceId, data),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: WORKSPACES_KEY });
-      void queryClient.invalidateQueries({ queryKey: workspaceKey(workspaceId) });
-      void queryClient.invalidateQueries({ queryKey: workspaceHierarchyKey(workspaceId) });
-    },
+    mutationFn: (data: UpdateWorkspaceRequest) => updateWorkspaceApi(workspaceId, data),
   });
 }
 
@@ -78,14 +91,20 @@ export function useAddMemberMutation(workspaceId: number) {
     mutationFn: (data: AddMemberRequest) => addWorkspaceMemberApi(workspaceId, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: workspaceHierarchyKey(workspaceId) });
+      void queryClient.invalidateQueries({ queryKey: workspaceMembersKey(workspaceId) });
     },
   });
 }
 
-/** Template only — no DELETE-member endpoint exists on the backend yet. */
+/** Promoted to real — DELETE /workspaces/{id}/members/{userId} now exists. */
 export function useRemoveMemberMutation(workspaceId: number) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (userId: number) => removeMemberApi(workspaceId, userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: workspaceHierarchyKey(workspaceId) });
+      void queryClient.invalidateQueries({ queryKey: workspaceMembersKey(workspaceId) });
+    },
   });
 }
 

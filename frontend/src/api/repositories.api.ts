@@ -6,24 +6,18 @@ import type {
   RepositoryResponse,
 } from './types/repository';
 
-export function inspectGitHubBranchesApi(
-  workspaceId: number,
-  data: InspectGitHubBranchesRequest
-): Promise<RemoteBranchesResponse> {
-  return http
-    .post<RemoteBranchesResponse>(`/workspaces/${workspaceId}/repositories/inspect-branches`, data)
-    .then((res) => res.data);
+/** Standalone GitHub utility — no longer scoped to a workspace. */
+export function inspectGitHubBranchesApi(data: InspectGitHubBranchesRequest): Promise<RemoteBranchesResponse> {
+  return http.post<RemoteBranchesResponse>('/branches/remote-branches', data).then((res) => res.data);
 }
 
 export function createRepositoryApi(
   workspaceId: number,
   data: RepositoryCreateRequest
 ): Promise<RepositoryResponse> {
-  return http
-    .post<RepositoryResponse>(`/workspaces/${workspaceId}/repositories`, data)
-    .then((res) => res.data);
+  return http.post<RepositoryResponse>(`/branches/${workspaceId}/repositories`, data).then((res) => res.data);
 }
 
 export function deleteRepositoryApi(workspaceId: number, repositoryId: number): Promise<void> {
-  return http.delete(`/workspaces/${workspaceId}/repositories/${repositoryId}`).then(() => undefined);
+  return http.delete(`/branches/${workspaceId}/repositories/${repositoryId}`).then(() => undefined);
 }
