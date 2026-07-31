@@ -1,18 +1,30 @@
 [project]
 name = "source-context-mcp"
-version = "0.1.dev1"
-description = "Local MCP server for your agents."
+version = "0.1.dev2"
+description = "Local Model Context Protocol (MCP) server for Source Context code intelligence."
 readme = "README.md"
 authors = [
     { name = "Le Ngoc Tu", email = "tuleaibk@gmail.com" },
-    { name = "Dang Huu Hieu", email = "danghuuhieu038@gmail.com"},
-    { name = "Huynh Phat Tai", email = "huynhphtai@gmail.com"}
+    { name = "Dang Huu Hieu", email = "danghuuhieu038@gmail.com" },
+    { name = "Huynh Phat Tai", email = "huynhphtai@gmail.com" }
 ]
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp[cli]>=2.0.0",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "tomli-w>=1.2.0",
+    "typer>=0.27.0",
+]
+
+
+
+[project.urls]
+Repository = "https://github.com/TuLe142857/source-context"
 
 [project.scripts]
-source-context-mcp="source_context_mcp:run"
+source-context-mcp = "source_context_mcp:run"
 
 [build-system]
 requires = ["uv_build>=0.11.21,<0.12.0"]
@@ -20,3 +32,17 @@ build-backend = "uv_build"
 
 [tool.ruff]
 extend = "../pyproject.toml"
+
+[tool.mypy]
+python_version = "3.12"
+explicit_package_bases = true
+mypy_path = ["src"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+show_error_codes = true

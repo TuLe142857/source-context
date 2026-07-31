@@ -1,7 +1,5 @@
-def run() -> None:
-    print(
-        "Hello World",
-        " - Package: source-context-mcp",
-        " - Status: Coming soon",
-        sep="\n",
-    )
+from .cli import cli
+
+
+def run():
+    cli()

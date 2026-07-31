@@ -1,114 +1,169 @@
-services:
+x-healthcheck-defaults: &healthcheck_base
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 10s
 
+x-common-env: &common-env
+  SOURCE_CONTEXT_ENV_STATE: ${SOURCE_CONTEXT_ENV_STATE:?SOURCE_CONTEXT_ENV_STATE is required}
+  SOURCE_CONTEXT_ENVIRONMENT: ${SOURCE_CONTEXT_ENVIRONMENT:?SOURCE_CONTEXT_ENVIRONMENT is required}
+  SOURCE_CONTEXT_POSTGRES_HOST: ${SOURCE_CONTEXT_POSTGRES_HOST:?SOURCE_CONTEXT_POSTGRES_HOST is required}
+  SOURCE_CONTEXT_POSTGRES_PORT: ${SOURCE_CONTEXT_POSTGRES_PORT:?SOURCE_CONTEXT_POSTGRES_PORT is required}
+  SOURCE_CONTEXT_POSTGRES_DB: ${SOURCE_CONTEXT_POSTGRES_DB:?SOURCE_CONTEXT_POSTGRES_DB is required}
+  SOURCE_CONTEXT_POSTGRES_USER: ${SOURCE_CONTEXT_POSTGRES_USER:?SOURCE_CONTEXT_POSTGRES_USER is required}
+  SOURCE_CONTEXT_POSTGRES_PASSWORD: ${SOURCE_CONTEXT_POSTGRES_PASSWORD:?SOURCE_CONTEXT_POSTGRES_PASSWORD is required}
+  SOURCE_CONTEXT_NEO4J_HOST: ${SOURCE_CONTEXT_NEO4J_HOST:?SOURCE_CONTEXT_NEO4J_HOST is required}
+  SOURCE_CONTEXT_NEO4J_PORT: ${SOURCE_CONTEXT_NEO4J_PORT:?SOURCE_CONTEXT_NEO4J_PORT is required}
+  SOURCE_CONTEXT_NEO4J_USER: ${SOURCE_CONTEXT_NEO4J_USER:?SOURCE_CONTEXT_NEO4J_USER is required}
+  SOURCE_CONTEXT_NEO4J_PASSWORD: ${SOURCE_CONTEXT_NEO4J_PASSWORD:?SOURCE_CONTEXT_NEO4J_PASSWORD is required}
+  SOURCE_CONTEXT_REDIS_HOST: ${SOURCE_CONTEXT_REDIS_HOST:?SOURCE_CONTEXT_REDIS_HOST is required}
+  SOURCE_CONTEXT_REDIS_PORT: ${SOURCE_CONTEXT_REDIS_PORT:?SOURCE_CONTEXT_REDIS_PORT is required}
+  SOURCE_CONTEXT_REDIS_USER: ${SOURCE_CONTEXT_REDIS_USER:?SOURCE_CONTEXT_REDIS_USER is required}
+  SOURCE_CONTEXT_REDIS_PASSWORD: ${SOURCE_CONTEXT_REDIS_PASSWORD:?SOURCE_CONTEXT_REDIS_PASSWORD is required}
+  SOURCE_CONTEXT_QDRANT_HOST: ${SOURCE_CONTEXT_QDRANT_HOST:?SOURCE_CONTEXT_QDRANT_HOST is required}
+  SOURCE_CONTEXT_QDRANT_PORT: ${SOURCE_CONTEXT_QDRANT_PORT:?SOURCE_CONTEXT_QDRANT_PORT is required}
+  SOURCE_CONTEXT_QDRANT_GRPC_PORT: ${SOURCE_CONTEXT_QDRANT_GRPC_PORT:?SOURCE_CONTEXT_QDRANT_GRPC_PORT is required}
+  SOURCE_CONTEXT_MINIO_ROOT_USER: ${SOURCE_CONTEXT_MINIO_ROOT_USER:?SOURCE_CONTEXT_MINIO_ROOT_USER is required}
+  SOURCE_CONTEXT_MINIO_ROOT_PASSWORD: ${SOURCE_CONTEXT_MINIO_ROOT_PASSWORD:?SOURCE_CONTEXT_MINIO_ROOT_PASSWORD is required}
+  SOURCE_CONTEXT_SECRET_KEY: ${SOURCE_CONTEXT_SECRET_KEY:?SOURCE_CONTEXT_SECRET_KEY is required}
+  SOURCE_CONTEXT_OPENAI_API_KEY: ${SOURCE_CONTEXT_OPENAI_API_KEY:-}
+  SOURCE_CONTEXT_OPENAI_MODEL: ${SOURCE_CONTEXT_OPENAI_MODEL:-gpt-4o-mini}
+  SOURCE_CONTEXT_VOYAGE_API_KEY: ${SOURCE_CONTEXT_VOYAGE_API_KEY:-}
+  SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL: ${SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL:-voyage-code-3}
+
+services:
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    image: source-context-backend:latest
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${BACKEND_EXTERNAL_PORT:-8000}:8000"
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    expose:
+      - "8000"
+    volumes:
+      - workspace_repos:/workspace-repositories
 
+  celery-worker:
+    image: source-context-backend:latest
+    command: uv run celery -A app.worker.celery_worker worker --loglevel=info
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+    depends_on:
+      backend:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - workspace_repos:/workspace-repositories
 
   frontend:
     build: ./frontend
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${FRONTEND_EXTERNAL_PORT:-5173}:5173"
-
+    expose:
+      - "5173"
 
   postgres:
-    image: postgres:18
+    image: postgres:17
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${SOURCE_CONTEXT_POSTGRES_USER:?SOURCE_CONTEXT_POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${SOURCE_CONTEXT_POSTGRES_PASSWORD:?SOURCE_CONTEXT_POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${SOURCE_CONTEXT_POSTGRES_DB:?SOURCE_CONTEXT_POSTGRES_DB is required}
     volumes:
       - ./docker/postgres:/docker-entrypoint-initdb.d/
-    ports:
-      - "127.0.0.1:${DB_EXTERNAL_PORT:-5432}:5432"
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-
+      <<: *healthcheck_base
+      test: ["CMD-SHELL", "pg_isready -U ${SOURCE_CONTEXT_POSTGRES_USER:?SOURCE_CONTEXT_POSTGRES_USER is required} -d ${SOURCE_CONTEXT_POSTGRES_DB:?SOURCE_CONTEXT_POSTGRES_DB is required}"]
 
   neo4j:
     image: neo4j:community
     restart: unless-stopped
     environment:
-      - NEO4J_AUTH=${NEO4J_USERNAME}/${NEO4J_PASSWORD?-Variable is empty or not set}
-    ports:
-      # For web UI
-      - "127.0.0.1:${NEO4J_EXTERNAL_HTTP_PORT:-7474}:7474"
-      # For driver
-      - "127.0.0.1:${NEO4J_EXTERNAL_BOLT_PORT:-7687}:7687"
+      - NEO4J_AUTH=${SOURCE_CONTEXT_NEO4J_USER:?SOURCE_CONTEXT_NEO4J_USER is required}/${SOURCE_CONTEXT_NEO4J_PASSWORD:?SOURCE_CONTEXT_NEO4J_PASSWORD is required}
+    expose:
+      - "7474"
+      - "7687"
+    volumes:
+      - neo4j_data:/data
     healthcheck:
+      <<: *healthcheck_base
       test: [
         "CMD",
         "cypher-shell",
-        "-u", "${NEO4J_USERNAME?-Variable is empty or not set}",
-        "-p", "${NEO4J_PASSWORD?-Variable is emtpy or not set}",
+        "-u", "${SOURCE_CONTEXT_NEO4J_USER:?SOURCE_CONTEXT_NEO4J_USER is required}",
+        "-p", "${SOURCE_CONTEXT_NEO4J_PASSWORD:?SOURCE_CONTEXT_NEO4J_PASSWORD is required}",
         "RETURN 1"
       ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
 
   qdrant:
     image: qdrant/qdrant:latest
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${QDRANT_EXTERNAL_PORT_HTTP:-6333}:6333"
-      - "127.0.0.1:${QDRANT_EXTERNAL_PORT_GRPC:-6334}:6334"
+    expose:
+      - "6333"
+      - "6334"
     environment:
-      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY?-Variable is empty or not set}
       - QDRANT__TELEMETRY_DISABLED=true
+    volumes:
+      - qdrant_data:/qdrant/storage
     healthcheck:
+      <<: *healthcheck_base
       test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-
 
   redis:
     image: redis:8.6
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${REDIS_EXTERNAL_PORT:-6379}:6379"
+    expose:
+      - "6379"
     command: >
       redis-server
       --user default off
-      --user ${REDIS_USER:?Variable is not set or empty} on ">${REDIS_PASSWORD:?Variable is not set or empty}" allcommands allkeys allchannels
+      --user ${SOURCE_CONTEXT_REDIS_USER:?SOURCE_CONTEXT_REDIS_USER is required} on ">${SOURCE_CONTEXT_REDIS_PASSWORD:?SOURCE_CONTEXT_REDIS_PASSWORD is required}" allcommands allkeys allchannels
+    volumes:
+      - redis_data:/data
     healthcheck:
+      <<: *healthcheck_base
       test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-
 
   minio:
     image: minio/minio:latest
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER?-Variable is empty or not set}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD?-Variable is empty or not set}
+      MINIO_ROOT_USER: ${SOURCE_CONTEXT_MINIO_ROOT_USER:?SOURCE_CONTEXT_MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${SOURCE_CONTEXT_MINIO_ROOT_PASSWORD:?SOURCE_CONTEXT_MINIO_ROOT_PASSWORD is required}
     command: server /data --address :9000 --console-address :9001
-    ports:
-      - "127.0.0.1:${MINIO_API_EXTERNAL_PORT:-9000}:9000"
-      - "127.0.0.1:${MINIO_CONSOLE_EXTERNAL_PORT:-9001}:9001"
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - minio_data:/data
     healthcheck:
+      <<: *healthcheck_base
       test: [ "CMD", "mc", "ready", "local"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
 
-
-  
+volumes:
+  postgres_data:
+  neo4j_data:
+  qdrant_data:
+  redis_data:
+  minio_data:
+  workspace_repos:
+    name: workspace_repo

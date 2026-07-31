@@ -1,0 +1,91 @@
+services:
+  backend:
+    build:
+      target: dev
+    image: source-context-backend:dev
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_BACKEND_PORT:?SOURCE_CONTEXT_BACKEND_PORT is required}:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - workspace_repos:/app/workspace-repositories
+
+  celery-worker:
+    image: source-context-backend:dev
+    command: uv run celery -A app.worker.celery_worker worker --loglevel=info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend:/app/backend
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+      - workspace_repos:/app/workspace-repositories
+
+  frontend:
+    build:
+      target: dev
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_FRONTEND_PORT:?SOURCE_CONTEXT_FRONTEND_PORT is required}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  postgres:
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_POSTGRES_PORT:?SOURCE_CONTEXT_POSTGRES_PORT is required}:5432"
+
+  neo4j:
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_HTTP_PORT:?SOURCE_CONTEXT_NEO4J_HTTP_PORT is required}:7474"
+      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_PORT:?SOURCE_CONTEXT_NEO4J_PORT is required}:7687"
+
+  qdrant:
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_QDRANT_PORT:?SOURCE_CONTEXT_QDRANT_PORT is required}:6333"
+      - "127.0.0.1:${SOURCE_CONTEXT_QDRANT_GRPC_PORT:?SOURCE_CONTEXT_QDRANT_GRPC_PORT is required}:6334"
+
+  redis:
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_REDIS_PORT:?SOURCE_CONTEXT_REDIS_PORT is required}:6379"
+
+  minio:
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_MINIO_API_PORT:?SOURCE_CONTEXT_MINIO_API_PORT is required}:9000"
+      - "127.0.0.1:${SOURCE_CONTEXT_MINIO_CONSOLE_PORT:?SOURCE_CONTEXT_MINIO_CONSOLE_PORT is required}:9001"
+
+  # ==============================================
+  # ADDITIONAL CONTAINERS FOR DEVELOPMENT ONLY
+  # ==============================================
+
+  redis_insight:
+    image: redis/redisinsight:latest
+    restart: unless-stopped
+    environment:
+      RI_REDIS_HOST: redis
+      RI_REDIS_PORT: 6379
+      RI_REDIS_USERNAME: ${SOURCE_CONTEXT_REDIS_USER:?SOURCE_CONTEXT_REDIS_USER is required}
+      RI_REDIS_PASSWORD: ${SOURCE_CONTEXT_REDIS_PASSWORD:?SOURCE_CONTEXT_REDIS_PASSWORD is required}
+      RI_REDIS_DB: 0
+    volumes:
+      - redis_insight_data:/data
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_REDIS_INSIGHT_PORT:?SOURCE_CONTEXT_REDIS_INSIGHT_PORT is required}:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:5540/api/health/ || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_MAILHOG_SMTP_PORT:?SOURCE_CONTEXT_MAILHOG_SMTP_PORT is required}:1025"
+      - "127.0.0.1:${SOURCE_CONTEXT_MAILHOG_HTTP_PORT:?SOURCE_CONTEXT_MAILHOG_HTTP_PORT is required}:8025"
+
+volumes:
+  redis_insight_data:
