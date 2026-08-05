@@ -3243,7 +3243,7 @@ requires-dist = [
 
 [[package]]
 name = "source-context-mcp"
-version = "0.1.dev2"
+version = "0.1.dev3"
 source = { editable = "mcp" }
 dependencies = [
     { name = "httpx" },
