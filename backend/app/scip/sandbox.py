@@ -189,7 +189,7 @@ def get_scip_sandbox_registry() -> SCIPSandboxRegistry:
             language="typescript",
             image_tags=["sandbox/node24:latest"],
             command_builder=lambda project_path, output_path: (
-                f"scip-typescript index --output {output_path}"
+                f"scip-typescript index --infer-tsconfig --output {output_path}"
             ),
         ),
     )
