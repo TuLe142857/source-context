@@ -1,6 +1,8 @@
 """Security utilities for password hashing and JWT token management."""
 
 from datetime import UTC, datetime, timedelta
+import hashlib
+import secrets
 from typing import Any
 
 import bcrypt
@@ -88,3 +90,27 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         return payload
     except (jwt.PyJWTError, ValueError):
         return None
+
+
+def generate_otp(length: int = 6) -> str:
+    """Generates a random numeric OTP code.
+
+    Args:
+        length (int, optional): Number of digits. Defaults to 6.
+
+    Returns:
+        str: Zero-padded numeric OTP string.
+    """
+    return f"{secrets.randbelow(10**length):0{length}d}"
+
+
+def hash_otp(otp: str) -> str:
+    """Computes SHA-256 hash of an OTP code for storage/lookup.
+
+    Args:
+        otp (str): Raw OTP string.
+
+    Returns:
+        str: Hexadecimal SHA-256 digest string.
+    """
+    return hashlib.sha256(otp.encode("utf-8")).hexdigest()

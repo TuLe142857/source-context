@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getMeApi, loginApi, registerApi } from '@/api/auth.api';
-import type { UserLoginRequest, UserRegisterRequest } from '@/api/types/auth';
+import { getMeApi, loginApi, registerApi, registerVerifyOtpApi } from '@/api/auth.api';
+import type { RegisterRequest, RegisterVerifyRequest, UserLoginRequest } from '@/api/types/auth';
 import { logout as logoutAction, setCredentials, setUser } from '@/store/authSlice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 
@@ -36,10 +36,18 @@ export function useLoginMutation() {
   });
 }
 
-export function useRegisterMutation() {
+/** Step 1: request an OTP for the given email. */
+export function useRegisterRequestOtpMutation() {
+  return useMutation({
+    mutationFn: (data: RegisterRequest) => registerApi(data),
+  });
+}
+
+/** Step 2: verify the OTP and complete registration. */
+export function useRegisterVerifyOtpMutation() {
   const dispatch = useAppDispatch();
   return useMutation({
-    mutationFn: (data: UserRegisterRequest) => registerApi(data),
+    mutationFn: (data: RegisterVerifyRequest) => registerVerifyOtpApi(data),
     onSuccess: (res) => {
       dispatch(setCredentials({ user: res.user, token: res.access_token }));
     },

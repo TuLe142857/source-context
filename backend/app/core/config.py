@@ -332,6 +332,35 @@ class Settings(BaseSettings):
             )
         return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
+    # Email config
+    # default value is use for mail hog
+    SMTP_SERVER: str = Field(
+        default="mailhog",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_SMTP_SERVER", "SMTP_SERVER"),
+    )
+    SMTP_PORT: int = Field(
+        default=1025,
+        validation_alias=AliasChoices("SOURCE_CONTEXT_SMTP_PORT", "SMTP_PORT"),
+    )
+    SMTP_USER: str = Field(
+        default="user",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_SMTP_USER", "SMTP_USER"),
+    )
+    SMTP_PASSWORD: SecretStr = Field(
+        default=SecretStr("change-this"),
+        validation_alias=AliasChoices("SOURCE_CONTEXT_SMTP_PASSWORD", "SMTP_PASSWORD"),
+    )
+    SMTP_SEND_MAIL_FROM: str = Field(
+        default="sourcecontext@fakemail.com",
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_SMTP_SEND_MAIL_FROM", "SMTP_SEND_MAIL_FROM"
+        ),
+    )
+    SMTP_USE_TLS: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("SOURCE_CONTEXT_SMTP_USE_TLS", "SMTP_USE_TLS"),
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

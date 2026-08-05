@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 
 from app.api.dependencies import CurrentUser
 from app.core import (
@@ -10,9 +10,10 @@ from app.core import (
 from app.schemas.auth import (
     CreateCustomTokenRequest,
     CustomTokenResponse,
+    RegisterRequest,
     TokenResponse,
     UserLoginRequest,
-    UserRegisterRequest,
+    RegisterVerifyRequest,
 )
 from app.schemas.user import UserResponse
 from app.services.auth_service import AuthServiceDep
@@ -22,18 +23,38 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post(
     "/register",
+    response_model=ResponseSuccessSchema,
+    responses=build_error_docs(
+        (ErrorCode.RESOURCE_ALREADY_EXISTS, "Email already registered"),
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Register a new user (sends OTP verification email)",
+)
+async def register_user(
+    payload: RegisterRequest, auth_service: AuthServiceDep, bg_task: BackgroundTasks
+) -> APIResponse:
+    await auth_service.register_user(payload, bg_task)
+    return APIResponse.ok(
+        message="OTP sent to your email. Please verify to complete registration."
+    )
+
+
+@router.post(
+    "/register/verify-otp",
     response_model=ResponseSuccessSchema[TokenResponse],
     responses=build_error_docs(
+        ErrorCode.INVALID_CODE,
+        ErrorCode.CODE_EXPIRED,
         ErrorCode.BAD_REQUEST,
         ErrorCode.UNKNOWN_ERROR,
     ),
-    summary="Register a new user",
+    summary="Verify OTP and create the user account",
 )
-async def register_user(
-    payload: UserRegisterRequest,
+async def verify_registration_otp(
+    payload: RegisterVerifyRequest,
     auth_service: AuthServiceDep,
 ) -> APIResponse:
-    result = await auth_service.register_user(payload)
+    result = await auth_service.verify_registration_otp(payload)
     return APIResponse.ok(data=result)
 
 
