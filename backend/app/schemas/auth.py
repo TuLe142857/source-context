@@ -5,11 +5,16 @@ from pydantic import BaseModel, EmailStr
 from app.schemas.user import UserResponse
 
 
-class UserRegisterRequest(BaseModel):
+class RegisterRequest(BaseModel):
+    email: EmailStr
+
+
+class RegisterVerifyRequest(BaseModel):
     email: EmailStr
     username: str
     password: str
     full_name: str | None = None
+    otp: str
 
 
 class UserLoginRequest(BaseModel):

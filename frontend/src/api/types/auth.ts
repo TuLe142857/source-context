@@ -7,11 +7,18 @@ export interface UserResponse {
   is_active: string;
 }
 
-export interface UserRegisterRequest {
+/** Step 1: request an OTP for the given email. */
+export interface RegisterRequest {
+  email: string;
+}
+
+/** Step 2: verify the OTP and complete registration. */
+export interface RegisterVerifyRequest {
   email: string;
   username: string;
   password: string;
   full_name?: string;
+  otp: string;
 }
 
 export interface UserLoginRequest {
@@ -19,7 +26,7 @@ export interface UserLoginRequest {
   password: string;
 }
 
-/** Mirrors backend TokenResponse, returned by both /auth/register and /auth/login. */
+/** Mirrors backend TokenResponse, returned by both /auth/register/verify-otp and /auth/login. */
 export interface TokenResponse {
   access_token: string;
   token_type: string;

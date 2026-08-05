@@ -9,11 +9,13 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from qdrant_client import QdrantClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from redis.asyncio import Redis
 
 from app.core import AppException, ErrorCode
 from app.core.config import Settings
 from app.core.pat import hash_pat_token
 from app.core.postgres import database
+from app.core.redis import get_redis_async_client
 from app.core.qdrant import get_qdrant_client
 from app.core.security import decode_access_token
 from app.model.pat import PAT
@@ -47,6 +49,8 @@ def get_vector_retriever(
 
 
 DBSession = Annotated[AsyncSession, Depends(get_db)]
+
+RedisDep = Annotated[Redis, Depends(get_redis_async_client)]
 
 AuthCredentials = Annotated[
     HTTPAuthorizationCredentials | None, Depends(security_bearer)
