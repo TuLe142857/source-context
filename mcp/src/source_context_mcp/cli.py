@@ -1,3 +1,5 @@
+import importlib.metadata
+
 import typer
 
 from .core.settings import CONFIG_FILE, get_settings, get_settings_with_overrides, write_settings
@@ -47,3 +49,11 @@ def show_config():
     typer.echo(f"Configuration file: {CONFIG_FILE}")
     typer.echo("Note: Secret value will be display as ***")
     typer.echo(settings_json)
+
+
+@cli.callback(invoke_without_command=True)
+def version_check(
+    version: bool = typer.Option(False, "--version", "-v", help="Show version"),
+):
+    if version:
+        typer.echo(importlib.metadata.version("source-context-mcp"))
