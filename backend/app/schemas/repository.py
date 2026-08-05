@@ -35,8 +35,6 @@ class RemoteBranchesResponse(BaseModel):
 
 class RepositoryCreateRequest(BaseModel):
     """Schema for creating a repository under a workspace and registering selected branches."""
-
-    name: str = Field(..., description="Repository name")
     git_url: str = Field(..., description="Git repository URL")
     branches: list[BranchCreateRequest] = Field(
         default_factory=list,

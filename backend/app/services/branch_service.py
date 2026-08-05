@@ -33,6 +33,7 @@ from app.schemas.repository import (
     WorkspaceHierarchyResponse,
 )
 
+from app.util.git_util import get_latest_commit_hash, get_repo_name
 
 class BranchService:
     def __init__(self, session: DBSession, current_user: CurrentUser) -> None:
@@ -123,6 +124,10 @@ class BranchService:
             for b in branches
         ]
 
+    async def is_branch_exist_in_workspace(branch_name: str, workspace_id: int) -> bool:
+        pass
+
+
     async def attach_repository(
         self, workspace_id: int, payload: RepositoryCreateRequest
     ) -> RepositoryResponse:
@@ -131,10 +136,11 @@ class BranchService:
         repo_stmt = select(Repository).where(Repository.git_url == payload.git_url)
         repo_res = await self.session.scalars(repo_stmt)
         repo = repo_res.one_or_none()
-
+        repo_name = get_repo_name(repo_url=payload.git_url)
         if repo is None:
+            
             repo = Repository(
-                name=payload.name,
+                name=repo_name,
                 git_url=payload.git_url,
             )
             self.session.add(repo)
@@ -158,12 +164,14 @@ class BranchService:
             branch_res = await self.session.scalars(branch_stmt)
             existing_branch = branch_res.one_or_none()
 
+            commit_hashed = get_latest_commit_hash(repo_url=repo.git_url, branch_name=branch_req.branch_name)
+
             if existing_branch is None:
-                local_path = f"{settings.repository_workspace_root}/ws_{workspace_id}/{payload.name}/{branch_req.branch_name}"
+                local_path = f"{settings.repository_workspace_root}/ws_{workspace_id}/{repo_name}/{branch_req.branch_name}"
                 target_branch = Branch(
                     repository_id=repo.id,
                     branch_name=branch_req.branch_name,
-                    commit_hashed=branch_req.commit_hashed,
+                    commit_hashed=commit_hashed,
                     indexing_status=BranchIndexingStatus.UNINDEXED,
                     local_path=local_path,
                 )
@@ -171,9 +179,9 @@ class BranchService:
                 await self.session.flush()
             else:
                 target_branch = existing_branch
-                if branch_req.commit_hashed and branch_req.commit_hashed != "HEAD":
-                    if target_branch.commit_hashed != branch_req.commit_hashed:
-                        target_branch.commit_hashed = branch_req.commit_hashed
+                if commit_hashed and commit_hashed != "HEAD":
+                    if target_branch.commit_hashed != commit_hashed:
+                        target_branch.commit_hashed = commit_hashed
                         if (
                             target_branch.indexing_status
                             == BranchIndexingStatus.INDEXED

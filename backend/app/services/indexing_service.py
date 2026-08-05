@@ -11,8 +11,10 @@ from app.model.indexing_job import IndexingJob
 from app.model.member import Member
 from app.model.workspace import Workspace
 from app.model.workspace_branch import WorkspaceBranch
-from app.schemas.indexing import IndexingJobResponse, TriggerBranchIndexingRequest
+from app.model.repository import Repository
+from app.schemas.indexing import IndexingJobResponse
 from app.tasks import index_branch_task
+from app.util.git_util import get_latest_commit_hash
 
 
 class IndexingService:
@@ -48,7 +50,6 @@ class IndexingService:
         self,
         workspace_id: int,
         branch_id: int,
-        payload: TriggerBranchIndexingRequest | None = None,
     ) -> IndexingJobResponse:
         await self._check_workspace_access(workspace_id)
 
@@ -68,22 +69,17 @@ class IndexingService:
                 message=f"Branch with ID {branch_id} not found in this workspace.",
             )
 
-        new_commit_hashed = payload.commit_hashed if payload else None
+        repo_stmt = (select(Repository).where(Repository.id == Branch.repository_id))
+        repo_res = await self.session.scalars(repo_stmt)
+        repo = repo_res.one_or_none()
+
+        new_commit_hashed = get_latest_commit_hash(repo_url=repo.git_url, branch_name=branch.branch_name)
 
         if branch.indexing_status == BranchIndexingStatus.INDEXING:
             raise AppException(
                 error_code=ErrorCode.ACTION_CONFLICT,
                 message="Branch is currently being indexed. Please wait for current process to complete.",
             )
-
-        if branch.indexing_status == BranchIndexingStatus.INDEXED:
-            if new_commit_hashed and new_commit_hashed != branch.commit_hashed:
-                branch.commit_hashed = new_commit_hashed
-            else:
-                raise AppException(
-                    error_code=ErrorCode.ACTION_ALREADY_PERFORMED,
-                    message="Branch is already indexed and commit hash has not changed.",
-                )
 
         if branch.indexing_status == BranchIndexingStatus.FAILED:
             latest_job_stmt = (
@@ -107,6 +103,12 @@ class IndexingService:
                 await self.session.commit()
                 await self.session.refresh(job)
                 return IndexingJobResponse.model_validate(job)
+
+        if branch.indexing_status == BranchIndexingStatus.INDEXED:
+            raise AppException(
+                error_code=ErrorCode.ACTION_ALREADY_PERFORMED,
+                message="Branch is already indexed and commit hash has not changed.",
+            )
 
         branch.indexing_status = BranchIndexingStatus.INDEXING
         job = IndexingJob(
