@@ -121,6 +121,7 @@ async def parse_tree_sitter_ast_stage(
     project_node_model: ProjectNodeModel | None = ProjectNodeModel.nodes.get_or_none(
         uid=project_id
     )
+    
     if project_node_model is None:
         new_project_node_model = ProjectNodeModel(uid=project_id)
         new_project_node_model.save()
@@ -292,14 +293,15 @@ async def execute_branch_indexing_pipeline(
         job.progress_pct = 20
         await db.commit()
 
-        destination, _ = await download_branch_source_stage(branch_id, db)
-
-        # Update branch status to INDEXING
         branch_res = await db.execute(select(Branch).where(Branch.id == branch_id))
         branch = branch_res.scalar_one_or_none()
+
+        # Update branch status to indexing
         if branch is not None:
             branch.indexing_status = BranchIndexingStatus.INDEXING
             await db.commit()
+         
+        destination, _ = await download_branch_source_stage(branch_id=branch_id, db=db)
 
         # Fetch projects under this branch for this workspace
         proj_res = await db.execute(
