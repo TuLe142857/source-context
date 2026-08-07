@@ -141,7 +141,7 @@ class GraphService:
             return None
         return source_bytes[node.start_byte : node.end_byte].decode("utf-8")
 
-    def find_usage(self, node_id: str) -> list[str] | None:
+    def find_usage(self, node_id: str) -> list[dict] | None:
         """
         Find nodes that reference to this node
         Args:
@@ -153,9 +153,18 @@ class GraphService:
         """
         node = self.get_uast_node(node_id)
         refs_by: list[UASTNodeModel] = node.referenced_by.all()
-        return [ref.uid for ref in refs_by]
+        return [
+            {
+                "id": r.uid,
+                "name": r.name,
+                "file_id": r.file_node_uid,
+                "node_type": r.node_type,
+                "kind": getattr(r, "kind", None),
+            }
+            for r in refs_by
+        ]
 
-    def find_callees(self, node_uid: str) -> list[str] | None:
+    def find_callees(self, node_uid: str) -> list[dict] | None:
         """
         Find nodes that this node or its children reference to.
 
@@ -168,17 +177,24 @@ class GraphService:
 
         node = self.get_uast_node(node_uid)
 
-        result = []
+        callees: list[dict] = []
 
         for r in cast(list[UASTNodeModel], node.references.all()):
-            result.append(r.uid)
+            callees.append({
+                "id": r.uid,
+                "name": r.name,
+                "file_id": r.file_node_uid,
+                "node_type": r.node_type,
+                "kind": getattr(r, "kind", None),
+            }
+            )
 
         for child in cast(list[UASTNodeModel], node.children.all()):
             child_callees = self.find_callees(child.uid)
             if child_callees is not None:
-                result += child_callees
+                callees += child_callees
 
-        return result
+        return callees
 
 
 def get_graph_service(
