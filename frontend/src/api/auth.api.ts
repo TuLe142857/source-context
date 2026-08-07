@@ -1,8 +1,20 @@
 import { http } from './http';
-import type { TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse } from './types/auth';
+import type {
+  RegisterRequest,
+  RegisterVerifyRequest,
+  TokenResponse,
+  UserLoginRequest,
+  UserResponse,
+} from './types/auth';
 
-export function registerApi(data: UserRegisterRequest): Promise<TokenResponse> {
-  return http.post<TokenResponse>('/auth/register', data).then((res) => res.data);
+/** Step 1: sends an OTP to the given email. */
+export function registerApi(data: RegisterRequest): Promise<void> {
+  return http.post<void>('/auth/register', data).then((res) => res.data);
+}
+
+/** Step 2: verifies the OTP and creates the account. */
+export function registerVerifyOtpApi(data: RegisterVerifyRequest): Promise<TokenResponse> {
+  return http.post<TokenResponse>('/auth/register/verify-otp', data).then((res) => res.data);
 }
 
 export function loginApi(data: UserLoginRequest): Promise<TokenResponse> {

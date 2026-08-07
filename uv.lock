@@ -3169,6 +3169,7 @@ dependencies = [
     { name = "docker" },
     { name = "fastapi", extra = ["standard"] },
     { name = "grpcio-tools" },
+    { name = "jinja2" },
     { name = "neo4j" },
     { name = "neomodel" },
     { name = "openai" },
@@ -3209,6 +3210,7 @@ requires-dist = [
     { name = "docker", specifier = ">=7.2.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.139.2" },
     { name = "grpcio-tools", specifier = ">=1.83.0" },
+    { name = "jinja2", specifier = ">=3.1.6" },
     { name = "neo4j", specifier = "~=6.1.0" },
     { name = "neomodel", specifier = "~=6.1.0" },
     { name = "openai", specifier = ">=2.48.0" },
@@ -3241,7 +3243,7 @@ requires-dist = [
 
 [[package]]
 name = "source-context-mcp"
-version = "0.1.dev1"
+version = "0.1.dev3"
 source = { editable = "mcp" }
 dependencies = [
     { name = "httpx" },
