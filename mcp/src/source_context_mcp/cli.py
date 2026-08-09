@@ -1,8 +1,7 @@
-import importlib.metadata
-
 import typer
 
-from .core.settings import CONFIG_FILE, get_settings, get_settings_with_overrides, write_settings
+from .core.metadata import get_package_version
+from .core.settings import CONFIG_DIR, CONFIG_FILE, get_settings, get_settings_with_overrides, write_settings
 from .server import create_server
 
 cli = typer.Typer()
@@ -51,9 +50,14 @@ def show_config():
     typer.echo(settings_json)
 
 
+@cli.command(name="config-dir", help="Show the MCP server's configuration directory")
+def show_config_dir():
+    typer.echo(CONFIG_DIR)
+
+
 @cli.callback(invoke_without_command=True)
 def version_check(
     version: bool = typer.Option(False, "--version", "-v", help="Show version"),
 ):
     if version:
-        typer.echo(importlib.metadata.version("source-context-mcp"))
+        typer.echo(get_package_version())

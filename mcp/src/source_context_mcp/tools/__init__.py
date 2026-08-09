@@ -8,7 +8,7 @@ from .vector import register_tools as register_vector_tools
 
 def register_tools(mcp: MCPServer) -> None:
     """
-    Registry tools for MCPServer.
+    Register tools for MCPServer.
     Args:
         mcp: instance of MCPServer
     """
@@ -17,3 +17,6 @@ def register_tools(mcp: MCPServer) -> None:
     register_base_tools(mcp)
     register_graph_tools(mcp)
     register_vector_tools(mcp)
+
+
+__all__ = ["register_tools"]
