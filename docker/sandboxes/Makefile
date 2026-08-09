@@ -10,7 +10,7 @@ help:
 	@echo "  help"
 
 
-build-sandbox: build-sandbox-python build-sandbox-node build-sandbox-java
+build-sandbox: build-sandbox-python build-sandbox-node
 
 build-sandbox-python:
 	docker build -f python.Dockerfile -t sandbox/python310:latest  --build-arg PY_VERSION=3.10 .
