@@ -17,11 +17,23 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ENV PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app/backend
-CMD ["uv", "run", "fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
 
 FROM base AS builder
+WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY ./pyproject.toml ./uv.lock ./
+COPY ./backend/pyproject.toml /app/backend/
 
-FROM builder as prod
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-install-workspace --no-dev
 
+FROM base AS prod
 
+WORKDIR /app
+COPY backend/app /app/backend/app
+COPY --from=builder /app/.venv /app/.venv/
+ENV PATH="/app/.venv/bin:$PATH"
 
+WORKDIR /app/backend
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

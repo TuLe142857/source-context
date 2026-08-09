@@ -7,36 +7,47 @@ x-healthcheck-defaults: &healthcheck_base
 x-common-env: &common-env
   SOURCE_CONTEXT_ENV_STATE: ${SOURCE_CONTEXT_ENV_STATE:?SOURCE_CONTEXT_ENV_STATE is required}
   SOURCE_CONTEXT_ENVIRONMENT: ${SOURCE_CONTEXT_ENVIRONMENT:?SOURCE_CONTEXT_ENVIRONMENT is required}
+  SOURCE_CONTEXT_SECRET_KEY: ${SOURCE_CONTEXT_SECRET_KEY:?SOURCE_CONTEXT_SECRET_KEY is required}
+
   SOURCE_CONTEXT_POSTGRES_HOST: ${SOURCE_CONTEXT_POSTGRES_HOST:?SOURCE_CONTEXT_POSTGRES_HOST is required}
   SOURCE_CONTEXT_POSTGRES_PORT: ${SOURCE_CONTEXT_POSTGRES_PORT:?SOURCE_CONTEXT_POSTGRES_PORT is required}
   SOURCE_CONTEXT_POSTGRES_DB: ${SOURCE_CONTEXT_POSTGRES_DB:?SOURCE_CONTEXT_POSTGRES_DB is required}
   SOURCE_CONTEXT_POSTGRES_USER: ${SOURCE_CONTEXT_POSTGRES_USER:?SOURCE_CONTEXT_POSTGRES_USER is required}
   SOURCE_CONTEXT_POSTGRES_PASSWORD: ${SOURCE_CONTEXT_POSTGRES_PASSWORD:?SOURCE_CONTEXT_POSTGRES_PASSWORD is required}
+
   SOURCE_CONTEXT_NEO4J_HOST: ${SOURCE_CONTEXT_NEO4J_HOST:?SOURCE_CONTEXT_NEO4J_HOST is required}
   SOURCE_CONTEXT_NEO4J_PORT: ${SOURCE_CONTEXT_NEO4J_PORT:?SOURCE_CONTEXT_NEO4J_PORT is required}
   SOURCE_CONTEXT_NEO4J_USER: ${SOURCE_CONTEXT_NEO4J_USER:?SOURCE_CONTEXT_NEO4J_USER is required}
   SOURCE_CONTEXT_NEO4J_PASSWORD: ${SOURCE_CONTEXT_NEO4J_PASSWORD:?SOURCE_CONTEXT_NEO4J_PASSWORD is required}
+
   SOURCE_CONTEXT_REDIS_HOST: ${SOURCE_CONTEXT_REDIS_HOST:?SOURCE_CONTEXT_REDIS_HOST is required}
   SOURCE_CONTEXT_REDIS_PORT: ${SOURCE_CONTEXT_REDIS_PORT:?SOURCE_CONTEXT_REDIS_PORT is required}
   SOURCE_CONTEXT_REDIS_USER: ${SOURCE_CONTEXT_REDIS_USER:?SOURCE_CONTEXT_REDIS_USER is required}
   SOURCE_CONTEXT_REDIS_PASSWORD: ${SOURCE_CONTEXT_REDIS_PASSWORD:?SOURCE_CONTEXT_REDIS_PASSWORD is required}
+
   SOURCE_CONTEXT_QDRANT_HOST: ${SOURCE_CONTEXT_QDRANT_HOST:?SOURCE_CONTEXT_QDRANT_HOST is required}
   SOURCE_CONTEXT_QDRANT_PORT: ${SOURCE_CONTEXT_QDRANT_PORT:?SOURCE_CONTEXT_QDRANT_PORT is required}
   SOURCE_CONTEXT_QDRANT_GRPC_PORT: ${SOURCE_CONTEXT_QDRANT_GRPC_PORT:?SOURCE_CONTEXT_QDRANT_GRPC_PORT is required}
+
   SOURCE_CONTEXT_MINIO_ROOT_USER: ${SOURCE_CONTEXT_MINIO_ROOT_USER:?SOURCE_CONTEXT_MINIO_ROOT_USER is required}
   SOURCE_CONTEXT_MINIO_ROOT_PASSWORD: ${SOURCE_CONTEXT_MINIO_ROOT_PASSWORD:?SOURCE_CONTEXT_MINIO_ROOT_PASSWORD is required}
-  SOURCE_CONTEXT_SECRET_KEY: ${SOURCE_CONTEXT_SECRET_KEY:?SOURCE_CONTEXT_SECRET_KEY is required}
+
+  SOURCE_CONTEXT_SMTP_SERVER: ${SOURCE_CONTEXT_SMTP_SERVER:? Variable is empty or not set}
+  SOURCE_CONTEXT_SMTP_PORT: ${SOURCE_CONTEXT_SMTP_PORT:? Variable is empty or not set}
+  SOURCE_CONTEXT_SMTP_USER: ${SOURCE_CONTEXT_SMTP_USER:? Variable is emtpy or not set}
+  SOURCE_CONTEXT_SMTP_PASSWORD: ${SOURCE_CONTEXT_SMTP_PASSWORD:? Variable is empty or not set}
+  SOURCE_CONTEXT_SMTP_SEND_MAIL_FROM: ${SOURCE_CONTEXT_SMTP_SEND_MAIL_FROM:? Variable is empty or not set}
+  SOURCE_CONTEXT_SMTP_USE_TLS: ${SOURCE_CONTEXT_SMTP_USE_TLS:-false}
+
   SOURCE_CONTEXT_OPENAI_API_KEY: ${SOURCE_CONTEXT_OPENAI_API_KEY:-}
   SOURCE_CONTEXT_OPENAI_MODEL: ${SOURCE_CONTEXT_OPENAI_MODEL:-gpt-4o-mini}
+
   SOURCE_CONTEXT_VOYAGE_API_KEY: ${SOURCE_CONTEXT_VOYAGE_API_KEY:-}
   SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL: ${SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL:-voyage-code-3}
 
 services:
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    image: source-context-backend:latest
+#    image: ghcr.io/tule142857/source-context/backend:latest
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -51,12 +62,13 @@ services:
         condition: service_healthy
     expose:
       - "8000"
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_BACKEND_PORT:-8000}:8000"
     volumes:
       - workspace_repos:/workspace-repositories
 
   celery-worker:
-    image: source-context-backend:latest
-    command: uv run celery -A app.worker.celery_worker worker --loglevel=info
+#    image: ghcr.io/tule142857/source-context/backend:latest
     restart: unless-stopped
     environment:
       <<: *common-env
@@ -70,13 +82,9 @@ services:
       qdrant:
         condition: service_healthy
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - workspace_repos:/workspace-repositories
-
-  frontend:
-    build: ./frontend
-    restart: unless-stopped
-    expose:
-      - "5173"
+    command: celery -A app.worker.celery_worker worker --loglevel=info
 
   postgres:
     image: postgres:17
@@ -87,9 +95,9 @@ services:
       POSTGRES_DB: ${SOURCE_CONTEXT_POSTGRES_DB:?SOURCE_CONTEXT_POSTGRES_DB is required}
     volumes:
       - ./docker/postgres:/docker-entrypoint-initdb.d/
-      - postgres_data:/var/lib/postgresql/data
-    expose:
-      - "5432"
+#      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_POSTGRES_PORT:-5432}:5432"
     healthcheck:
       <<: *healthcheck_base
       test: ["CMD-SHELL", "pg_isready -U ${SOURCE_CONTEXT_POSTGRES_USER:?SOURCE_CONTEXT_POSTGRES_USER is required} -d ${SOURCE_CONTEXT_POSTGRES_DB:?SOURCE_CONTEXT_POSTGRES_DB is required}"]
@@ -99,11 +107,11 @@ services:
     restart: unless-stopped
     environment:
       - NEO4J_AUTH=${SOURCE_CONTEXT_NEO4J_USER:?SOURCE_CONTEXT_NEO4J_USER is required}/${SOURCE_CONTEXT_NEO4J_PASSWORD:?SOURCE_CONTEXT_NEO4J_PASSWORD is required}
-    expose:
-      - "7474"
-      - "7687"
-    volumes:
-      - neo4j_data:/data
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_HTTP_PORT:-7474}:7474"
+      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_PORT:-7867}:7687"
+#    volumes:
+#      - neo4j_data:/data
     healthcheck:
       <<: *healthcheck_base
       test: [
@@ -117,13 +125,10 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     restart: unless-stopped
-    expose:
-      - "6333"
-      - "6334"
     environment:
       - QDRANT__TELEMETRY_DISABLED=true
-    volumes:
-      - qdrant_data:/qdrant/storage
+#    volumes:
+#      - qdrant_data:/qdrant/storage
     healthcheck:
       <<: *healthcheck_base
       test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
@@ -131,14 +136,14 @@ services:
   redis:
     image: redis:8.6
     restart: unless-stopped
-    expose:
-      - "6379"
     command: >
       redis-server
       --user default off
       --user ${SOURCE_CONTEXT_REDIS_USER:?SOURCE_CONTEXT_REDIS_USER is required} on ">${SOURCE_CONTEXT_REDIS_PASSWORD:?SOURCE_CONTEXT_REDIS_PASSWORD is required}" allcommands allkeys allchannels
-    volumes:
-      - redis_data:/data
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_REDIS_PORT:-6379}:6379"
+#    volumes:
+#      - redis_data:/data
     healthcheck:
       <<: *healthcheck_base
       test: [ "CMD", "redis-cli", "ping" ]
@@ -149,21 +154,16 @@ services:
     environment:
       MINIO_ROOT_USER: ${SOURCE_CONTEXT_MINIO_ROOT_USER:?SOURCE_CONTEXT_MINIO_ROOT_USER is required}
       MINIO_ROOT_PASSWORD: ${SOURCE_CONTEXT_MINIO_ROOT_PASSWORD:?SOURCE_CONTEXT_MINIO_ROOT_PASSWORD is required}
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${SOURCE_CONTEXT_MINIO_CONSOLE_PORT:-9001}:9001"
+#    volumes:
+#      - minio_data:/data
     command: server /data --address :9000 --console-address :9001
-    expose:
-      - "9000"
-      - "9001"
-    volumes:
-      - minio_data:/data
     healthcheck:
       <<: *healthcheck_base
       test: [ "CMD", "mc", "ready", "local"]
 
 volumes:
-  postgres_data:
-  neo4j_data:
-  qdrant_data:
-  redis_data:
-  minio_data:
   workspace_repos:
     name: workspace_repo
