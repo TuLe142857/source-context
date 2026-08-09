@@ -9,9 +9,7 @@ import {
   listWorkspacesApi,
   removeMemberApi,
 } from '@/api/workspaces.api';
-import { leaveWorkspaceApi, updateWorkspaceApi } from '@/api/workspaces.template';
 import type { AddMemberRequest, CreateWorkspaceRequest } from '@/api/types/workspace';
-import type { UpdateWorkspaceRequest } from '@/api/types/templates';
 
 const WORKSPACES_KEY = ['workspaces'] as const;
 const workspaceKey = (workspaceId: number) => ['workspaces', workspaceId] as const;
@@ -25,7 +23,7 @@ export function useWorkspacesQuery() {
 /**
  * WorkspaceHierarchyResponse omits `description` — fetch the plain
  * WorkspaceResponse alongside it whenever the description is needed (e.g.
- * the Overview tab's edit form).
+ * the Overview tab).
  */
 export function useWorkspaceQuery(workspaceId: number) {
   return useQuery({
@@ -68,13 +66,6 @@ export function useCreateWorkspaceMutation() {
   });
 }
 
-/** Template only — backend removed PATCH /workspaces/{id} (see Migration Plan Round 2, Step C). */
-export function useUpdateWorkspaceMutation(workspaceId: number) {
-  return useMutation({
-    mutationFn: (data: UpdateWorkspaceRequest) => updateWorkspaceApi(workspaceId, data),
-  });
-}
-
 export function useDeleteWorkspaceMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -105,12 +96,5 @@ export function useRemoveMemberMutation(workspaceId: number) {
       void queryClient.invalidateQueries({ queryKey: workspaceHierarchyKey(workspaceId) });
       void queryClient.invalidateQueries({ queryKey: workspaceMembersKey(workspaceId) });
     },
-  });
-}
-
-/** Template only — no leave-workspace endpoint exists on the backend yet. */
-export function useLeaveWorkspaceMutation() {
-  return useMutation({
-    mutationFn: (workspaceId: number) => leaveWorkspaceApi(workspaceId),
   });
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { GitFork, Pencil, Plus, Trash2 } from 'lucide-react';
+import { GitFork, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -12,10 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { TemplateBadge } from '@/components/TemplateBadge';
 import { BranchItem } from './BranchItem';
-import { AddBranchToRepositoryDialog } from './AddBranchToRepositoryDialog';
-import { useDeleteRepositoryMutation, useUpdateRepositoryMutation } from '@/hooks/useRepositories';
+import { useDeleteRepositoryMutation } from '@/hooks/useRepositories';
 import type { RepositoryResponse } from '@/api/types/repository';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -27,9 +25,7 @@ export function RepositoryItem({
   repository: RepositoryResponse;
 }) {
   const deleteMutation = useDeleteRepositoryMutation(workspaceId);
-  const updateMutation = useUpdateRepositoryMutation(workspaceId);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [addBranchOpen, setAddBranchOpen] = useState(false);
 
   const handleDelete = () => {
     deleteMutation.mutate(repository.id, {
@@ -39,13 +35,6 @@ export function RepositoryItem({
       },
       onError: (err) => toast.error(getErrorMessage(err)),
     });
-  };
-
-  const handleEdit = () => {
-    updateMutation.mutate(
-      { repositoryId: repository.id, data: { name: repository.name } },
-      { onError: (err) => toast.error(getErrorMessage(err)) }
-    );
   };
 
   return (
@@ -61,10 +50,6 @@ export function RepositoryItem({
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <TemplateBadge label="Sửa sắp có" />
-          <Button variant="ghost" size="icon" title="Sửa repository (template)" onClick={handleEdit}>
-            <Pencil className="w-3.5 h-3.5" />
-          </Button>
           <Button variant="ghost" size="icon" title="Xoá repository" onClick={() => setConfirmOpen(true)}>
             <Trash2 className="w-3.5 h-3.5 text-destructive" />
           </Button>
@@ -79,18 +64,7 @@ export function RepositoryItem({
         ) : (
           <p className="text-xs text-muted-foreground">Chưa có branch nào được đăng ký.</p>
         )}
-        <Button variant="outline" size="sm" onClick={() => setAddBranchOpen(true)}>
-          <Plus className="w-3.5 h-3.5" /> Thêm branch vào repo này
-          <TemplateBadge />
-        </Button>
       </div>
-
-      <AddBranchToRepositoryDialog
-        workspaceId={workspaceId}
-        repositoryId={repository.id}
-        open={addBranchOpen}
-        onOpenChange={setAddBranchOpen}
-      />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

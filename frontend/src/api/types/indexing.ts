@@ -12,8 +12,3 @@ export interface IndexingJobResponse {
   created_at: string;
   updated_at: string;
 }
-
-/** Optional body for POST /indexing/{workspaceId}/branch/{branchId}. */
-export interface TriggerBranchIndexingRequest {
-  commit_hashed?: string | null;
-}
