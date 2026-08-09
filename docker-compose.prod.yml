@@ -1,0 +1,40 @@
+services:
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Variable is not set or empty}
+
+  backend:
+    image: ghcr.io/tule142857/source-context/backend:latest
+
+  celery-worker:
+    image: ghcr.io/tule142857/source-context/backend:latest
+
+  postgres:
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+
+  neo4j:
+    volumes:
+      - neo4j_data_prod:/data
+
+  qdrant:
+    volumes:
+      - qdrant_data_prod:/qdrant/storage
+
+  redis:
+    volumes:
+      - redis_data_prod:/data
+
+  minio:
+    volumes:
+      - minio_data_prod:/data
+
+volumes:
+  postgres_data_prod:
+  neo4j_data_prod:
+  qdrant_data_prod:
+  redis_data_prod:
+  minio_data_prod:

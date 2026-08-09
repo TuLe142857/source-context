@@ -6,6 +6,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router, mcp_router
 from app.api.routes.health import router as health_router
@@ -88,6 +89,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     application.state.settings = app_settings
+
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     register_exception_handlers(application)
     application.include_router(health_router)
