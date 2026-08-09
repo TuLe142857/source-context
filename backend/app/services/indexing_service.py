@@ -69,7 +69,7 @@ class IndexingService:
                 message=f"Branch with ID {branch_id} not found in this workspace.",
             )
 
-        repo_stmt = (select(Repository).where(Repository.id == Branch.repository_id))
+        repo_stmt = (select(Repository).where(Repository.id == branch.repository_id))
         repo_res = await self.session.scalars(repo_stmt)
         repo = repo_res.one_or_none()
 
