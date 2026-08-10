@@ -5,6 +5,7 @@ export interface WorkspaceResponse {
   workspace_name: string;
   description?: string | null;
   owner_id: number;
+  github_installation_id?: number | null;
 }
 
 export interface CreateWorkspaceRequest {

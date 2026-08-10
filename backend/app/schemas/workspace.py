@@ -27,6 +27,7 @@ class WorkspaceResponse(WorkspaceBase):
 
     id: int
     owner_id: int
+    github_installation_id: int | None = None
 
 
 class AddMemberRequest(BaseModel):

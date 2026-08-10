@@ -47,6 +47,9 @@ dev-build: ## Build lại và khởi chạy môi trường Dev
 dev-down: ## Dừng môi trường Dev
 	$(COMPOSE_DEV) down
 
+dev-down-v:
+	$(COMPOSE_DEV) down -v
+
 dev-logs: ## Xem logs môi trường Dev
 	$(COMPOSE_DEV) logs -f
 

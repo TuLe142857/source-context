@@ -69,11 +69,13 @@ class IndexingService:
                 message=f"Branch with ID {branch_id} not found in this workspace.",
             )
 
-        repo_stmt = (select(Repository).where(Repository.id == branch.repository_id))
+        repo_stmt = select(Repository).where(Repository.id == branch.repository_id)
         repo_res = await self.session.scalars(repo_stmt)
         repo = repo_res.one_or_none()
 
-        new_commit_hashed = get_latest_commit_hash(repo_url=repo.git_url, branch_name=branch.branch_name)
+        new_commit_hashed = get_latest_commit_hash(
+            repo_url=repo.git_url, branch_name=branch.branch_name
+        )
 
         if branch.indexing_status == BranchIndexingStatus.INDEXING:
             raise AppException(
