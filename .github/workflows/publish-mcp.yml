@@ -1,0 +1,32 @@
+name: Publish MCP to PyPi
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "mcp/**"
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    name: Publish PyPI
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        run: uv publish
