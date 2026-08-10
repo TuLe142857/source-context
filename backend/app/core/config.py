@@ -238,6 +238,12 @@ class Settings(BaseSettings):
             "SOURCE_CONTEXT_OPENAI_API_KEY", "OPENAI_API_KEY"
         ),
     )
+    OPENAI_API_BASE_URL: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_OPENAI_API_BASE_URL", "OPENAI_API_BASE_URL"
+        ),
+    )
     OPENAI_MODEL: str = Field(
         default="gpt-4o-mini",
         validation_alias=AliasChoices("SOURCE_CONTEXT_OPENAI_MODEL", "OPENAI_MODEL"),

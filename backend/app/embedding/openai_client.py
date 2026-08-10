@@ -9,4 +9,5 @@ from app.core.config import settings
 def get_openai_client() -> OpenAI:
     return OpenAI(
         api_key=settings.OPENAI_API_KEY.get_secret_value(),
+        base_url=settings.OPENAI_API_BASE_URL
     )
