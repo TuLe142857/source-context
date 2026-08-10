@@ -26,6 +26,9 @@ class Workspace(Base):
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    github_installation_id: Mapped[int | None] = mapped_column(
+        nullable=True, default=None
+    )
 
     # Relationships
     owner: Mapped["User"] = relationship("User", back_populates="owned_workspaces")

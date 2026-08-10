@@ -1,13 +1,14 @@
 import subprocess
 from urllib.parse import urlparse
 
+
 def get_latest_commit_hash(repo_url: str, branch_name: str):
     result = subprocess.check_output(
-        ["git", "ls-remote", repo_url, branch_name],
-        text=True
+        ["git", "ls-remote", repo_url, branch_name], text=True
     )
 
     return result.split()[0] if result else None
+
 
 def get_repo_name(repo_url: str) -> str:
     """
@@ -56,11 +57,13 @@ def get_repo_name(repo_url: str) -> str:
 
     return repo_name
 
+
 import tempfile
 import asyncio
 from pathlib import Path
 from app.model import Repository
 from app.model import Branch
+
 
 async def prepare_data(branch: Branch, repo: Repository):
 
@@ -72,9 +75,16 @@ async def prepare_data(branch: Branch, repo: Repository):
         print("Đang tải metadata Git...")
 
         clone_proc = await asyncio.create_subprocess_exec(
-            "git", "clone", "--filter=blob:none", "--no-checkout",
-            "--single-branch", "--branch", branch.branch_name, 
-            repo.git_url, temp_dir,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            "git",
+            "clone",
+            "--filter=blob:none",
+            "--no-checkout",
+            "--single-branch",
+            "--branch",
+            branch.branch_name,
+            repo.git_url,
+            temp_dir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
         await clone_proc.communicate()

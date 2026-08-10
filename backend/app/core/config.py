@@ -83,6 +83,10 @@ class Settings(BaseSettings):
         default="/api/v1",
         validation_alias=AliasChoices("SOURCE_CONTEXT_API_V1_PREFIX", "API_V1_PREFIX"),
     )
+    FRONTEND_URL: str = Field(
+        default="http://localhost:5173",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_FRONTEND_URL", "FRONTEND_URL"),
+    )
 
     # Repository Scanner Settings
     repository_workspace_root: Path = Field(
@@ -260,6 +264,13 @@ class Settings(BaseSettings):
         default="voyage-code-3",
         validation_alias=AliasChoices(
             "SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL", "VOYAGE_EMBEDDING_MODEL"
+        ),
+    )
+
+    GITHUB_WEBHOOK_SECRET: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_GITHUB_WEBHOOK_SECRET", "GITHUB_WEBHOOK_SECRET"
         ),
     )
 

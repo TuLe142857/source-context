@@ -180,13 +180,14 @@ class GraphService:
         callees: list[dict] = []
 
         for r in cast(list[UASTNodeModel], node.references.all()):
-            callees.append({
-                "id": r.uid,
-                "name": r.name,
-                "file_id": r.file_node_uid,
-                "node_type": r.node_type,
-                "kind": getattr(r, "kind", None),
-            }
+            callees.append(
+                {
+                    "id": r.uid,
+                    "name": r.name,
+                    "file_id": r.file_node_uid,
+                    "node_type": r.node_type,
+                    "kind": getattr(r, "kind", None),
+                }
             )
 
         for child in cast(list[UASTNodeModel], node.children.all()):
