@@ -27,11 +27,11 @@ def get_openai_client(
         OpenAI | None: Initialized OpenAI client instance or None if API key is not set.
     """
     key = api_key or settings.OPENAI_API_KEY.get_secret_value()
-
+    base_url = settings.OPENAI_API_BASE_URL
     if not key or key.strip() == "":
         return None
 
-    return OpenAI(api_key=key)
+    return OpenAI(api_key=key, base_url=base_url)
 
 
 def get_summary(
