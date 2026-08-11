@@ -53,3 +53,6 @@ def configure_logging(
         logger.addHandler(handler)
 
         logger.setLevel(level)
+
+    # set neo4j logger to level error
+    logging.getLogger("neo4j").setLevel(logging.ERROR)
