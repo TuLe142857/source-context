@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     PAT: SecretStr = SecretStr("Default")
     """Personal access token"""
 
-    DEFAULT_WORKSPACE_ID: int = 1
+    DEFAULT_WORKSPACE_ID: int | None = None
     """Default Workspace ID"""
 
     PATH_WORKSPACE: dict[str, int] = {}
