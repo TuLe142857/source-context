@@ -7,6 +7,8 @@ from typing import Literal
 
 from app.core.config import LogLevel
 
+from .config import get_settings
+
 
 class JSONLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -27,11 +29,24 @@ class JSONLogFormatter(logging.Formatter):
 
 
 def configure_logging(
-    level: LogLevel = "DEBUG", fmt: Literal["plain", "json"] = "plain"
+    level: LogLevel | None = None, fmt: Literal["plain", "json"] | None = None
 ) -> None:
-    """Configure root application logging."""
-    handler = logging.StreamHandler(sys.stdout)
+    """
+    Configure logging for the backend application.
+    Args:
+        level: DEBUG | INFO | WARNING | ERROR | CRITICAL
+        fmt: json | plain
 
+    Returns:
+
+    """
+    settings = get_settings()
+    if level is None:
+        level = settings.log_level
+    if fmt is None:
+        fmt = settings.log_format
+
+    handler = logging.StreamHandler(sys.stdout)
     if fmt == "json":
         handler.setFormatter(JSONLogFormatter())
     elif fmt == "plain":

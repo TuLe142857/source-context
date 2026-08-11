@@ -79,6 +79,10 @@ class Settings(BaseSettings):
         default="INFO",
         validation_alias=AliasChoices("SOURCE_CONTEXT_LOG_LEVEL", "LOG_LEVEL"),
     )
+    log_format: Literal["plain", "json"] = Field(
+        default="plain",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_LOG_FORMAT", "LOG_FORMAT"),
+    )
     api_v1_prefix: str = Field(
         default="/api/v1",
         validation_alias=AliasChoices("SOURCE_CONTEXT_API_V1_PREFIX", "API_V1_PREFIX"),

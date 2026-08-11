@@ -76,7 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """Create and configure a FastAPI application instance."""
     app_settings = settings if settings is not None else get_settings()
 
-    configure_logging(app_settings.log_level)
+    configure_logging()
 
     application = FastAPI(
         title=app_settings.app_name,
