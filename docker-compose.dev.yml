@@ -93,6 +93,18 @@ services:
       - "127.0.0.1:${SOURCE_CONTEXT_MAILHOG_SMTP_PORT:-1025}:1025"
       - "127.0.0.1:${SOURCE_CONTEXT_MAILHOG_HTTP_PORT:-8025}:8025"
 
+  # ==============================================
+  # OBSERVABILITY IS DISABLE BY DEFAULT
+  # ==============================================
+  alloy:
+    profiles: [ logging ]
+  loki:
+    profiles: [ logging ]
+    volumes:
+      - loki_data_dev:/loki
+  grafana:
+    profiles: [ logging ]
+
 volumes:
   postgres_data_dev:
   neo4j_data_dev:
@@ -100,3 +112,5 @@ volumes:
   redis_data_dev:
   minio_data_dev:
   redis_insight_data_dev:
+
+  loki_data_dev:

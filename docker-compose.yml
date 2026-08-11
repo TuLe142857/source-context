@@ -112,7 +112,7 @@ services:
       - NEO4J_AUTH=${SOURCE_CONTEXT_NEO4J_USER:?SOURCE_CONTEXT_NEO4J_USER is required}/${SOURCE_CONTEXT_NEO4J_PASSWORD:?SOURCE_CONTEXT_NEO4J_PASSWORD is required}
     ports:
       - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_HTTP_PORT:-7474}:7474"
-      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_PORT:-7867}:7687"
+      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_PORT:-7687}:7687"
 #    volumes:
 #      - neo4j_data:/data
     healthcheck:
@@ -167,6 +167,50 @@ services:
       <<: *healthcheck_base
       test: [ "CMD", "mc", "ready", "local"]
 
+
+  # Log collector
+  alloy:
+    image: grafana/alloy:v1.18.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:12345:12345"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/observability/alloy/config.alloy:/etc/alloy/config.alloy
+#      - alloy_data:/var/lib/alloy/data
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+
+  # Log aggregation system
+  loki:
+    image: grafana/loki:3.7
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./docker/observability/loki/loki-config.yml:/etc/loki/loki-config.yml
+#      - loki_data:/loki
+    command:
+      - -config.file=/etc/loki/loki-config.yml
+
+  # Log dashboard
+  grafana:
+    image: grafana/grafana:13.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./docker/observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/observability/grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - "127.0.0.1:3000:3000"
+
 volumes:
   workspace_repos:
     name: workspace_repo
+  loki_data:
+  alloy_data:

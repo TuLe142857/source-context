@@ -1,6 +1,6 @@
 services:
   tunnel:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:latest@sha256:e39ee8da81ad5e05d77f38d2f51c60ca51bf2a8450ac3abab50c17fdb91d91bf
     restart: unless-stopped
     command: tunnel run
     environment:
@@ -13,24 +13,40 @@ services:
     image: ghcr.io/tule142857/source-context/backend:latest
 
   postgres:
+    image: postgres:17@sha256:a426e44bac0b759c95894d68e1a0ac03ecc20b619f498a91aae373bf06d8508d
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
 
   neo4j:
+    image: neo4j:community@sha256:2aefe0454ba8f38cd08081a2ab1908a2aca6e9d9024bd97c6e4eef6c79855c57
     volumes:
       - neo4j_data_prod:/data
 
   qdrant:
+    image: qdrant/qdrant:latest@sha256:057ee3a8da769fe7310dd3537b4dc7583bf87a95ce8ac43c0af5a46bc580d1fc
     volumes:
       - qdrant_data_prod:/qdrant/storage
 
   redis:
+    image: redis:8.6@sha256:aefcda4d4388a70e628ad5ebbf162ae65509b20ea3dd6eeac7dcbbb675d94dba
     volumes:
       - redis_data_prod:/data
 
   minio:
+    image: minio/minio:latest@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     volumes:
       - minio_data_prod:/data
+
+  alloy:
+    image: grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33
+
+  loki:
+    image: grafana/loki:3.7@sha256:efd47c67f9bac88ca29bcf8cb997d9ab29d1848bd0aff579282295542a745952
+    volumes:
+      - loki_data_prod:/loki
+  grafana:
+    image: grafana/grafana:latest@sha256:ab5cb380e3ff3172d6c8bd2e7cfd31cce977d2881b260e1f5bc089bf0b759b43
+
 
 volumes:
   postgres_data_prod:
@@ -38,3 +54,4 @@ volumes:
   qdrant_data_prod:
   redis_data_prod:
   minio_data_prod:
+  loki_data_prod:
