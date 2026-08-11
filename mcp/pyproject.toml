@@ -1,6 +1,6 @@
 [project]
 name = "source-context-mcp"
-version = "0.1.dev6"
+version = "0.1.dev7"
 description = "Local Model Context Protocol (MCP) server for Source Context code intelligence."
 readme = "README.md"
 authors = [

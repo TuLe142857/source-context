@@ -84,7 +84,10 @@ def write_settings(settings: Settings):
     """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-    data = settings.model_dump(exclude_none=True, mode="json")
+    data = {
+        k: (v.get_secret_value() if hasattr(v, "get_secret_value") else v)
+        for k, v in settings.model_dump(exclude_none=True).items()
+    }
 
     with CONFIG_FILE.open("wb") as f:
         tomli_w.dump(data, f)
