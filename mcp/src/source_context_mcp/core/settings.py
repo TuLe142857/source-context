@@ -84,13 +84,7 @@ def write_settings(settings: Settings):
     """
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-    data = {
-        "SERVER_URL": settings.SERVER_URL,
-        "PAT": settings.PAT.get_secret_value(),
-        "DEFAULT_WORKSPACE_ID": settings.DEFAULT_WORKSPACE_ID,
-        "PATH_WORKSPACE": settings.PATH_WORKSPACE,
-        "PATH_REPO": settings.PATH_REPO,
-    }
+    data = settings.model_dump(exclude_none=True, mode="json")
 
     with CONFIG_FILE.open("wb") as f:
         tomli_w.dump(data, f)
