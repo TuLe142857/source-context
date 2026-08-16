@@ -73,6 +73,12 @@ async def github_webhook(
         repo_obj = repo_res.scalar_one_or_none()
 
         if not repo_obj:
+            repo_stmt = select(Repository).where(Repository.git_url == clone_url.removesuffix(".git"))
+            repo_res = await db.execute(repo_stmt)
+            repo_obj = repo_res.scalar_one_or_none()
+            if not repo_obj:
+                logger.info("r2")
+                return {"status": "ignored", "reason": "repository not found in system"}
             return {"status": "ignored", "reason": "repository not found in system"}
 
         # Find all branch records linked to this repository and branch name
