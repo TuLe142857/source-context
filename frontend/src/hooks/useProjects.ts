@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createProjectApi, deleteProjectApi, updateProjectApi } from '@/api/projects.api';
-import { reindexProjectApi } from '@/api/projects.template';
 import type { ProjectCreateRequest, ProjectUpdateRequest } from '@/api/types/project';
 
 const workspaceHierarchyKey = (workspaceId: number) => ['workspaces', workspaceId, 'hierarchy'] as const;
@@ -35,12 +34,5 @@ export function useUpdateProjectMutation(workspaceId: number) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: workspaceHierarchyKey(workspaceId) });
     },
-  });
-}
-
-/** Template only — no per-project reindex endpoint exists on the backend yet. */
-export function useReindexProjectMutation(workspaceId: number) {
-  return useMutation({
-    mutationFn: (projectId: number) => reindexProjectApi(workspaceId, projectId),
   });
 }

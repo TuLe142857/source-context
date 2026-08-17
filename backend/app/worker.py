@@ -1,5 +1,9 @@
 from celery import Celery  # type: ignore[import-untyped]
 from app.core.config import get_settings
+from app.core.logging import configure_logging
+
+
+configure_logging()
 
 
 def create_worker() -> Celery:

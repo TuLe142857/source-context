@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { FolderGit2, KeyRound, LogOut, Settings, Sparkles, UserCircle } from 'lucide-react';
+import { FolderGit2, KeyRound, LogOut, Sparkles } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,18 +55,8 @@ export function Navbar() {
               <DropdownMenuLabel>Tài khoản</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="/settings/profile">
-                  <UserCircle className="w-4 h-4" /> Hồ sơ cá nhân
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
                 <Link to="/settings/tokens">
                   <KeyRound className="w-4 h-4" /> API Keys (PAT)
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/settings/security">
-                  <Settings className="w-4 h-4" /> Bảo mật
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

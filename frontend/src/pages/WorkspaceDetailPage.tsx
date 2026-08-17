@@ -59,7 +59,7 @@ export function WorkspaceDetailPage() {
         </TabsContent>
 
         <TabsContent value="repositories">
-          <RepositoriesPanel workspaceId={workspaceId} repositories={hierarchy.repositories} />
+          <RepositoriesPanel workspace={workspace} repositories={hierarchy.repositories} />
         </TabsContent>
 
         <TabsContent value="branches">

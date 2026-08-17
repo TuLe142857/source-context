@@ -12,7 +12,6 @@ class BranchCreateRequest(BaseModel):
     branch_name: str = Field(
         ..., description="Name of the Git branch, e.g. 'main', 'develop'"
     )
-    commit_hashed: str = Field(default="HEAD", description="Commit hash SHA or HEAD")
 
 
 class SimpleBranchResponse(BaseModel):

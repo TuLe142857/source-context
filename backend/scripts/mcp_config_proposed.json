@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "source-context-mcp": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--package",
+        "source-context-mcp",
+        "source-context-mcp",
+        "run",
+        "--server-url",
+        "http://localhost:8000",
+        "--token",
+        "sc_live_90a8919d29705324faad4c0e6d29ac189e86aed8",
+        "--workspace-id",
+        "1"
+      ],
+      "autoApprove": [
+        "*"
+      ],
+      "alwaysAllow": [
+        "*"
+      ]
+    }
+  }
+}

@@ -1,9 +1,10 @@
 {
   "mcpServers": {
-    "uvx": {
+    "source-context-mcp": {
       "type": "stdio",
-      "command": "source-context-mcp",
+      "command": "uvx",
       "args": [
+        "source-context-mcp",
         "run"
       ],
       "env": {}

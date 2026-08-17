@@ -2,10 +2,10 @@
 
 # Variables
 ENV_FILE_DEV ?= .env.dev
-ENV_FILE_PROD ?= .env
+ENV_FILE_PROD ?= .env.prod
 
 COMPOSE_DEV = docker compose --env-file $(ENV_FILE_DEV) -f docker-compose.yml -f docker-compose.dev.yml
-COMPOSE_PROD = docker compose --env-file $(ENV_FILE_PROD) -f docker-compose.yml
+COMPOSE_PROD = docker compose --env-file $(ENV_FILE_PROD) -f docker-compose.yml -f docker-compose.prod.yml
 
 help: ## Hiển thị danh sách các lệnh hỗ trợ trong Makefile
 	@echo "=========================================================================="
@@ -46,6 +46,9 @@ dev-build: ## Build lại và khởi chạy môi trường Dev
 
 dev-down: ## Dừng môi trường Dev
 	$(COMPOSE_DEV) down
+
+dev-down-v:
+	$(COMPOSE_DEV) down -v
 
 dev-logs: ## Xem logs môi trường Dev
 	$(COMPOSE_DEV) logs -f

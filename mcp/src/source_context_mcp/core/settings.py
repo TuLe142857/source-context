@@ -14,17 +14,20 @@ class Settings(BaseSettings):
         toml_file=str(CONFIG_FILE),
     )
 
-    SERVER_URL: str = "default"
-    """Server URL. Include prefix. Example: http://localhost:8000/mcp/v1"""
+    SERVER_URL: str = "http://localhost:8000/mcp/v1"
+    """Server URL. Include prefix. Default: http://localhost:8000/mcp/v1"""
 
     PAT: SecretStr = SecretStr("Default")
     """Personal access token"""
 
-    DEFAULT_WORKSPACE_ID: int = 1
+    DEFAULT_WORKSPACE_ID: int | None = None
     """Default Workspace ID"""
 
     PATH_WORKSPACE: dict[str, int] = {}
+    """Map [path, default_workspace_id]]"""
+
     PATH_REPO: dict[str, int] = {}
+    """Map [path, default_repo_id]]"""
 
     @classmethod
     def settings_customise_sources(
@@ -82,9 +85,8 @@ def write_settings(settings: Settings):
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
     data = {
-        "SERVER_URL": settings.SERVER_URL,
-        "PAT": settings.PAT.get_secret_value(),
-        "DEFAULT_WORKSPACE_ID": settings.DEFAULT_WORKSPACE_ID,
+        k: (v.get_secret_value() if hasattr(v, "get_secret_value") else v)
+        for k, v in settings.model_dump(exclude_none=True).items()
     }
 
     with CONFIG_FILE.open("wb") as f:

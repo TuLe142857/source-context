@@ -33,13 +33,23 @@ from app.schemas.repository import (
     WorkspaceHierarchyResponse,
 )
 
+from app.util.git_util import get_latest_commit_hash, get_repo_name
+
 
 class BranchService:
-    def __init__(self, session: DBSession, current_user: CurrentUser) -> None:
+    def __init__(
+        self, session: DBSession, current_user: CurrentUser | None = None
+    ) -> None:
         self.session = session
         self.current_user = current_user
 
     async def _check_workspace_access(self, workspace_id: int) -> Workspace:
+        if self.current_user is None:
+            raise AppException(
+                error_code=ErrorCode.UNAUTHORIZED,
+                message="User authentication required for this action.",
+            )
+
         stmt = select(Workspace).where(Workspace.id == workspace_id)
         res = await self.session.scalars(stmt)
         workspace = res.one_or_none()
@@ -123,19 +133,21 @@ class BranchService:
             for b in branches
         ]
 
-    async def attach_repository(
-        self, workspace_id: int, payload: RepositoryCreateRequest
-    ) -> RepositoryResponse:
-        await self._check_workspace_access(workspace_id)
+    async def is_branch_exist_in_workspace(
+        self, branch_name: str, workspace_id: int
+    ) -> bool:
+        pass
 
-        repo_stmt = select(Repository).where(Repository.git_url == payload.git_url)
+    async def attach_repository_db(
+        self, workspace_id: int, git_url: str, repo_name: str, branch_names: list[str]
+    ) -> Repository:
+        repo_stmt = select(Repository).where(Repository.git_url == git_url)
         repo_res = await self.session.scalars(repo_stmt)
         repo = repo_res.one_or_none()
-
         if repo is None:
             repo = Repository(
-                name=payload.name,
-                git_url=payload.git_url,
+                name=repo_name,
+                git_url=git_url,
             )
             self.session.add(repo)
             await self.session.flush()
@@ -150,20 +162,24 @@ class BranchService:
                 WorkspaceRepository(workspace_id=workspace_id, repository_id=repo.id)
             )
 
-        for branch_req in payload.branches:
+        for branch_name in branch_names:
             branch_stmt = select(Branch).where(
                 Branch.repository_id == repo.id,
-                Branch.branch_name == branch_req.branch_name,
+                Branch.branch_name == branch_name,
             )
             branch_res = await self.session.scalars(branch_stmt)
             existing_branch = branch_res.one_or_none()
 
+            commit_hashed = get_latest_commit_hash(
+                repo_url=repo.git_url, branch_name=branch_name
+            )
+
             if existing_branch is None:
-                local_path = f"{settings.repository_workspace_root}/ws_{workspace_id}/{payload.name}/{branch_req.branch_name}"
+                local_path = f"{settings.repository_workspace_root}/ws_{workspace_id}/{repo_name}/{branch_name}"
                 target_branch = Branch(
                     repository_id=repo.id,
-                    branch_name=branch_req.branch_name,
-                    commit_hashed=branch_req.commit_hashed,
+                    branch_name=branch_name,
+                    commit_hashed=commit_hashed,
                     indexing_status=BranchIndexingStatus.UNINDEXED,
                     local_path=local_path,
                 )
@@ -171,9 +187,9 @@ class BranchService:
                 await self.session.flush()
             else:
                 target_branch = existing_branch
-                if branch_req.commit_hashed and branch_req.commit_hashed != "HEAD":
-                    if target_branch.commit_hashed != branch_req.commit_hashed:
-                        target_branch.commit_hashed = branch_req.commit_hashed
+                if commit_hashed and commit_hashed != "HEAD":
+                    if target_branch.commit_hashed != commit_hashed:
+                        target_branch.commit_hashed = commit_hashed
                         if (
                             target_branch.indexing_status
                             == BranchIndexingStatus.INDEXED
@@ -194,6 +210,23 @@ class BranchService:
                         branch_id=target_branch.id,
                     )
                 )
+
+        return repo
+
+    async def attach_repository(
+        self, workspace_id: int, payload: RepositoryCreateRequest
+    ) -> RepositoryResponse:
+        await self._check_workspace_access(workspace_id)
+
+        repo_name = get_repo_name(repo_url=payload.git_url)
+        branch_names = [b.branch_name for b in payload.branches]
+
+        repo = await self.attach_repository_db(
+            workspace_id=workspace_id,
+            git_url=payload.git_url,
+            repo_name=repo_name,
+            branch_names=branch_names,
+        )
 
         await self.session.commit()
 

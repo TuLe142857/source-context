@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { Crown, Loader2, LogOut, Plus, Trash2, UserRound } from 'lucide-react';
+import { Crown, Loader2, Plus, Trash2, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -14,9 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { TemplateBadge } from '@/components/TemplateBadge';
-import { useAddMemberMutation, useLeaveWorkspaceMutation, useRemoveMemberMutation } from '@/hooks/useWorkspaces';
-import { useSession } from '@/hooks/useAuth';
+import { useAddMemberMutation, useRemoveMemberMutation } from '@/hooks/useWorkspaces';
 import type { MemberResponse } from '@/api/types/workspace';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -29,14 +27,11 @@ export function MembersPanel({
   ownerId: number;
   members: MemberResponse[];
 }) {
-  const { user } = useSession();
   const addMutation = useAddMemberMutation(workspaceId);
   const removeMutation = useRemoveMemberMutation(workspaceId);
-  const leaveMutation = useLeaveWorkspaceMutation();
 
   const [email, setEmail] = useState('');
   const [removeTarget, setRemoveTarget] = useState<MemberResponse | null>(null);
-  const [leaveOpen, setLeaveOpen] = useState(false);
 
   const handleAdd = (e: FormEvent) => {
     e.preventDefault();
@@ -62,24 +57,10 @@ export function MembersPanel({
     });
   };
 
-  const handleLeave = () => {
-    leaveMutation.mutate(workspaceId, {
-      onError: (err) => toast.error(getErrorMessage(err)),
-      onSettled: () => setLeaveOpen(false),
-    });
-  };
-
-  const isOwner = user?.id === ownerId;
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-foreground">Thành viên workspace</h3>
-        {!isOwner && (
-          <Button variant="outline" size="sm" onClick={() => setLeaveOpen(true)}>
-            <LogOut className="w-3.5 h-3.5" /> Rời workspace <TemplateBadge />
-          </Button>
-        )}
       </div>
 
       <form onSubmit={handleAdd} className="flex items-center gap-2">
@@ -146,21 +127,6 @@ export function MembersPanel({
             <AlertDialogAction onClick={handleRemove} disabled={removeMutation.isPending}>
               Xoá
             </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Rời khỏi workspace này?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tính năng này chưa được backend hỗ trợ — đây là giao diện chuẩn bị trước.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Huỷ</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLeave}>Rời workspace</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

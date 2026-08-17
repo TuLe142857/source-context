@@ -79,9 +79,17 @@ class Settings(BaseSettings):
         default="INFO",
         validation_alias=AliasChoices("SOURCE_CONTEXT_LOG_LEVEL", "LOG_LEVEL"),
     )
+    log_format: Literal["plain", "json"] = Field(
+        default="plain",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_LOG_FORMAT", "LOG_FORMAT"),
+    )
     api_v1_prefix: str = Field(
         default="/api/v1",
         validation_alias=AliasChoices("SOURCE_CONTEXT_API_V1_PREFIX", "API_V1_PREFIX"),
+    )
+    FRONTEND_URL: str = Field(
+        default="http://localhost:5173",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_FRONTEND_URL", "FRONTEND_URL"),
     )
 
     # Repository Scanner Settings
@@ -238,6 +246,12 @@ class Settings(BaseSettings):
             "SOURCE_CONTEXT_OPENAI_API_KEY", "OPENAI_API_KEY"
         ),
     )
+    OPENAI_API_BASE_URL: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_OPENAI_API_BASE_URL", "OPENAI_API_BASE_URL"
+        ),
+    )
     OPENAI_MODEL: str = Field(
         default="gpt-4o-mini",
         validation_alias=AliasChoices("SOURCE_CONTEXT_OPENAI_MODEL", "OPENAI_MODEL"),
@@ -254,6 +268,13 @@ class Settings(BaseSettings):
         default="voyage-code-3",
         validation_alias=AliasChoices(
             "SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL", "VOYAGE_EMBEDDING_MODEL"
+        ),
+    )
+
+    GITHUB_WEBHOOK_SECRET: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_GITHUB_WEBHOOK_SECRET", "GITHUB_WEBHOOK_SECRET"
         ),
     )
 

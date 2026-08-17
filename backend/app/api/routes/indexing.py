@@ -6,7 +6,7 @@ from app.core import (
     ResponseSuccessSchema,
     build_error_docs,
 )
-from app.schemas.indexing import IndexingJobResponse, TriggerBranchIndexingRequest
+from app.schemas.indexing import IndexingJobResponse
 from app.services.indexing_service import IndexingServiceDep
 
 router = APIRouter(prefix="/indexing", tags=["Indexing"])
@@ -28,11 +28,8 @@ async def trigger_branch_indexing(
     workspace_id: int,
     branch_id: int,
     indexing_service: IndexingServiceDep,
-    payload: TriggerBranchIndexingRequest | None = None,
 ) -> APIResponse:
-    data = await indexing_service.trigger_branch_indexing(
-        workspace_id, branch_id, payload
-    )
+    data = await indexing_service.trigger_branch_indexing(workspace_id, branch_id)
     return APIResponse.ok(data=data)
 
 

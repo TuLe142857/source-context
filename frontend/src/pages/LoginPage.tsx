@@ -56,11 +56,6 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
           />
-          <div className="text-right">
-            <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-primary">
-              Quên mật khẩu?
-            </Link>
-          </div>
         </div>
 
         <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
