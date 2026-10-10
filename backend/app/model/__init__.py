@@ -2,6 +2,7 @@
 
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
+from app.model.github_webhook_delivery import GitHubWebhookDelivery
 from app.model.member import Member
 from app.model.pat import PAT
 from app.model.project import Project
@@ -14,6 +15,7 @@ from app.model.workspace_repository import WorkspaceRepository
 __all__ = [
     "Branch",
     "IndexingJob",
+    "GitHubWebhookDelivery",
     "Member",
     "PAT",
     "Project",

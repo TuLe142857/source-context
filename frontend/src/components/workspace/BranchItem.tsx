@@ -52,6 +52,11 @@ export function BranchItem({ workspaceId, branch }: { workspaceId: number; branc
           <span className="text-xs text-muted-foreground font-mono truncate">
             @{branch.commit_hashed.slice(0, 12)}
           </span>
+          {branch.indexed_commit_sha && branch.indexed_commit_sha !== branch.commit_hashed && (
+            <span className="text-xs text-amber-400" title={`Commit đã index: ${branch.indexed_commit_sha}`}>
+              (đã index @{branch.indexed_commit_sha.slice(0, 12)})
+            </span>
+          )}
           <IndexingStatusBadge status={branch.indexing_status} />
         </div>
         <div className="flex items-center gap-1 shrink-0">

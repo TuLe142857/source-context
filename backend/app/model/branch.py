@@ -28,6 +28,9 @@ class Branch(Base):
     commit_hashed: Mapped[str] = mapped_column(
         String(255), nullable=False, default="HEAD"
     )
+    indexed_commit_sha: Mapped[str | None] = mapped_column(
+        String(40), nullable=True, default=None
+    )
     indexing_status: Mapped[BranchIndexingStatus] = mapped_column(
         SQLEnum(
             BranchIndexingStatus,

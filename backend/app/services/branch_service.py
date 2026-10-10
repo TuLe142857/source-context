@@ -8,6 +8,7 @@ from app.api.dependencies import CurrentUser, DBSession
 from app.core import AppException, ErrorCode
 from app.core.config import settings
 from app.enums import BranchIndexingStatus
+from app.github_app import GitHubAppError, github_app_client
 from app.model.branch import Branch
 from app.model.member import Member
 from app.model.project import Project
@@ -19,6 +20,7 @@ from app.repository_manager.github_url import (
     GitHubUrlParser,
     fetch_github_branches,
 )
+from app.repository_manager.exceptions import InvalidGitHubUrlError
 from app.schemas.branch import BranchResponse
 from app.schemas.project import (
     ProjectCreateRequest,
@@ -74,17 +76,25 @@ class BranchService:
         return workspace
 
     async def inspect_remote_branches(
-        self, payload: InspectGitHubBranchesRequest
+        self, workspace_id: int, payload: InspectGitHubBranchesRequest
     ) -> RemoteBranchesResponse:
+        workspace = await self._check_workspace_access(workspace_id)
         try:
             ref = GitHubUrlParser.parse(payload.git_url)
-        except Exception as exc:
+        except InvalidGitHubUrlError as exc:
             raise AppException(
                 error_code=ErrorCode.BAD_REQUEST,
                 message=f"Invalid GitHub URL provided: {exc}",
             ) from exc
 
-        branches = fetch_github_branches(ref.owner, ref.repository)
+        try:
+            branches = fetch_github_branches(
+                ref.owner,
+                ref.repository,
+                installation_id=workspace.github_installation_id,
+            )
+        except GitHubAppError as exc:
+            raise AppException(exc.error_code, str(exc)) from exc
 
         return RemoteBranchesResponse(
             git_url=ref.clone_url,
@@ -116,6 +126,7 @@ class BranchService:
                 repository_id=b.repository_id,
                 branch_name=b.branch_name,
                 commit_hashed=b.commit_hashed,
+                indexed_commit_sha=b.indexed_commit_sha,
                 indexing_status=b.indexing_status,
                 local_path=b.local_path,
                 projects=[
@@ -139,11 +150,24 @@ class BranchService:
         pass
 
     async def attach_repository_db(
-        self, workspace_id: int, git_url: str, repo_name: str, branch_names: list[str]
+        self,
+        workspace_id: int,
+        git_url: str,
+        repo_name: str,
+        branch_names: list[str],
+        github_repository_id: int | None = None,
     ) -> Repository:
         repo_stmt = select(Repository).where(Repository.git_url == git_url)
+        if github_repository_id is not None:
+            repo_stmt = select(Repository).where(
+                Repository.github_repository_id == github_repository_id
+            )
         repo_res = await self.session.scalars(repo_stmt)
         repo = repo_res.one_or_none()
+        if repo is None and github_repository_id is not None:
+            repo = await self.session.scalar(
+                select(Repository).where(Repository.git_url == git_url)
+            )
         if repo is None:
             repo = Repository(
                 name=repo_name,
@@ -151,6 +175,8 @@ class BranchService:
             )
             self.session.add(repo)
             await self.session.flush()
+        elif github_repository_id is not None:
+            repo.github_repository_id = github_repository_id
 
         link_stmt = select(WorkspaceRepository).where(
             WorkspaceRepository.workspace_id == workspace_id,
@@ -162,6 +188,10 @@ class BranchService:
                 WorkspaceRepository(workspace_id=workspace_id, repository_id=repo.id)
             )
 
+        workspace_installation_id = await self.session.scalar(
+            select(Workspace.github_installation_id).where(Workspace.id == workspace_id)
+        )
+
         for branch_name in branch_names:
             branch_stmt = select(Branch).where(
                 Branch.repository_id == repo.id,
@@ -170,9 +200,23 @@ class BranchService:
             branch_res = await self.session.scalars(branch_stmt)
             existing_branch = branch_res.one_or_none()
 
-            commit_hashed = get_latest_commit_hash(
-                repo_url=repo.git_url, branch_name=branch_name
-            )
+            try:
+                github_ref = GitHubUrlParser.parse(repo.git_url)
+            except InvalidGitHubUrlError:
+                commit_hashed = get_latest_commit_hash(
+                    repo_url=repo.git_url,
+                    branch_name=branch_name,
+                )
+            else:
+                try:
+                    commit_hashed = github_app_client.branch_commit_sha(
+                        github_ref.owner,
+                        github_ref.repository,
+                        branch_name,
+                        installation_id=workspace_installation_id,
+                    )
+                except GitHubAppError as exc:
+                    raise AppException(exc.error_code, str(exc)) from exc
 
             if existing_branch is None:
                 local_path = f"{settings.repository_workspace_root}/ws_{workspace_id}/{repo_name}/{branch_name}"
@@ -191,8 +235,13 @@ class BranchService:
                     if target_branch.commit_hashed != commit_hashed:
                         target_branch.commit_hashed = commit_hashed
                         if (
-                            target_branch.indexing_status
-                            == BranchIndexingStatus.INDEXED
+                            target_branch.indexed_commit_sha is not None
+                            and target_branch.indexed_commit_sha != commit_hashed
+                            and target_branch.indexing_status
+                            not in {
+                                BranchIndexingStatus.INDEXING,
+                                BranchIndexingStatus.FAILED,
+                            }
                         ):
                             target_branch.indexing_status = (
                                 BranchIndexingStatus.OUTDATED
@@ -254,6 +303,7 @@ class BranchService:
                     repository_id=b.repository_id,
                     branch_name=b.branch_name,
                     commit_hashed=b.commit_hashed,
+                    indexed_commit_sha=b.indexed_commit_sha,
                     indexing_status=b.indexing_status,
                     local_path=b.local_path,
                     projects=[
@@ -416,6 +466,7 @@ class BranchService:
                             repository_id=b.repository_id,
                             branch_name=b.branch_name,
                             commit_hashed=b.commit_hashed,
+                            indexed_commit_sha=b.indexed_commit_sha,
                             indexing_status=b.indexing_status,
                             local_path=b.local_path,
                             projects=[

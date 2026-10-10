@@ -6,6 +6,10 @@ services:
       target: dev
     ports:
       - "127.0.0.1:${SOURCE_CONTEXT_FRONTEND_PORT:-5173}:5173"
+    environment:
+      VITE_GITHUB_APP_NAME: ${VITE_GITHUB_APP_NAME:-source-context-mcp}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+      VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://backend:8000}
     volumes:
       - ./frontend:/app
       - /app/node_modules

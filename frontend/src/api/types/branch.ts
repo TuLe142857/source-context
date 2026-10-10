@@ -21,6 +21,7 @@ export interface BranchResponse {
   repository_id: number;
   branch_name: string;
   commit_hashed: string;
+  indexed_commit_sha?: string | null;
   indexing_status: BranchIndexingStatus;
   local_path?: string | null;
   projects: ProjectResponse[];

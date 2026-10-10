@@ -1,9 +1,11 @@
 """Safe subprocess wrapper for Git repository operations."""
 
-import shutil
-import subprocess
+import base64
+import os
 from collections.abc import Sequence
 from pathlib import Path
+import shutil
+import subprocess
 
 from app.schemas.repository import GitRepositoryMetadata
 from app.repository_manager.exceptions import (
@@ -28,8 +30,10 @@ class GitClient:
         self,
         repository_url: str,
         destination: Path,
+        *,
+        access_token: str | None = None,
     ) -> None:
-        """Perform a shallow clone into a new destination."""
+        """Perform a shallow clone, optionally authenticating with an App token."""
 
         if destination.exists():
             raise RepositoryDestinationConflictError(destination)
@@ -49,6 +53,7 @@ class GitClient:
                     repository_url,
                     str(destination),
                 ],
+                access_token=access_token,
             )
         except Exception:
             if destination.exists():
@@ -63,6 +68,8 @@ class GitClient:
         repository_url: str,
         branch_name: str,
         destination: Path,
+        *,
+        access_token: str | None = None,
     ) -> GitRepositoryMetadata:
         """Clone a specific branch into destination, or fetch latest if already present.
 
@@ -89,37 +96,35 @@ class GitClient:
                         repository_url,
                         str(destination),
                     ],
+                    access_token=access_token,
                 )
             except Exception:
                 if destination.exists():
                     shutil.rmtree(destination, ignore_errors=True)
                 raise
         else:
-            try:
-                self._run(
-                    [
-                        "-C",
-                        str(destination),
-                        "fetch",
-                        "origin",
-                        branch_name,
-                        "--depth",
-                        "1",
-                    ],
-                    check=False,
-                )
-                self._run(
-                    [
-                        "-C",
-                        str(destination),
-                        "reset",
-                        "--hard",
-                        f"origin/{branch_name}",
-                    ],
-                    check=False,
-                )
-            except Exception:
-                pass
+            self._run(
+                [
+                    "-C",
+                    str(destination),
+                    "fetch",
+                    "origin",
+                    branch_name,
+                    "--depth",
+                    "1",
+                ],
+                access_token=access_token,
+            )
+            self._run(
+                [
+                    "-C",
+                    str(destination),
+                    "reset",
+                    "--hard",
+                    f"origin/{branch_name}",
+                ],
+                access_token=access_token,
+            )
 
         return self.get_metadata(destination)
 
@@ -200,10 +205,15 @@ class GitClient:
         arguments: Sequence[str],
         *,
         check: bool = True,
+        access_token: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         """Run Git without invoking a command shell."""
 
         command = ["git", *arguments]
+
+        process_env = None
+        if access_token is not None:
+            process_env = self._git_auth_environment(access_token)
 
         try:
             result = subprocess.run(
@@ -214,6 +224,7 @@ class GitClient:
                 encoding="utf-8",
                 errors="replace",
                 timeout=self._timeout_seconds,
+                env=process_env,
             )
         except FileNotFoundError as exc:
             raise GitExecutableNotFoundError() from exc
@@ -231,3 +242,26 @@ class GitClient:
             )
 
         return result
+
+    @staticmethod
+    def _git_auth_environment(access_token: str) -> dict[str, str]:
+        """Pass an ephemeral HTTP Authorization header through Git's child env."""
+
+        process_env = os.environ.copy()
+        try:
+            config_count = int(process_env.get("GIT_CONFIG_COUNT", "0"))
+        except ValueError:
+            config_count = 0
+
+        basic_credentials = base64.b64encode(
+            f"x-access-token:{access_token}".encode("utf-8"),
+        ).decode("ascii")
+        process_env[f"GIT_CONFIG_KEY_{config_count}"] = (
+            "http.https://github.com/.extraheader"
+        )
+        process_env[f"GIT_CONFIG_VALUE_{config_count}"] = (
+            f"AUTHORIZATION: basic {basic_credentials}"
+        )
+        process_env["GIT_CONFIG_COUNT"] = str(config_count + 1)
+        process_env["GIT_TERMINAL_PROMPT"] = "0"
+        return process_env

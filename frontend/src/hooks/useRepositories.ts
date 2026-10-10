@@ -4,10 +4,10 @@ import type { InspectGitHubBranchesRequest, RepositoryCreateRequest } from '@/ap
 
 const workspaceHierarchyKey = (workspaceId: number) => ['workspaces', workspaceId, 'hierarchy'] as const;
 
-/** Standalone GitHub utility now — no longer scoped to a workspace. */
 export function useInspectBranchesMutation() {
   return useMutation({
-    mutationFn: (data: InspectGitHubBranchesRequest) => inspectGitHubBranchesApi(data),
+    mutationFn: ({ workspaceId, data }: { workspaceId: number; data: InspectGitHubBranchesRequest }) =>
+      inspectGitHubBranchesApi(workspaceId, data),
   });
 }
 

@@ -12,9 +12,31 @@ from app.schemas.workspace import (
     MemberResponse,
     WorkspaceResponse,
 )
+from app.api.dependencies import RedisDep
+from app.github_install_state import create_install_state
 from app.services.workspace_service import WorkspaceServiceDep
 
 router = APIRouter(prefix="/workspaces", tags=["Workspaces"])
+
+
+@router.post(
+    "/{workspace_id}/github-install-state",
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.FORBIDDEN,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Create one-time state for GitHub App installation",
+)
+async def create_github_install_state(
+    workspace_id: int,
+    workspace_service: WorkspaceServiceDep,
+    redis: RedisDep,
+) -> APIResponse:
+    await workspace_service.get_workspace_by_id(workspace_id)
+    state = await create_install_state(workspace_id, redis)
+    return APIResponse.ok(data={"state": state})
 
 
 @router.get(

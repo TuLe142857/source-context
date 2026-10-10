@@ -6,9 +6,12 @@ import type {
   RepositoryResponse,
 } from './types/repository';
 
-/** Standalone GitHub utility — no longer scoped to a workspace. */
-export function inspectGitHubBranchesApi(data: InspectGitHubBranchesRequest): Promise<RemoteBranchesResponse> {
-  return http.post<RemoteBranchesResponse>('/branches/remote-branches', data).then((res) => res.data);
+/** Preview branches through the GitHub App installation linked to this workspace. */
+export function inspectGitHubBranchesApi(
+  workspaceId: number,
+  data: InspectGitHubBranchesRequest
+): Promise<RemoteBranchesResponse> {
+  return http.post<RemoteBranchesResponse>(`/branches/${workspaceId}/remote-branches`, data).then((res) => res.data);
 }
 
 export function createRepositoryApi(

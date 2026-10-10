@@ -23,6 +23,7 @@ class SimpleBranchResponse(BaseModel):
     repository_id: int
     branch_name: str
     commit_hashed: str
+    indexed_commit_sha: str | None = None
     indexing_status: BranchIndexingStatus = BranchIndexingStatus.UNINDEXED
     local_path: str | None = None
 
@@ -36,6 +37,7 @@ class BranchResponse(BaseModel):
     repository_id: int
     branch_name: str
     commit_hashed: str
+    indexed_commit_sha: str | None = None
     indexing_status: BranchIndexingStatus = BranchIndexingStatus.UNINDEXED
     local_path: str | None = None
     projects: list[ProjectResponse] = Field(default_factory=list)

@@ -1,0 +1,5 @@
+# Use with docker-compose.yml and docker-compose.dev.yml plus
+# --project-name source-context-staging to isolate staging state.
+volumes:
+  workspace_repos:
+    name: source-context-staging-workspace-repos

@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Plus, Settings, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RepositoryItem } from './RepositoryItem';
 import { AddRepositoryDialog } from './AddRepositoryDialog';
 import type { RepositoryResponse } from '@/api/types/repository';
 import type { WorkspaceResponse } from '@/api/types/workspace';
+import { createGitHubInstallStateApi } from '@/api/workspaces.api';
+import { getErrorMessage } from '@/lib/errors';
 
 function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -32,12 +35,27 @@ export function RepositoriesPanel({
   repositories: RepositoryResponse[];
 }) {
   const [addOpen, setAddOpen] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const githubAppName = import.meta.env.VITE_GITHUB_APP_NAME || 'source-context-mcp';
   const isConnected = !!workspace.github_installation_id;
 
-  const handleConnectApp = () => {
-    const connectUrl = `https://github.com/apps/${githubAppName}/installations/new?state=${workspace.id}`;
-    window.open(connectUrl, '_blank');
+  const handleConnectApp = async () => {
+    const installWindow = window.open('about:blank', '_blank');
+    if (!installWindow) {
+      toast.error('Trình duyệt đã chặn cửa sổ cài đặt GitHub. Hãy cho phép popup rồi thử lại.');
+      return;
+    }
+
+    setConnecting(true);
+    try {
+      const { state } = await createGitHubInstallStateApi(workspace.id);
+      installWindow.location.href = `https://github.com/apps/${githubAppName}/installations/new?state=${encodeURIComponent(state)}`;
+    } catch (error) {
+      installWindow.close();
+      toast.error(getErrorMessage(error));
+    } finally {
+      setConnecting(false);
+    }
   };
 
   const handleManageApp = () => {
@@ -77,8 +95,8 @@ export function RepositoriesPanel({
               <Settings className="w-4 h-4" /> Quản lý quyền
             </Button>
           ) : (
-            <Button size="sm" className="w-full md:w-auto gap-2" onClick={handleConnectApp}>
-              <GithubIcon className="w-4 h-4" /> Cài đặt & Kết nối
+            <Button size="sm" className="w-full md:w-auto gap-2" onClick={handleConnectApp} disabled={connecting}>
+              <GithubIcon className="w-4 h-4" /> {connecting ? 'Đang kết nối…' : 'Cài đặt & Kết nối'}
             </Button>
           )}
         </div>

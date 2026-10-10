@@ -85,9 +85,11 @@ cp .env.example .env
 | `SOURCE_CONTEXT_DEBUG` | `false` | Enable FastAPI debug mode |
 | `SOURCE_CONTEXT_LOG_LEVEL` | `INFO` | Logging level (`DEBUG` \| `INFO` \| `WARNING` \| `ERROR` \| `CRITICAL`) |
 | `SOURCE_CONTEXT_API_V1_PREFIX` | `/api/v1` | Prefix applied to all versioned API routes |
-| `SOURCE_CONTEXT_REPOSITORY_WORKSPACE_ROOT` | `workspace-repositories` | Directory where public GitHub repositories are cloned |
+| `SOURCE_CONTEXT_REPOSITORY_WORKSPACE_ROOT` | `workspace-repositories` | Directory where managed GitHub repository branches are cloned |
 | `SOURCE_CONTEXT_SCANNER_MAX_FILE_SIZE_BYTES` | `1000000` | Files larger than this limit are skipped during scanning |
 | `SOURCE_CONTEXT_GIT_COMMAND_TIMEOUT_SECONDS` | `120` | Maximum time (seconds) allowed for any Git subprocess |
+| `SOURCE_CONTEXT_GITHUB_APP_ID` | unset | GitHub App ID used to mint short-lived installation tokens |
+| `SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY` | unset | GitHub App PEM private key; keep it secret and configure it in the API and worker environments |
 
 ---
 

@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import BigInteger, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.postgres import Base
@@ -20,6 +20,9 @@ class Repository(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     git_url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    github_repository_id: Mapped[int | None] = mapped_column(
+        BigInteger, unique=True, nullable=True, index=True
+    )
 
     # Relationships
     workspaces: Mapped[list["Workspace"]] = relationship(

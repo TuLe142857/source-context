@@ -14,14 +14,19 @@ from app.embedding.utils import extract_summarizable_nodes
 from app.enums import BranchIndexingStatus, IndexingJobStatus
 from app.graph import build_call_graph_for_project, save_file_node
 from app.graph.model import ProjectNodeModel
+from app.github_app import github_app_client
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.project import Project
 from app.model.repository import Repository
+from app.model.workspace import Workspace
+from app.model.workspace_branch import WorkspaceBranch
 from app.parser import UnsupportedLanguageError
 from app.parser.languages import get_language_registry
 from app.parser.uast import UASTNode
 from app.repository_manager.git_client import GitClient
+from app.repository_manager.exceptions import InvalidGitHubUrlError
+from app.repository_manager.github_url import GitHubUrlParser
 from app.scip import scip_pb2
 from app.scip.sandbox import get_scip_sandbox_registry
 
@@ -29,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 async def download_branch_source_stage(
+    workspace_id: int,
     branch_id: int,
     db: AsyncSession,
 ) -> tuple[Path, str]:
@@ -42,9 +48,11 @@ async def download_branch_source_stage(
         tuple[Path, str]: Local storage Path and actual commit SHA.
     """
     stmt = (
-        select(Branch, Repository)
+        select(Branch, Repository, Workspace.github_installation_id)
         .join(Repository, Branch.repository_id == Repository.id)
-        .where(Branch.id == branch_id)
+        .join(WorkspaceBranch, WorkspaceBranch.branch_id == Branch.id)
+        .join(Workspace, Workspace.id == WorkspaceBranch.workspace_id)
+        .where(Branch.id == branch_id, Workspace.id == workspace_id)
     )
     res = await db.execute(stmt)
     row = res.first()
@@ -53,16 +61,29 @@ async def download_branch_source_stage(
 
     branch: Branch = row[0]
     repo: Repository = row[1]
+    installation_id: int | None = row[2]
 
     destination = Path(
         f"{settings.repository_workspace_root}/repo_{repo.id}/{branch.branch_name}"
     )
 
     git_client = GitClient(timeout_seconds=settings.git_command_timeout_seconds)
+    try:
+        GitHubUrlParser.parse(repo.git_url)
+    except InvalidGitHubUrlError:
+        access_token = None
+    else:
+        access_token = (
+            github_app_client.installation_token(installation_id)
+            if installation_id is not None
+            else None
+        )
+
     metadata = git_client.clone_or_update_branch(
         repository_url=repo.git_url,
         branch_name=branch.branch_name,
         destination=destination,
+        access_token=access_token,
     )
 
     branch.local_path = str(destination)
@@ -281,15 +302,29 @@ async def execute_branch_indexing_pipeline(
         job_id (int): IndexingJob ID.
         db (AsyncSession): Database session.
     """
-    job_res = await db.execute(select(IndexingJob).where(IndexingJob.id == job_id))
+    job_res = await db.execute(
+        select(IndexingJob).where(IndexingJob.id == job_id).with_for_update()
+    )
     job = job_res.scalar_one_or_none()
     if job is None:
         logger.error("IndexingJob %d not found.", job_id)
         return
+    if job.status != IndexingJobStatus.PENDING:
+        logger.info(
+            "Skipping duplicate indexing task for job_id=%d with status=%s",
+            job_id,
+            job.status,
+        )
+        return
+
+    # Claim the job while holding its row lock so duplicate broker deliveries
+    # cannot run the same branch pipeline concurrently.
+    job.status = IndexingJobStatus.PROCESSING
+    job.progress_pct = 5
+    await db.commit()
 
     try:
         # Step 1: Download/Clone Branch Source
-        job.status = IndexingJobStatus.PROCESSING
         job.progress_pct = 20
         await db.commit()
 
@@ -297,11 +332,16 @@ async def execute_branch_indexing_pipeline(
         branch = branch_res.scalar_one_or_none()
 
         # Update branch status to indexing
+        follow_up_job: tuple[int, int, int] | None = None
         if branch is not None:
             branch.indexing_status = BranchIndexingStatus.INDEXING
             await db.commit()
 
-        destination, _ = await download_branch_source_stage(branch_id=branch_id, db=db)
+        destination, target_commit_sha = await download_branch_source_stage(
+            workspace_id=workspace_id,
+            branch_id=branch_id,
+            db=db,
+        )
 
         # Fetch projects under this branch for this workspace
         proj_res = await db.execute(
@@ -354,9 +394,31 @@ async def execute_branch_indexing_pipeline(
         job.error_message = None
 
         if branch is not None:
-            branch.indexing_status = BranchIndexingStatus.INDEXED
+            # A webhook may have recorded a newer remote commit while this job
+            # was running. Compare against that latest value before publishing
+            # the indexed checkpoint and status.
+            await db.refresh(branch, attribute_names=["commit_hashed"])
+            branch.indexed_commit_sha = target_commit_sha
+            if branch.commit_hashed == target_commit_sha:
+                branch.indexing_status = BranchIndexingStatus.INDEXED
+            else:
+                # A push arrived after this task fetched its source tree. Queue
+                # one follow-up after commit so the newest checkpoint is not
+                # left waiting for a manual reindex.
+                branch.indexing_status = BranchIndexingStatus.INDEXING
+                next_job = IndexingJob(
+                    workspace_id=workspace_id,
+                    branch_id=branch.id,
+                    status=IndexingJobStatus.PENDING,
+                    progress_pct=0,
+                )
+                db.add(next_job)
+                await db.flush()
+                follow_up_job = (workspace_id, branch.id, next_job.id)
 
         await db.commit()
+        if follow_up_job is not None:
+            index_branch_task.delay(*follow_up_job)
         logger.info(
             "IndexingJob %d for branch_id=%d (workspace_id=%d) COMPLETED successfully.",
             job_id,

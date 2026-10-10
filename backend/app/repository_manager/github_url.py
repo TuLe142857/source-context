@@ -1,12 +1,10 @@
-"""Parsing and validation for public GitHub repository URLs."""
+"""Parsing and validation for GitHub repository URLs."""
 
-import json
 import re
-import urllib.request
 from dataclasses import dataclass
-from typing import cast
 from urllib.parse import unquote, urlparse
 
+from app.github_app import github_app_client
 from app.repository_manager.exceptions import InvalidGitHubUrlError
 
 GITHUB_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -23,7 +21,7 @@ def is_valid_github_name(value: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class GitHubRepositoryReference:
-    """Normalized reference to one public GitHub repository."""
+    """Normalized reference to one GitHub repository."""
 
     owner: str
     repository: str
@@ -48,11 +46,11 @@ class GitHubRepositoryReference:
 
 
 class GitHubUrlParser:
-    """Validate and normalize public GitHub HTTPS URLs."""
+    """Validate and normalize GitHub HTTPS repository URLs."""
 
     @staticmethod
     def parse(repository_url: str) -> GitHubRepositoryReference:
-        """Parse a supported public GitHub repository URL."""
+        """Parse a supported GitHub repository URL."""
 
         parsed_url = urlparse(repository_url.strip())
 
@@ -98,8 +96,13 @@ class GitHubUrlParser:
         )
 
 
-def fetch_github_branches(owner: str, repository: str) -> list[str]:
-    """Fetch remote branch names from GitHub API for a public repository.
+def fetch_github_branches(
+    owner: str,
+    repository: str,
+    *,
+    installation_id: int | None = None,
+) -> list[str]:
+    """Fetch remote branch names through GitHub's API.
 
     Args:
         owner: GitHub owner/organization name.
@@ -108,25 +111,8 @@ def fetch_github_branches(owner: str, repository: str) -> list[str]:
     Returns:
         list[str]: List of branch names.
     """
-    url = f"https://api.github.com/repos/{owner}/{repository}/branches?per_page=100"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Source-Context-Backend",
-            "Accept": "application/vnd.github.v3+json",
-        },
+    return github_app_client.list_branches(
+        owner,
+        repository,
+        installation_id=installation_id,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            if isinstance(data, list):
-                branches = [
-                    cast(str, branch["name"])
-                    for branch in data
-                    if isinstance(branch, dict) and "name" in branch
-                ]
-                if branches:
-                    return branches
-    except Exception:
-        pass
-    return ["main", "master"]

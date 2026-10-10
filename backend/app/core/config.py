@@ -277,6 +277,16 @@ class Settings(BaseSettings):
             "SOURCE_CONTEXT_GITHUB_WEBHOOK_SECRET", "GITHUB_WEBHOOK_SECRET"
         ),
     )
+    GITHUB_APP_ID: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SOURCE_CONTEXT_GITHUB_APP_ID", "GITHUB_APP_ID"),
+    )
+    GITHUB_APP_PRIVATE_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_PRIVATE_KEY"
+        ),
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property

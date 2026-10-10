@@ -19,6 +19,10 @@ export function getWorkspaceApi(workspaceId: number): Promise<WorkspaceResponse>
   return http.get<WorkspaceResponse>(`/workspaces/${workspaceId}`).then((res) => res.data);
 }
 
+export function createGitHubInstallStateApi(workspaceId: number): Promise<{ state: string }> {
+  return http.post<{ state: string }>(`/workspaces/${workspaceId}/github-install-state`).then((res) => res.data);
+}
+
 export function deleteWorkspaceApi(workspaceId: number): Promise<void> {
   return http.delete(`/workspaces/${workspaceId}`).then(() => undefined);
 }

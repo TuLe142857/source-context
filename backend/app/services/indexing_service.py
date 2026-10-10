@@ -6,12 +6,15 @@ from sqlalchemy import select
 from app.api.dependencies import CurrentUser, DBSession
 from app.core import AppException, ErrorCode
 from app.enums import BranchIndexingStatus, IndexingJobStatus
+from app.github_app import GitHubAppError, github_app_client
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.member import Member
 from app.model.workspace import Workspace
 from app.model.workspace_branch import WorkspaceBranch
 from app.model.repository import Repository
+from app.repository_manager.exceptions import InvalidGitHubUrlError
+from app.repository_manager.github_url import GitHubUrlParser
 from app.schemas.indexing import IndexingJobResponse
 from app.tasks import index_branch_task
 from app.util.git_util import get_latest_commit_hash
@@ -51,7 +54,7 @@ class IndexingService:
         workspace_id: int,
         branch_id: int,
     ) -> IndexingJobResponse:
-        await self._check_workspace_access(workspace_id)
+        workspace = await self._check_workspace_access(workspace_id)
 
         branch_stmt = (
             select(Branch)
@@ -72,16 +75,44 @@ class IndexingService:
         repo_stmt = select(Repository).where(Repository.id == branch.repository_id)
         repo_res = await self.session.scalars(repo_stmt)
         repo = repo_res.one_or_none()
+        if repo is None:
+            raise AppException(
+                error_code=ErrorCode.RESOURCE_NOT_FOUND,
+                message="Repository not found for this branch.",
+            )
 
-        new_commit_hashed = get_latest_commit_hash(
-            repo_url=repo.git_url, branch_name=branch.branch_name
-        )
+        try:
+            github_ref = GitHubUrlParser.parse(repo.git_url)
+        except InvalidGitHubUrlError:
+            new_commit_hashed = get_latest_commit_hash(
+                repo_url=repo.git_url,
+                branch_name=branch.branch_name,
+            )
+        else:
+            try:
+                new_commit_hashed = github_app_client.branch_commit_sha(
+                    github_ref.owner,
+                    github_ref.repository,
+                    branch.branch_name,
+                    installation_id=workspace.github_installation_id,
+                )
+            except GitHubAppError as exc:
+                raise AppException(exc.error_code, str(exc)) from exc
 
         if branch.indexing_status == BranchIndexingStatus.INDEXING:
             raise AppException(
                 error_code=ErrorCode.ACTION_CONFLICT,
                 message="Branch is currently being indexed. Please wait for current process to complete.",
             )
+
+        if new_commit_hashed and new_commit_hashed != "HEAD":
+            branch.commit_hashed = new_commit_hashed
+            if (
+                branch.indexed_commit_sha is not None
+                and branch.indexed_commit_sha != new_commit_hashed
+                and branch.indexing_status != BranchIndexingStatus.FAILED
+            ):
+                branch.indexing_status = BranchIndexingStatus.OUTDATED
 
         if branch.indexing_status == BranchIndexingStatus.FAILED:
             latest_job_stmt = (
@@ -106,7 +137,10 @@ class IndexingService:
                 await self.session.refresh(job)
                 return IndexingJobResponse.model_validate(job)
 
-        if branch.indexing_status == BranchIndexingStatus.INDEXED:
+        if (
+            branch.indexing_status == BranchIndexingStatus.INDEXED
+            and branch.indexed_commit_sha == new_commit_hashed
+        ):
             raise AppException(
                 error_code=ErrorCode.ACTION_ALREADY_PERFORMED,
                 message="Branch is already indexed and commit hash has not changed.",

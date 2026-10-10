@@ -25,19 +25,22 @@ router = APIRouter(prefix="/branches", tags=["Branch"])
 
 
 @router.post(
-    "/remote-branches",
+    "/{workspace_id}/remote-branches",
     response_model=ResponseSuccessSchema[RemoteBranchesResponse],
     responses=build_error_docs(
         ErrorCode.BAD_REQUEST,
+        ErrorCode.FORBIDDEN,
+        ErrorCode.RESOURCE_NOT_FOUND,
         ErrorCode.UNKNOWN_ERROR,
     ),
     summary="List all remote branches of a repository using git_url",
 )
 async def inspect_remote_branches(
+    workspace_id: int,
     payload: InspectGitHubBranchesRequest,
     branch_service: BranchServiceDep,
 ) -> APIResponse:
-    data = await branch_service.inspect_remote_branches(payload)
+    data = await branch_service.inspect_remote_branches(workspace_id, payload)
     return APIResponse.ok(data=data)
 
 

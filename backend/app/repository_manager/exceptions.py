@@ -44,7 +44,7 @@ class InvalidGitHubUrlError(RepositoryManagerError):
     def __init__(self, repository_url: str) -> None:
         self.repository_url = repository_url
         super().__init__(
-            f"Invalid public GitHub repository URL: {repository_url}",
+            f"Invalid GitHub repository URL: {repository_url}",
         )
 
 
