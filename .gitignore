@@ -62,3 +62,5 @@ backend/data/manifests/*
 *.pem
 *.key
 secrets/
+
+backend/app/embedding/Phi-4-mini-instruct-Q4_K_M.gguf

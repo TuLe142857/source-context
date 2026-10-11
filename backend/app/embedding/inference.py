@@ -1,37 +1,56 @@
-"""OpenAI API inference module using gpt-4o-mini for code summarization and LLM interaction."""
+"""Unified inference module supporting interchangeable OpenAI and Local SLM (Phi-4-mini) providers."""
 
 import logging
-from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from openai import OpenAI, OpenAIError
+from openai import OpenAI
 
 from app.core.config import settings
-from app.embedding.utils import extract_source_code
+from app.embedding.base import BaseInference, build_summary_prompts
+from app.embedding.local_slm_client import (
+    LocalSLMInference,
+    Phi4MiniInference,
+    get_local_slm_client,
+    get_local_summary,
+)
+from app.embedding.openai_client import (
+    OpenAIInference,
+    get_openai_client,
+    get_openai_inference,
+)
 from app.parser.uast.node import UASTNode
 
 logger = logging.getLogger(__name__)
 
+InferenceProvider = Literal["openai", "local_slm"]
 
-@lru_cache(maxsize=1)
-def get_openai_client(
-    api_key: str | None = None,
-) -> OpenAI | None:
-    """Loads and caches the OpenAI client instance.
+
+def get_inference_client(
+    provider: InferenceProvider | str | None = None,
+    **kwargs: Any,
+) -> BaseInference:
+    """Returns an initialized inference client based on provider ('openai' or 'local_slm').
 
     Args:
-        api_key (str | None): Custom OpenAI API Key.
+        provider (InferenceProvider | str | None, optional):
+            Provider name. Defaults to settings.LLM_PROVIDER ('openai' or 'local_slm').
+        **kwargs (Any): Additional configuration parameters passed to the client initializer.
 
     Returns:
-        OpenAI | None: Initialized OpenAI client instance or None if API key is not set.
-    """
-    key = api_key or settings.OPENAI_API_KEY.get_secret_value()
-    base_url = settings.OPENAI_API_BASE_URL
-    if not key or key.strip() == "":
-        return None
+        BaseInference: An initialized inference client implementing BaseInference.
 
-    return OpenAI(api_key=key, base_url=base_url)
+    Raises:
+        ValueError: If an unsupported provider is requested.
+    """
+    selected = (provider if provider is not None else settings.LLM_PROVIDER).lower()
+    if selected == "local_slm":
+        return get_local_slm_client(**kwargs)
+    if selected == "openai":
+        return get_openai_inference(**kwargs)
+    raise ValueError(
+        f"Unsupported inference provider '{provider}'. Expected 'openai' or 'local_slm'."
+    )
 
 
 def get_summary(
@@ -39,134 +58,126 @@ def get_summary(
     target_node: UASTNode,
     file_path: str | Path,
     signature: str,
-    client: OpenAI | None = None,
+    client: BaseInference | OpenAI | None = None,
     model: str = "gpt-4o-mini",
+    provider: InferenceProvider | str | None = None,
 ) -> str:
-    """Generates a high-precision, non-generic LLM semantic summary for a code construct using OpenAI gpt-4o-mini API.
+    """Generates a high-precision, non-generic LLM semantic summary for a code construct.
+
+    Seamlessly supports both OpenAI and Local SLM providers.
 
     Args:
         root_node (UASTNode): Root UAST container node of the file.
         target_node (UASTNode): Target FunctionNode or TypeDefinitionNode to summarize.
         file_path (str | Path): File path of the source code.
         signature (str): Extracted function or class signature.
-        client (OpenAI | None, optional): Optional OpenAI client instance. Loads default client if None.
-        model (str, optional): OpenAI model name (defaults to 'gpt-4o-mini').
+        client (BaseInference | OpenAI | None, optional): Custom client instance.
+            If BaseInference (OpenAIInference or LocalSLMInference), delegates directly.
+            If OpenAI instance, uses OpenAIInference.
+            If None, resolves client via `provider` or `settings.LLM_PROVIDER`.
+        model (str, optional): Target model name for OpenAI (defaults to 'gpt-4o-mini').
+        provider (InferenceProvider | str | None, optional): Specific provider ('openai' or 'local_slm').
 
     Returns:
         str: English semantic summary formatted for Vector Search indexing.
     """
-    node_kind = getattr(target_node, "kind", target_node.node_type)
-    node_name = target_node.name or "Unnamed"
-
-    openai_client = client if client is not None else get_openai_client()
-    target_model = model or settings.OPENAI_MODEL or "gpt-4o-mini"
-
-    if openai_client is None:
-        raise RuntimeError(
-            "OpenAI API client is not initialized. Please ensure OPENAI_API_KEY is set in environment or config."
+    if isinstance(client, BaseInference):
+        return client.get_summary(
+            root_node=root_node,
+            target_node=target_node,
+            file_path=file_path,
+            signature=signature,
         )
 
-    source_code = extract_source_code(root_node, target_node, file_path)
-    docstring = getattr(target_node, "docstring", None)
-    doc_info = f"\n- Docstring: {docstring}" if docstring else ""
+    if isinstance(client, OpenAI):
+        openai_inf = OpenAIInference(client=client, model=model)
+        return openai_inf.get_summary(
+            root_node=root_node,
+            target_node=target_node,
+            file_path=file_path,
+            signature=signature,
+        )
 
-    system_prompt = (
-        "You are a code intelligence expert. "
-        "Analyze the provided code construct and produce a concise, specific 2-3 sentence summary of its exact behavior and operations. "
-        "Do NOT use generic filler words, template headings, meta-labels, or bullet points."
-        "Clearly describe the purpose and functionality of each function. Avoid generic summaries such as 'Implement {function_name}' under all circumstances."
+    inf_client = get_inference_client(provider=provider)
+    return inf_client.get_summary(
+        root_node=root_node,
+        target_node=target_node,
+        file_path=file_path,
+        signature=signature,
     )
 
-    user_prompt = f"""Summarize the following code construct in 2-3 direct sentences:
 
-Construct Name: {node_name} ({node_kind})
-Signature: {signature}
-{doc_info}
-
-Source Code:
-```
-{source_code}
-```
-
-STRICT REQUIREMENTS:
-1. Explain what this construct specifically does, its key inputs/outputs, and core operations (e.g. database query, authorization check, data transformation).
-2. DO NOT use generic phrases like 'implements business logic', 'processes input parameters', 'executes operations', or 'manages response data'.
-3. DO NOT include section titles or labels (e.g., 'Core Purpose:', 'Workflow:', '1.', '2.').
-4. Output ONLY the plain summary text.
-"""
-
-    response = openai_client.chat.completions.create(
-        model=target_model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        max_tokens=600,
-        temperature=0.3,
-    )
-    return response.choices[0].message.content or ""
-
-
-# Backward compatibility alias
+# Backward compatibility aliases
 summarize_code_node = get_summary
 get_llm_model = get_openai_client
 
+__all__ = [
+    "BaseInference",
+    "InferenceProvider",
+    "LocalSLMInference",
+    "OpenAIInference",
+    "Phi4MiniInference",
+    "build_summary_prompts",
+    "get_inference_client",
+    "get_llm_model",
+    "get_local_slm_client",
+    "get_local_summary",
+    "get_openai_client",
+    "get_openai_inference",
+    "get_summary",
+    "summarize_code_node",
+]
+
 
 if __name__ == "__main__":
-    openai_client = get_openai_client()
-    if openai_client is None:
-        print("Notice: OPENAI_API_KEY is not set in environment.")
-    else:
-        print(f"OpenAI Client initialized (model: {settings.OPENAI_MODEL}).")
-        print("Type 'exit' or 'quit' to exit.")
-        print("-" * 50)
+    import sys
 
-        messages: list[dict[str, Any]] = [
-            {
-                "role": "system",
-                "content": "You are a helpful, smart AI assistant. Answer concisely and accurately in English.",
-            }
-        ]
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
-        while True:
+    current_provider = settings.LLM_PROVIDER
+    print(f"Initializing inference client (provider: {current_provider})...")
+
+    try:
+        active_client = get_inference_client()
+        print(f"Client initialized successfully: {active_client.__class__.__name__}")
+    except Exception as exc:
+        print(f"Error initializing default client: {exc}")
+        print("Falling back to local SLM...")
+        active_client = get_inference_client(provider="local_slm")
+
+    print("Type 'exit' or 'quit' to exit.")
+    print("-" * 50)
+
+    messages: list[dict[str, Any]] = [
+        {
+            "role": "system",
+            "content": "You are a helpful, smart AI assistant. Answer concisely and accurately in English.",
+        }
+    ]
+
+    while True:
+        try:
             user_input = input("\nUser: ").strip()
-            if not user_input:
-                continue
-            if user_input.lower() in ["exit", "quit", "q"]:
-                print("Goodbye!")
-                break
+        except (KeyboardInterrupt, EOFError):
+            print("\nGoodbye!")
+            break
 
-            messages.append({"role": "user", "content": user_input})
-            print("\nAI: ", end="", flush=True)
+        if not user_input:
+            continue
+        if user_input.lower() in ["exit", "quit", "q"]:
+            print("Goodbye!")
+            break
 
-            try:
-                stream = openai_client.chat.completions.create(
-                    model=settings.OPENAI_MODEL or "gpt-4o-mini",
-                    messages=messages,  # type: ignore[arg-type]
-                    max_tokens=512,
-                    temperature=0.7,
-                    stream=True,
-                )
+        messages.append({"role": "user", "content": user_input})
+        print("\nAI: ", end="", flush=True)
 
-                assistant_response = ""
-                for chunk in stream:
-                    try:
-                        content = getattr(chunk, "choices", [None])[0]
-                        if (
-                            content
-                            and hasattr(content, "delta")
-                            and getattr(content.delta, "content", None)
-                        ):
-                            text = content.delta.content
-                            assistant_response += text
-                            print(text, end="", flush=True)
-                    except (KeyError, TypeError, AttributeError):
-                        pass
+        reply = ""
+        for chunk in active_client.stream_chat(messages):
+            reply += chunk
+            print(chunk, end="", flush=True)
+        print()
 
-                print()
-                messages.append({"role": "assistant", "content": assistant_response})
-                if len(messages) > 20:
-                    messages = [messages[0]] + messages[-19:]
-            except OpenAIError as err:
-                print(f"\nOpenAI Error: {err}")
-                break
+        messages.append({"role": "assistant", "content": reply})
+        if len(messages) > 20:
+            messages = [messages[0]] + messages[-19:]

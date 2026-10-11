@@ -49,6 +49,7 @@ x-common-env: &common-env
   SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL: ${SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL:-voyage-code-3}
   GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
   VITE_GITHUB_APP_NAME: ${VITE_GITHUB_APP_NAME:-}
+  SOURCE_CONTEXT_LLM_PROVIDER: ${SOURCE_CONTEXT_LLM_PROVIDER:-}
 
 services:
   backend:
@@ -154,7 +155,7 @@ services:
       test: [ "CMD", "redis-cli", "ping" ]
 
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio 
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: ${SOURCE_CONTEXT_MINIO_ROOT_USER:?SOURCE_CONTEXT_MINIO_ROOT_USER is required}
