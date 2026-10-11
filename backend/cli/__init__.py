@@ -3,6 +3,7 @@
 import typer
 
 from .chunking import cli as chunk_command
+from .github_app import cli as github_app_command
 from .parse_code import cli as parse_code_command
 
 from .scip import cli as scip_command
@@ -16,7 +17,7 @@ cli.add_typer(
 cli.add_typer(
     chunk_command,
 )
-
+cli.add_typer(github_app_command, name="github")
 cli.add_typer(graph_command)
 cli.add_typer(scip_command)
 
