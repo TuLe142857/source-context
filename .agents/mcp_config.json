@@ -1,6 +1,6 @@
 {
     "mcpServers": {
-        "source-context-mcp": {
+        "source-context": {
             "command": "uvx",
             "args": [
                 "source-context-mcp",
