@@ -32,10 +32,10 @@ services:
     volumes:
       - redis_data_prod:/data
 
-  minio:
-    image: minio/minio:latest@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+  rustfs:
+    image: rustfs/rustfs:latest
     volumes:
-      - minio_data_prod:/data
+      - rustfs_data_prod:/data
 
   alloy:
     image: grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33
@@ -53,5 +53,5 @@ volumes:
   neo4j_data_prod:
   qdrant_data_prod:
   redis_data_prod:
-  minio_data_prod:
+  rustfs_data_prod:
   loki_data_prod:
