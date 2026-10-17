@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import String, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.postgres import Base
@@ -10,6 +10,7 @@ from app.core.postgres import Base
 if TYPE_CHECKING:
     from app.model.member import Member
     from app.model.pat import PAT
+    from app.model.repository import Repository
     from app.model.workspace import Workspace
 
 
@@ -25,7 +26,13 @@ class User(Base):
     email: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False
     )
+    github_installation_id: Mapped[int | None] = mapped_column(
+        BigInteger, unique=True, nullable=True
+    )
+    github_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+
     full_name: Mapped[str | None] = mapped_column(
         String(255), nullable=True, default=None
     )
@@ -40,4 +47,7 @@ class User(Base):
     )
     pats: Mapped[list["PAT"]] = relationship(
         "PAT", back_populates="user", cascade="all, delete-orphan"
+    )
+    added_repositories: Mapped[list["Repository"]] = relationship(
+        "Repository", back_populates="added_by_user"
     )

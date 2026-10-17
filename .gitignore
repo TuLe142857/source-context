@@ -62,3 +62,5 @@ backend/data/manifests/*
 *.pem
 *.key
 secrets/
+
+source-context.2026-10-16.private-key.pem

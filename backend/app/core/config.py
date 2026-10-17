@@ -278,6 +278,25 @@ class Settings(BaseSettings):
         ),
     )
 
+    # GitHub App Settings
+    GITHUB_APP_ID: str = Field(
+        default="4542819",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_GITHUB_APP_ID", "GITHUB_APP_ID"),
+    )
+    GITHUB_APP_PRIVATE_KEY_PATH: Path | None = Field(
+        default=Path("source-context.2026-10-16.private-key.pem"),
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY_PATH",
+            "GITHUB_APP_PRIVATE_KEY_PATH",
+        ),
+    )
+    GITHUB_APP_PRIVATE_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_PRIVATE_KEY"
+        ),
+    )
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def DATABASE_URL(self) -> str:

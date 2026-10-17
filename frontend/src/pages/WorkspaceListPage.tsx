@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FolderKanban, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,20 @@ import { getErrorMessage } from '@/lib/errors';
 export function WorkspaceListPage() {
   const workspacesQuery = useWorkspacesQuery();
   const createMutation = useCreateWorkspaceMutation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (searchParams.get('github_connected') === 'true') {
+      toast.success('Liên kết tài khoản với GitHub App thành công!');
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('github_connected');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, setSearchParams, queryClient]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState('');
