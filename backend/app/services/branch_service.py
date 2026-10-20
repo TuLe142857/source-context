@@ -19,6 +19,7 @@ from app.repository_manager.github_url import (
     GitHubUrlParser,
     fetch_github_branches,
 )
+from app.repository_manager.repo_manager_v2 import RepoManagerV2
 from app.schemas.branch import BranchResponse
 from app.schemas.project import (
     ProjectCreateRequest,
@@ -84,7 +85,21 @@ class BranchService:
                 message=f"Invalid GitHub URL provided: {exc}",
             ) from exc
 
-        branches = fetch_github_branches(ref.owner, ref.repository)
+        branches: list[str] = []
+        installation_id = (
+            self.current_user.github_installation_id if self.current_user else None
+        )
+        if installation_id:
+            try:
+                repo_manager = RepoManagerV2()
+                branches = repo_manager.list_branches(
+                    ref.owner, ref.repository, installation_id=installation_id
+                )
+            except Exception:
+                branches = []
+
+        if not branches:
+            branches = fetch_github_branches(ref.owner, ref.repository)
 
         return RemoteBranchesResponse(
             git_url=ref.clone_url,
@@ -136,18 +151,50 @@ class BranchService:
     async def is_branch_exist_in_workspace(
         self, branch_name: str, workspace_id: int
     ) -> bool:
-        pass
+        stmt = (
+            select(Branch.id)
+            .join(WorkspaceBranch, Branch.id == WorkspaceBranch.branch_id)
+            .where(
+                WorkspaceBranch.workspace_id == workspace_id,
+                Branch.branch_name == branch_name,
+            )
+        )
+        res = await self.session.scalars(stmt)
+        return res.one_or_none() is not None
 
     async def attach_repository_db(
-        self, workspace_id: int, git_url: str, repo_name: str, branch_names: list[str]
+        self,
+        workspace_id: int,
+        git_url: str,
+        repo_name: str,
+        branch_names: list[str],
+        user_id: int | None = None,
     ) -> Repository:
         repo_stmt = select(Repository).where(Repository.git_url == git_url)
         repo_res = await self.session.scalars(repo_stmt)
         repo = repo_res.one_or_none()
+
+        resolved_user_id = user_id
+        if resolved_user_id is None and self.current_user:
+            resolved_user_id = self.current_user.id
+        if resolved_user_id is None:
+            ws = await self.session.get(Workspace, workspace_id)
+            if ws:
+                resolved_user_id = ws.owner_id
+        if resolved_user_id is None and repo is not None:
+            resolved_user_id = repo.added_by_user_id
+
         if repo is None:
+            if resolved_user_id is None:
+                raise AppException(
+                    error_code=ErrorCode.BAD_REQUEST,
+                    message="Cannot determine repository owner for new repository.",
+                )
+
             repo = Repository(
                 name=repo_name,
                 git_url=git_url,
+                added_by_user_id=resolved_user_id,
             )
             self.session.add(repo)
             await self.session.flush()
@@ -170,8 +217,18 @@ class BranchService:
             branch_res = await self.session.scalars(branch_stmt)
             existing_branch = branch_res.one_or_none()
 
+            from app.repository_manager.resolver import (
+                resolve_repository_installation_id,
+            )
+
+            installation_id = await resolve_repository_installation_id(
+                db=self.session, repo=repo, workspace_id=workspace_id
+            )
+
             commit_hashed = get_latest_commit_hash(
-                repo_url=repo.git_url, branch_name=branch_name
+                repo_url=repo.git_url,
+                branch_name=branch_name,
+                installation_id=installation_id,
             )
 
             if existing_branch is None:

@@ -24,6 +24,8 @@ class UserResponse(UserBase):
 
     id: int
     is_active: str
+    github_installation_id: int | None = None
+    github_username: str | None = None
 
 
 class UserTestDBResponse(BaseModel):

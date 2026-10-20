@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from mcp.server import MCPServer
 from pydantic import Field

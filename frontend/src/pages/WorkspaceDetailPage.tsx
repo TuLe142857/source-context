@@ -1,4 +1,7 @@
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OverviewPanel } from '@/components/workspace/OverviewPanel';
@@ -11,6 +14,21 @@ import { useWorkspaceHierarchyQuery, useWorkspaceMembersQuery, useWorkspaceQuery
 export function WorkspaceDetailPage() {
   const params = useParams<{ workspaceId: string }>();
   const workspaceId = Number(params.workspaceId);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (searchParams.get('github_connected') === 'true') {
+      toast.success('Liên kết tài khoản với GitHub App thành công!');
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['workspaces', workspaceId] });
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('github_connected');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, setSearchParams, queryClient, workspaceId]);
 
   const workspaceQuery = useWorkspaceQuery(workspaceId);
   const hierarchyQuery = useWorkspaceHierarchyQuery(workspaceId);

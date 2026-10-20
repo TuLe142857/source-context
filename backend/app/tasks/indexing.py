@@ -1,8 +1,9 @@
 import asyncio
 import logging
 from pathlib import Path
+import re
 from typing import Any
-from celery import shared_task
+from celery import shared_task  # type: ignore[import-untyped]
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +22,10 @@ from app.model.repository import Repository
 from app.parser import UnsupportedLanguageError
 from app.parser.languages import get_language_registry
 from app.parser.uast import UASTNode
-from app.repository_manager.git_client import GitClient
+from app.repository_manager.repo_manager_v2 import (
+    RepoManagerV2,
+    post_download_metadata_hook,
+)
 from app.scip import scip_pb2
 from app.scip.sandbox import get_scip_sandbox_registry
 
@@ -31,12 +35,16 @@ logger = logging.getLogger(__name__)
 async def download_branch_source_stage(
     branch_id: int,
     db: AsyncSession,
+    workspace_id: int | None = None,
 ) -> tuple[Path, str]:
-    """Stage 1: Clones/updates the source code for a specific branch using GitClient.
+    """Stage 1: Clones/updates the source code for a specific branch using RepoManagerV2.
+
+    Supports private repositories by resolving the owner's GitHub App installation ID.
 
     Args:
         branch_id (int): Target branch ID.
         db (AsyncSession): Database session.
+        workspace_id (int | None, optional): Target workspace ID. Defaults to None.
 
     Returns:
         tuple[Path, str]: Local storage Path and actual commit SHA.
@@ -54,16 +62,52 @@ async def download_branch_source_stage(
     branch: Branch = row[0]
     repo: Repository = row[1]
 
-    destination = Path(
-        f"{settings.repository_workspace_root}/repo_{repo.id}/{branch.branch_name}"
+    # Resolve GitHub App installation_id for private repo access
+    from app.repository_manager.resolver import resolve_repository_installation_id
+
+    installation_id = await resolve_repository_installation_id(
+        db=db, repo=repo, workspace_id=workspace_id
     )
 
-    git_client = GitClient(timeout_seconds=settings.git_command_timeout_seconds)
-    metadata = git_client.clone_or_update_branch(
+    # Determine workspace storage root safely
+    root_path = Path(settings.repository_workspace_root).expanduser()
+    try:
+        root_path.mkdir(parents=True, exist_ok=True)
+    except (PermissionError, OSError):
+        root_path = Path(__file__).resolve().parents[3] / "workspace-repositories"
+        root_path.mkdir(parents=True, exist_ok=True)
+
+    destination = root_path / f"repo_{repo.id}" / branch.branch_name
+
+    logger.info(
+        "Stage 1: Cloning/updating branch %s for repository %s (installation_id=%s) to %s",
+        branch.branch_name,
+        repo.name,
+        installation_id,
+        destination,
+    )
+
+    repo_manager = RepoManagerV2(
+        app_settings=settings,
+        timeout_seconds=settings.git_command_timeout_seconds,
+    )
+    metadata = repo_manager.clone_or_update_branch(
         repository_url=repo.git_url,
         branch_name=branch.branch_name,
         destination=destination,
+        installation_id=installation_id,
     )
+
+    # ==============================================================================
+    # HOOK XỬ LÝ SAU KHI TẢI REPO (ĐƯỢC ĐÁNH DẤU CHO VIỆC MỞ RỘNG SAU NÀY)
+    # ==============================================================================
+    post_download_metadata = post_download_metadata_hook(
+        destination=destination,
+        repository_url=repo.git_url,
+        branch_name=branch.branch_name,
+        commit_sha=metadata.commit_sha,
+    )
+    logger.info("Hook xử lý sau khi tải repo hoàn tất: %s", post_download_metadata)
 
     branch.local_path = str(destination)
     branch.commit_hashed = metadata.commit_sha
@@ -267,6 +311,21 @@ async def build_vector_embeddings_stage(
     return {"status": "vector_embedded", "qdrant_points": total_points}
 
 
+def sanitize_error_message(msg: str) -> str:
+    """Sanitizes error messages to prevent leaking credentials or internal IDs.
+
+    Args:
+        msg (str): Raw error string.
+
+    Returns:
+        str: Sanitized error string safe for client display.
+    """
+    cleaned = re.sub(r"(ghs_[a-zA-Z0-9_]+|Bearer\s+[a-zA-Z0-9_\-\.]+)", "***", msg)
+    cleaned = re.sub(r"://[^@\s]+@", "://***@", cleaned)
+    cleaned = re.sub(r"/installations/\d+", "/installations/***", cleaned)
+    return cleaned
+
+
 async def execute_branch_indexing_pipeline(
     workspace_id: int,
     branch_id: int,
@@ -301,7 +360,15 @@ async def execute_branch_indexing_pipeline(
             branch.indexing_status = BranchIndexingStatus.INDEXING
             await db.commit()
 
-        destination, _ = await download_branch_source_stage(branch_id=branch_id, db=db)
+        destination, commit_sha = await download_branch_source_stage(
+            branch_id=branch_id, db=db, workspace_id=workspace_id
+        )
+        logger.info(
+            "Stage 1 complete: Branch %d successfully cloned to %s (commit: %s)",
+            branch_id,
+            destination,
+            commit_sha,
+        )
 
         # Fetch projects under this branch for this workspace
         proj_res = await db.execute(
@@ -312,6 +379,21 @@ async def execute_branch_indexing_pipeline(
             )
         )
         projects = proj_res.scalars().all()
+
+        if not projects:
+            # If no sub-projects are configured under this branch yet, complete the job
+            job.status = IndexingJobStatus.COMPLETED
+            job.progress_pct = 100
+            job.error_message = None
+            if branch is not None:
+                branch.indexing_status = BranchIndexingStatus.INDEXED
+            await db.commit()
+            logger.info(
+                "IndexingJob %d for branch_id=%d COMPLETED (no sub-projects configured).",
+                job_id,
+                branch_id,
+            )
+            return
 
         # Step 2: Tree-sitter AST Parsing
         job.status = IndexingJobStatus.PROCESSING
@@ -367,7 +449,7 @@ async def execute_branch_indexing_pipeline(
     except Exception as exc:
         logger.exception("IndexingJob %d failed: %s", job_id, exc)
         job.status = IndexingJobStatus.FAILED
-        job.error_message = str(exc)
+        job.error_message = sanitize_error_message(str(exc))
 
         branch_err_res = await db.execute(select(Branch).where(Branch.id == branch_id))
         err_branch = branch_err_res.scalar_one_or_none()
