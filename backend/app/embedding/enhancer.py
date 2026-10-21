@@ -5,7 +5,7 @@ from app.embedding.embedding_pipeline import (
     parse_and_convert_file,
     run_embedding_pipeline,
 )
-from app.embedding.inference import get_openai_client, get_summary
+from app.embedding.inference import get_inference_client, get_openai_client, get_summary
 from app.embedding.utils import (
     EnrichedNodeData,
     chunk_list,
@@ -30,6 +30,7 @@ __all__ = [
     "extract_source_code",
     "extract_summarizable_nodes",
     "format_node_for_embedding",
+    "get_inference_client",
     "get_openai_client",
     "get_summary",
     "parse_and_convert_file",

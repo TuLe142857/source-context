@@ -8,7 +8,8 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.qdrant import QdrantVectorStore
-from app.embedding.inference import get_openai_client, get_summary
+from app.embedding.base import BaseInference
+from app.embedding.inference import get_inference_client, get_summary
 from app.embedding.utils import (
     EnrichedNodeData,
     chunk_list,
@@ -111,7 +112,7 @@ def process_uast_batch_llm_summaries(
     candidate_tuples: list[tuple[UASTNode, UASTNode, Path]],
     batch_size: int = 50,
     max_nodes: int | None = None,
-    client: Any | None = None,
+    client: BaseInference | Any | None = None,
     model: str | None = None,
     vector_store: QdrantVectorStore | None = None,
 ) -> list[list[EnrichedNodeData]]:
@@ -123,8 +124,8 @@ def process_uast_batch_llm_summaries(
         candidate_tuples (list[tuple[UASTNode, UASTNode, Path]]): Tuples of (root_node, target_node, file_path).
         batch_size (int, optional): Number of nodes per batch (default 50).
         max_nodes (int | None, optional): Optional max node limit (e.g. 5 or 10 to save tokens).
-        client (Any | None, optional): Optional preloaded OpenAI client instance.
-        model (str | None, optional): Custom OpenAI model name (defaults to gpt-4o-mini).
+        client (BaseInference | Any | None, optional): Optional preloaded inference client instance.
+        model (str | None, optional): Custom model name. Defaults to client model or settings.OPENAI_MODEL.
         vector_store (QdrantVectorStore | None, optional): Shared QdrantVectorStore instance.
 
     Returns:
@@ -140,14 +141,16 @@ def process_uast_batch_llm_summaries(
             len(candidate_tuples),
         )
 
-    openai_client = client if client is not None else get_openai_client()
-    target_model = model or settings.OPENAI_MODEL or "gpt-4o-mini"
+    inf_client = client if client is not None else get_inference_client()
+    client_model = getattr(inf_client, "model", None)
+    target_model = model or client_model or settings.OPENAI_MODEL
     qdrant_store = vector_store or QdrantVectorStore()
     all_embedded_batches: list[list[EnrichedNodeData]] = []
 
     total_nodes = len(candidate_tuples)
     logger.info(
-        "Starting Batch Pipeline | Model: %s | Total Nodes: %d | Batch Size: %d",
+        "Starting Batch Pipeline | Provider: %s | Model: %s | Total Nodes: %d | Batch Size: %d",
+        inf_client.__class__.__name__,
         target_model,
         total_nodes,
         batch_size,
@@ -177,13 +180,13 @@ def process_uast_batch_llm_summaries(
                 getattr(target_node, "kind", target_node.node_type),
             )
 
-            # 1. Get OpenAI LLM summary for node
+            # 1. Get LLM summary for node using configured provider client
             summary = get_summary(
                 root_node=root_node,
                 target_node=target_node,
                 file_path=file_path,
                 signature=signature,
-                client=openai_client,
+                client=inf_client,
                 model=target_model,
             )
 
@@ -246,8 +249,8 @@ def run_embedding_pipeline(
         branch_id (int, optional): Target branch ID (defaults to 1).
         batch_size (int, optional): Batch size threshold (default 50).
         max_nodes (int | None, optional): Max nodes limit to process (e.g. 5 or 10 to save tokens).
-        client (Any | None, optional): Optional preloaded OpenAI client instance.
-        model (str | None, optional): Custom OpenAI model name.
+        client (BaseInference | Any | None, optional): Optional preloaded inference client instance.
+        model (str | None, optional): Custom model name.
         vector_store (QdrantVectorStore | None, optional): Shared QdrantVectorStore instance.
 
     Returns:
