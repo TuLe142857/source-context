@@ -3,6 +3,7 @@ import { Plus, Settings, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RepositoryItem } from './RepositoryItem';
 import { AddRepositoryDialog } from './AddRepositoryDialog';
+import { useSession } from '@/hooks/useAuth';
 import type { RepositoryResponse } from '@/api/types/repository';
 import type { WorkspaceResponse } from '@/api/types/workspace';
 
@@ -31,18 +32,22 @@ export function RepositoriesPanel({
   workspace: WorkspaceResponse;
   repositories: RepositoryResponse[];
 }) {
+  const { user } = useSession();
   const [addOpen, setAddOpen] = useState(false);
-  const githubAppName = import.meta.env.VITE_GITHUB_APP_NAME || 'source-context-mcp';
-  const isConnected = !!workspace.github_installation_id;
+  const githubAppName = import.meta.env.VITE_GITHUB_APP_NAME || 'source-context';
+  const isConnected = !!user?.github_installation_id;
 
   const handleConnectApp = () => {
-    const connectUrl = `https://github.com/apps/${githubAppName}/installations/new?state=${workspace.id}`;
+    const stateObj = { user_id: user?.id, workspace_id: workspace.id };
+    const connectUrl = `https://github.com/apps/${githubAppName}/installations/new?state=${encodeURIComponent(
+      JSON.stringify(stateObj)
+    )}`;
     window.open(connectUrl, '_blank');
   };
 
   const handleManageApp = () => {
-    if (workspace.github_installation_id) {
-      const manageUrl = `https://github.com/settings/installations/${workspace.github_installation_id}`;
+    if (user?.github_installation_id) {
+      const manageUrl = `https://github.com/settings/installations/${user.github_installation_id}`;
       window.open(manageUrl, '_blank');
     }
   };
@@ -60,14 +65,14 @@ export function RepositoriesPanel({
               GitHub App Integration
               {isConnected && (
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-medium">
-                  <CheckCircle2 className="w-3 h-3" /> Đã kết nối
+                  <CheckCircle2 className="w-3 h-3" /> Đã kết nối{user?.github_username ? ` (@${user.github_username})` : ''}
                 </span>
               )}
             </h4>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl font-normal leading-relaxed">
               {isConnected
-                ? `Workspace này đã được liên kết với GitHub App (ID: ${workspace.github_installation_id}). Bất kỳ repository mới nào bạn thêm vào App trên GitHub sẽ tự động được theo dõi và index.`
-                : 'Kết nối workspace này với GitHub App để tự động hóa việc theo dõi (track) và quét mã nguồn mỗi khi bạn thêm repository mới trên GitHub.'}
+                ? `Tài khoản của bạn đã được liên kết với GitHub App (ID: ${user?.github_installation_id}${user?.github_username ? `, GitHub: @${user.github_username}` : ''}). Bạn có thể cấp quyền và chọn repository để liên kết vào workspace.`
+                : 'Kết nối tài khoản của bạn với GitHub App để tự động hóa việc theo dõi (track) và quét mã nguồn mỗi khi bạn cấp quyền cho repository mới trên GitHub.'}
             </p>
           </div>
         </div>

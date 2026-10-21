@@ -1,21 +1,23 @@
-import hashlib
-import hmac
+"""GitHub App webhook and OAuth installation callback routes."""
+
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import DBSession
+from app.api.dependencies import CurrentUser
+from app.core import (
+    APIResponse,
+    AppException,
+    ErrorCode,
+    ResponseSuccessSchema,
+    build_error_docs,
+)
 from app.core.config import settings
-from app.enums import BranchIndexingStatus, IndexingJobStatus
-from app.model.branch import Branch
-from app.model.indexing_job import IndexingJob
-from app.model.repository import Repository
-from app.model.workspace import Workspace
-from app.services.branch_service import BranchService
-from app.tasks.indexing import index_branch_task
+from app.schemas.webhook import GitHubStatusResponse, GitHubWebhookResponse
+from app.services.github_app_service import GitHubAppService, GitHubAppServiceDep
 
 logger = logging.getLogger(__name__)
 
@@ -23,220 +25,126 @@ router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
 async def verify_signature(request: Request) -> bool:
-    """Verifies that the webhook request is signed with the correct secret."""
+    """Verifies that the webhook request is signed with the correct secret.
+
+    Maintained for backward compatibility and test suites.
+
+    Args:
+        request (Request): The incoming FastAPI request.
+
+    Returns:
+        bool: True if signature is valid, False otherwise.
+    """
     signature = request.headers.get("X-Hub-Signature-256")
-    if not signature:
-        return False
     payload = await request.body()
-    secret = settings.GITHUB_WEBHOOK_SECRET.encode("utf-8")
-    computed = "sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(computed, signature)
+    return GitHubAppService.verify_signature(payload, signature)
 
 
-@router.post("/github")
+async def _resolve_state_to_user_and_workspace(
+    db: AsyncSession, state: str | None
+) -> tuple[int | None, int | None]:
+    """Parses state string to resolve user_id and workspace_id.
+
+    Maintained for backward compatibility and test suites.
+
+    Args:
+        db (AsyncSession): Database session.
+        state (str | None): The state query param passed during installation.
+
+    Returns:
+        tuple[int | None, int | None]: Resolved (user_id, workspace_id).
+    """
+    service = GitHubAppService(session=db)
+    return await service.resolve_state_to_user_and_workspace(state)
+
+
+@router.post(
+    "/github",
+    response_model=ResponseSuccessSchema[GitHubWebhookResponse],
+    responses=build_error_docs(
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Handle incoming GitHub App webhooks",
+)
 async def github_webhook(
     request: Request,
-    db: DBSession,
-) -> dict[str, Any]:
-    """GitHub App webhook endpoint for handling repository installations and additions."""
+    service: GitHubAppServiceDep,
+) -> APIResponse:
+    """GitHub App webhook endpoint for handling repository installations and additions.
+
+    Args:
+        request (Request): The incoming webhook request.
+        service (GitHubAppServiceDep): Injected GitHub App service.
+
+    Returns:
+        APIResponse: Standard API response containing GitHubWebhookResponse.
+
+    Raises:
+        AppException: If signature verification fails when secret is configured.
+    """
     if settings.GITHUB_WEBHOOK_SECRET:
-        if not await verify_signature(request):
+        signature = request.headers.get("X-Hub-Signature-256")
+        payload_bytes = await request.body()
+        if not service.verify_signature(payload_bytes, signature):
             logger.warning("GitHub webhook signature verification failed")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid webhook signature",
+            raise AppException(
+                error_code=ErrorCode.UNAUTHORIZED,
+                message="Invalid webhook signature",
             )
+    else:
+        payload_bytes = await request.body()
 
     event = request.headers.get("X-GitHub-Event")
-    payload = await request.json()
+    payload: dict[str, Any] = await request.json() if payload_bytes else {}
 
-    logger.info("Received GitHub webhook event: %s", event)
-
-    if event == "push":
-        ref = payload.get("ref", "")
-        if not ref.startswith("refs/heads/"):
-            return {"status": "ignored", "reason": "not a branch push"}
-
-        branch_name = ref[len("refs/heads/") :]
-        clone_url = payload.get("repository", {}).get("clone_url")
-        new_commit_hash = payload.get("after")
-
-        if not clone_url or not new_commit_hash:
-            return {
-                "status": "ignored",
-                "reason": "missing repository details or commit hash",
-            }
-
-        # Find repository
-        repo_stmt = select(Repository).where(Repository.git_url == clone_url)
-        repo_res = await db.execute(repo_stmt)
-        repo_obj = repo_res.scalar_one_or_none()
-
-        if not repo_obj:
-            repo_stmt = select(Repository).where(Repository.git_url == clone_url.removesuffix(".git"))
-            repo_res = await db.execute(repo_stmt)
-            repo_obj = repo_res.scalar_one_or_none()
-            if not repo_obj:
-                logger.info("r2")
-                return {"status": "ignored", "reason": "repository not found in system"}
-            return {"status": "ignored", "reason": "repository not found in system"}
-
-        # Find all branch records linked to this repository and branch name
-        branch_stmt = select(Branch).where(
-            Branch.repository_id == repo_obj.id,
-            Branch.branch_name == branch_name,
-        )
-        branch_res = await db.execute(branch_stmt)
-        branches = list(branch_res.scalars().all())
-
-        updated_count = 0
-        for branch in branches:
-            if branch.indexing_status == BranchIndexingStatus.INDEXED:
-                branch.indexing_status = BranchIndexingStatus.OUTDATED
-                updated_count += 1
-
-        await db.commit()
-        return {"status": "ok", "branches_updated_to_outdated": updated_count}
-
-    action = payload.get("action")
-    installation_id = payload.get("installation", {}).get("id")
-
-    if not installation_id:
-        logger.warning("Webhook payload missing installation.id")
-        return {"status": "ignored", "reason": "no installation_id"}
-
-    repos = []
-    if event == "installation_repositories" and action == "added":
-        repos = payload.get("repositories_added", [])
-    elif event == "installation" and action == "created":
-        repos = payload.get("repositories", [])
-    else:
-        return {
-            "status": "ignored",
-            "reason": f"unhandled event/action: {event}/{action}",
-        }
-
-    if not repos:
-        return {"status": "ignored", "reason": "no repositories found in event"}
-
-    # Find workspaces linked to this installation
-    stmt = select(Workspace).where(Workspace.github_installation_id == installation_id)
-    res = await db.execute(stmt)
-    workspaces = list(res.scalars().all())
-
-    if not workspaces:
-        logger.warning(
-            "No workspaces found matching installation_id: %s", installation_id
-        )
-        return {
-            "status": "ignored",
-            "reason": f"no workspace linked to installation_id {installation_id}",
-        }
-
-    # Initialize BranchService
-    branch_service = BranchService(session=db)
-
-    tracked_count = 0
-    for workspace in workspaces:
-        for repo in repos:
-            name = repo.get("name")
-            clone_url = repo.get("clone_url")
-            default_branch = repo.get("default_branch", "main")
-
-            if not name or not clone_url:
-                continue
-
-            # 1. Attach repository and default branch using BranchService helper
-            repo_obj = await branch_service.attach_repository_db(
-                workspace_id=workspace.id,
-                git_url=clone_url,
-                repo_name=name,
-                branch_names=[default_branch],
-            )
-
-            # 2. Get the branch model
-            branch_stmt = select(Branch).where(
-                Branch.repository_id == repo_obj.id,
-                Branch.branch_name == default_branch,
-            )
-            branch_res = await db.execute(branch_stmt)
-            branch_obj = branch_res.scalar_one()
-
-            if branch_obj.indexing_status == BranchIndexingStatus.INDEXING:
-                logger.info("Branch %s is already indexing, skipping.", branch_obj.id)
-                continue
-
-            branch_obj.indexing_status = BranchIndexingStatus.INDEXING
-
-            # 3. Create IndexingJob
-            job = IndexingJob(
-                workspace_id=workspace.id,
-                branch_id=branch_obj.id,
-                status=IndexingJobStatus.PENDING,
-                progress_pct=0,
-            )
-            db.add(job)
-            await db.flush()
-
-            await db.commit()
-
-            # Trigger indexing Celery task
-            index_branch_task.delay(workspace.id, branch_obj.id, job.id)
-            tracked_count += 1
-
-    return {"status": "ok", "repositories_tracked": tracked_count}
+    result = await service.handle_webhook(event=event, payload=payload)
+    return APIResponse.ok(data=result)
 
 
-@router.get("/callback")
+@router.get(
+    "/callback",
+    responses=build_error_docs(
+        ErrorCode.BAD_REQUEST,
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="GitHub App OAuth installation callback redirect",
+)
 async def github_callback(
-    db: DBSession,
+    service: GitHubAppServiceDep,
     code: str | None = None,
     installation_id: int | None = None,
     state: str | None = None,
 ) -> RedirectResponse:
-    """Redirect callback endpoint for GitHub App installation completion."""
-    if not installation_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing installation_id",
-        )
+    """Redirect callback endpoint for GitHub App installation completion.
 
-    if not state:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing state (workspace_id)",
-        )
+    Args:
+        service (GitHubAppServiceDep): Injected GitHub App service.
+        code (str | None, optional): Optional OAuth code from GitHub. Defaults to None.
+        installation_id (int | None, optional): The GitHub installation ID. Defaults to None.
+        state (str | None, optional): State parameter passing user_id and workspace_id. Defaults to None.
 
-    try:
-        workspace_id = int(state)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid workspace_id in state",
-        ) from exc
-
-    # Fetch workspace
-    stmt = select(Workspace).where(Workspace.id == workspace_id)
-    res = await db.execute(stmt)
-    workspace = res.scalar_one_or_none()
-    if not workspace:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Workspace not found",
-        )
-
-    # Update installation id
-    workspace.github_installation_id = installation_id
-    await db.commit()
-
-    # Redirect back to the frontend workspace details page
-    redirect_url = f"{settings.FRONTEND_URL}/workspaces/{workspace_id}"
+    Returns:
+        RedirectResponse: Redirect to the frontend workspace or workspace list page.
+    """
+    redirect_url = await service.complete_installation(
+        installation_id=installation_id, state=state
+    )
     return RedirectResponse(url=redirect_url)
 
 
-@router.get("/setup")
+@router.get(
+    "/setup",
+    responses=build_error_docs(
+        ErrorCode.BAD_REQUEST,
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="GitHub App post-installation setup redirect",
+)
 async def github_setup(
-    db: DBSession,
+    service: GitHubAppServiceDep,
     installation_id: int | None = None,
     setup_action: str | None = None,
     state: str | None = None,
@@ -244,48 +152,70 @@ async def github_setup(
     """Redirect setup endpoint for GitHub App installation completion.
 
     Args:
-        db (DBSession): Async database session.
+        service (GitHubAppServiceDep): Injected GitHub App service.
         installation_id (int | None, optional): The GitHub installation ID. Defaults to None.
         setup_action (str | None, optional): The action performed. Defaults to None.
-        state (str | None, optional): The workspace ID passed as state. Defaults to None.
+        state (str | None, optional): State parameter passing user_id and workspace_id. Defaults to None.
 
     Returns:
-        RedirectResponse: Redirect to the frontend workspace details page.
+        RedirectResponse: Redirect to the frontend workspace or workspace list page.
     """
-    if not installation_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing installation_id",
-        )
-
-    if not state:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing state (workspace_id)",
-        )
-
-    try:
-        workspace_id = int(state)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid workspace_id in state",
-        ) from exc
-
-    # Fetch workspace
-    stmt = select(Workspace).where(Workspace.id == workspace_id)
-    res = await db.execute(stmt)
-    workspace = res.scalar_one_or_none()
-    if not workspace:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Workspace not found",
-        )
-
-    # Update installation id
-    workspace.github_installation_id = installation_id
-    await db.commit()
-
-    # Redirect back to the frontend workspace details page
-    redirect_url = f"{settings.FRONTEND_URL}/workspaces/{workspace_id}"
+    redirect_url = await service.complete_installation(
+        installation_id=installation_id, state=state
+    )
     return RedirectResponse(url=redirect_url)
+
+
+@router.get(
+    "/status",
+    response_model=ResponseSuccessSchema[GitHubStatusResponse],
+    responses=build_error_docs(
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Get GitHub App connection status for current user",
+)
+async def get_github_status(
+    current_user: CurrentUser,
+    service: GitHubAppServiceDep,
+) -> APIResponse:
+    """Retrieves GitHub App installation status for the authenticated user.
+
+    Args:
+        current_user (CurrentUser): The currently authenticated user.
+        service (GitHubAppServiceDep): Injected GitHub App service.
+
+    Returns:
+        APIResponse: Standard API response with GitHubStatusResponse data.
+    """
+    data = service.get_status(current_user)
+    return APIResponse.ok(data=data)
+
+
+@router.delete(
+    "/unlink",
+    response_model=ResponseSuccessSchema[GitHubStatusResponse],
+    responses=build_error_docs(
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Unlink GitHub App installation from current user account",
+)
+async def unlink_github(
+    current_user: CurrentUser,
+    service: GitHubAppServiceDep,
+) -> APIResponse:
+    """Unlinks the GitHub App installation from the authenticated user's account.
+
+    Args:
+        current_user (CurrentUser): The currently authenticated user.
+        service (GitHubAppServiceDep): Injected GitHub App service.
+
+    Returns:
+        APIResponse: Updated GitHub connection status.
+    """
+    data = await service.unlink_installation(current_user)
+    return APIResponse.ok(
+        message="GitHub App unlinked successfully.",
+        data=data,
+    )

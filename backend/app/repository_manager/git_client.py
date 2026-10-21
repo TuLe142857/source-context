@@ -63,6 +63,7 @@ class GitClient:
         repository_url: str,
         branch_name: str,
         destination: Path,
+        installation_id: int | None = None,
     ) -> GitRepositoryMetadata:
         """Clone a specific branch into destination, or fetch latest if already present.
 
@@ -70,10 +71,29 @@ class GitClient:
             repository_url: Git clone URL.
             branch_name: Target branch name (e.g. 'main', 'develop').
             destination: Path where repository branch should be stored.
+            installation_id: GitHub App installation ID for private repo access.
 
         Returns:
             GitRepositoryMetadata: Metadata including commit_sha and root path.
         """
+        try:
+            from app.repository_manager.repo_manager_v2 import RepoManagerV2
+
+            v2_meta = RepoManagerV2().clone_or_update_branch(
+                repository_url=repository_url,
+                branch_name=branch_name,
+                destination=destination,
+                installation_id=installation_id,
+            )
+            return GitRepositoryMetadata(
+                repository_root=v2_meta.repository_root,
+                branch=branch_name,
+                commit_sha=v2_meta.commit_sha,
+                remote_url=repository_url,
+            )
+        except Exception:
+            pass
+
         destination.parent.mkdir(parents=True, exist_ok=True)
 
         if not destination.exists():

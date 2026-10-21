@@ -22,6 +22,7 @@ services:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
+      - ./source-context.2026-10-16.private-key.pem:/app/source-context.2026-10-16.private-key.pem:ro
 #      - workspace_repos:/app/workspace-repositories
 
   celery-worker:
@@ -35,6 +36,7 @@ services:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
+      - ./source-context.2026-10-16.private-key.pem:/app/source-context.2026-10-16.private-key.pem:ro
 #      - workspace_repos:/app/workspace-repositories
 
   postgres:
@@ -53,9 +55,9 @@ services:
     volumes:
       - redis_data_dev:/data
 
-  minio:
+  rustfs:
     volumes:
-      - minio_data_dev:/data
+      - rustfs_data_dev:/data
 
 
   # ==============================================
@@ -110,7 +112,7 @@ volumes:
   neo4j_data_dev:
   qdrant_data_dev:
   redis_data_dev:
-  minio_data_dev:
+  rustfs_data_dev:
   redis_insight_data_dev:
 
   loki_data_dev:

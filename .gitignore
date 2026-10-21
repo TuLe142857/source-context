@@ -64,3 +64,4 @@ backend/data/manifests/*
 secrets/
 
 backend/app/embedding/Phi-4-mini-instruct-Q4_K_M.gguf
+source-context.2026-10-16.private-key.pem

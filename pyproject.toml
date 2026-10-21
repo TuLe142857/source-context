@@ -46,6 +46,7 @@ markers = [
     "unit: unit tests",
     "integration: integration tests",
     "e2e: end-to-end tests",
+    "asyncio: asyncio marker",
 ]
 
 
