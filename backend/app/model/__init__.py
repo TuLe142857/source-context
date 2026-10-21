@@ -5,6 +5,7 @@ from app.model.indexing_job import IndexingJob
 from app.model.member import Member
 from app.model.pat import PAT
 from app.model.project import Project
+from app.model.repo_profile import RepoProfile
 from app.model.repository import Repository
 from app.model.user import User
 from app.model.workspace import Workspace
@@ -17,6 +18,7 @@ __all__ = [
     "Member",
     "PAT",
     "Project",
+    "RepoProfile",
     "Repository",
     "User",
     "Workspace",

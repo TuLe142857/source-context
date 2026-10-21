@@ -22,7 +22,7 @@ from app.model.repository import Repository
 from app.parser import UnsupportedLanguageError
 from app.parser.languages import get_language_registry
 from app.parser.uast import UASTNode
-from app.repository_manager.repo_manager_v2 import (
+from app.repository_manager_v2 import (
     RepoManagerV2,
     post_download_metadata_hook,
 )

@@ -9,8 +9,9 @@ from app.core.postgres import Base
 
 if TYPE_CHECKING:
     from app.model.branch import Branch
-    from app.model.workspace import Workspace
+    from app.model.repo_profile import RepoProfile
     from app.model.user import User
+    from app.model.workspace import Workspace
 
 
 class Repository(Base):
@@ -37,4 +38,10 @@ class Repository(Base):
     )
     branches: Mapped[list["Branch"]] = relationship(
         "Branch", back_populates="repository", cascade="all, delete-orphan"
+    )
+    profile: Mapped["RepoProfile | None"] = relationship(
+        "RepoProfile",
+        back_populates="repository",
+        uselist=False,
+        cascade="all, delete-orphan",
     )

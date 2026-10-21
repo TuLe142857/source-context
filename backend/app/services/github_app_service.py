@@ -360,29 +360,36 @@ class GitHubAppService:
                 message="Missing installation_id",
             )
 
-        if not state:
-            raise AppException(
-                error_code=ErrorCode.BAD_REQUEST,
-                message="Missing state parameter (user_id required)",
+        user: User | None = None
+        user_id: int | None = None
+        workspace_id: int | None = None
+
+        if state:
+            user_id, workspace_id = await self.resolve_state_to_user_and_workspace(
+                state
             )
-
-        user_id, workspace_id = await self.resolve_state_to_user_and_workspace(state)
-
-        if not user_id:
-            raise AppException(
-                error_code=ErrorCode.BAD_REQUEST,
-                message="Unable to determine user_id from state parameter",
-            )
-
-        user_stmt = select(User).where(User.id == user_id)
-        user_res = await self.session.execute(user_stmt)
-        user = user_res.scalar_one_or_none()
+            if user_id:
+                user_stmt = select(User).where(User.id == user_id)
+                user_res = await self.session.execute(user_stmt)
+                user = user_res.scalar_one_or_none()
 
         if not user:
-            raise AppException(
-                error_code=ErrorCode.RESOURCE_NOT_FOUND,
-                message="User not found",
+            # Check if this installation_id already belongs to an existing user
+            existing_stmt = select(User).where(
+                User.github_installation_id == installation_id
             )
+            existing_res = await self.session.execute(existing_stmt)
+            user = existing_res.scalar_one_or_none()
+
+        if not user:
+            # The installation is not yet linked and state is absent or unresolved.
+            # Instead of crashing with a 400 JSON error on the user's browser,
+            # redirect to the frontend with pending_installation_id so the logged-in user can link it.
+            logger.info(
+                "Missing or unresolved state for installation %s; redirecting to frontend with pending_installation_id",
+                installation_id,
+            )
+            return f"{settings.FRONTEND_URL}/workspaces?pending_installation_id={installation_id}"
 
         # Clear installation_id from any other user that previously used it
         clear_stmt = select(User).where(
@@ -473,6 +480,67 @@ class GitHubAppService:
             github_username=None,
             manage_url=None,
         )
+
+    async def link_installation(
+        self,
+        user: User,
+        installation_id: int,
+        workspace_id: int | None = None,
+    ) -> GitHubStatusResponse:
+        """Links a GitHub App installation directly to an authenticated user.
+
+        Args:
+            user (User): The authenticated user.
+            installation_id (int): GitHub App installation ID.
+            workspace_id (int | None, optional): Optional workspace context. Defaults to None.
+
+        Returns:
+            GitHubStatusResponse: Updated status.
+        """
+        # Clear installation_id from any other user that previously used it
+        clear_stmt = select(User).where(
+            User.github_installation_id == installation_id,
+            User.id != user.id,
+        )
+        clear_res = await self.session.execute(clear_stmt)
+        for other_user in clear_res.scalars().all():
+            other_user.github_installation_id = None
+            other_user.github_username = None
+
+        user.github_installation_id = installation_id
+
+        # Check Redis cache for early webhook delivery
+        try:
+            redis_client = get_redis_async_client()
+            cached_str = await redis_client.get(
+                f"github_installation:{installation_id}"
+            )
+            if cached_str:
+                cached_data = json.loads(cached_str)
+                gh_username = cached_data.get("username")
+                if gh_username:
+                    user.github_username = gh_username
+
+                cached_repos = cached_data.get("repos", [])
+                if cached_repos and workspace_id:
+                    branch_service = BranchService(session=self.session)
+                    for repo in cached_repos:
+                        name = repo.get("name")
+                        clone_url = repo.get("clone_url")
+                        default_branch = repo.get("default_branch", "main")
+                        if name and clone_url:
+                            await branch_service.attach_repository_db(
+                                workspace_id=workspace_id,
+                                git_url=clone_url,
+                                repo_name=name,
+                                branch_names=[default_branch],
+                                user_id=user.id,
+                            )
+        except (RedisError, ConnectionError, json.JSONDecodeError) as exc:
+            logger.debug("Redis lookup for cached installation failed: %s", exc)
+
+        await self.session.commit()
+        return self.get_status(user)
 
 
 def get_github_app_service(

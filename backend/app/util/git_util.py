@@ -35,7 +35,7 @@ def get_latest_commit_hash(
     if installation_id or token:
         try:
             from app.repository_manager.github_url import GitHubUrlParser
-            from app.repository_manager.repo_manager_v2 import RepoManagerV2
+            from app.repository_manager_v2 import RepoManagerV2
 
             ref = GitHubUrlParser.parse(repo_url)
             manager = RepoManagerV2()
@@ -59,14 +59,14 @@ def get_latest_commit_hash(
     target_url = repo_url
     if token:
         try:
-            from app.repository_manager.repo_manager_v2 import RepoManagerV2
+            from app.repository_manager_v2 import RepoManagerV2
 
             target_url = RepoManagerV2().build_authenticated_clone_url(repo_url, token)
         except Exception:
             target_url = repo_url
     elif installation_id:
         try:
-            from app.repository_manager.repo_manager_v2 import RepoManagerV2
+            from app.repository_manager_v2 import RepoManagerV2
 
             manager = RepoManagerV2()
             inst_token = manager.get_installation_token(installation_id)
@@ -90,7 +90,7 @@ def get_latest_commit_hash(
     if not installation_id and not token:
         try:
             from app.repository_manager.github_url import GitHubUrlParser
-            from app.repository_manager.repo_manager_v2 import RepoManagerV2
+            from app.repository_manager_v2 import RepoManagerV2
 
             ref = GitHubUrlParser.parse(repo_url)
             return RepoManagerV2().get_branch_commit_sha(

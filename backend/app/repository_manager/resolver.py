@@ -14,7 +14,7 @@ from app.model.user import User
 from app.model.workspace import Workspace
 from app.model.workspace_repository import WorkspaceRepository
 from app.repository_manager.github_url import GitHubUrlParser
-from app.repository_manager.repo_manager_v2 import RepoManagerV2
+from app.repository_manager_v2 import RepoManagerV2
 
 logger = logging.getLogger(__name__)
 

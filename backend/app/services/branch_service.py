@@ -19,7 +19,7 @@ from app.repository_manager.github_url import (
     GitHubUrlParser,
     fetch_github_branches,
 )
-from app.repository_manager.repo_manager_v2 import RepoManagerV2
+from app.repository_manager_v2 import RepoManagerV2
 from app.schemas.branch import BranchResponse
 from app.schemas.project import (
     ProjectCreateRequest,
