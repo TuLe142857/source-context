@@ -16,7 +16,11 @@ from app.core import (
     build_error_docs,
 )
 from app.core.config import settings
-from app.schemas.webhook import GitHubStatusResponse, GitHubWebhookResponse
+from app.schemas.webhook import (
+    GitHubLinkInstallationRequest,
+    GitHubStatusResponse,
+    GitHubWebhookResponse,
+)
 from app.services.github_app_service import GitHubAppService, GitHubAppServiceDep
 
 logger = logging.getLogger(__name__)
@@ -217,5 +221,32 @@ async def unlink_github(
     data = await service.unlink_installation(current_user)
     return APIResponse.ok(
         message="GitHub App unlinked successfully.",
+        data=data,
+    )
+
+
+@router.post(
+    "/link",
+    response_model=ResponseSuccessSchema[GitHubStatusResponse],
+    responses=build_error_docs(
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.BAD_REQUEST,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Link GitHub App installation ID directly to current authenticated user",
+)
+async def link_github(
+    payload: GitHubLinkInstallationRequest,
+    current_user: CurrentUser,
+    service: GitHubAppServiceDep,
+) -> APIResponse:
+    """Links a GitHub App installation to the authenticated user account."""
+    data = await service.link_installation(
+        user=current_user,
+        installation_id=payload.installation_id,
+        workspace_id=payload.workspace_id,
+    )
+    return APIResponse.ok(
+        message="GitHub App linked successfully.",
         data=data,
     )

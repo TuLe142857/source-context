@@ -20,3 +20,10 @@ class GitHubWebhookResponse(BaseModel):
     reason: str | None = None
     branches_updated_to_outdated: int | None = None
     repositories_tracked: int | None = None
+
+
+class GitHubLinkInstallationRequest(BaseModel):
+    """Schema for linking a GitHub App installation ID to the current user."""
+
+    installation_id: int
+    workspace_id: int | None = None

@@ -77,7 +77,7 @@ class GitClient:
             GitRepositoryMetadata: Metadata including commit_sha and root path.
         """
         try:
-            from app.repository_manager.repo_manager_v2 import RepoManagerV2
+            from app.repository_manager_v2 import RepoManagerV2
 
             v2_meta = RepoManagerV2().clone_or_update_branch(
                 repository_url=repository_url,

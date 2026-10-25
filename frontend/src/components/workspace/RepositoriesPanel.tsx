@@ -3,6 +3,7 @@ import { Plus, Settings, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RepositoryItem } from './RepositoryItem';
 import { AddRepositoryDialog } from './AddRepositoryDialog';
+import { toast } from 'sonner';
 import { useSession } from '@/hooks/useAuth';
 import type { RepositoryResponse } from '@/api/types/repository';
 import type { WorkspaceResponse } from '@/api/types/workspace';
@@ -38,7 +39,11 @@ export function RepositoriesPanel({
   const isConnected = !!user?.github_installation_id;
 
   const handleConnectApp = () => {
-    const stateObj = { user_id: user?.id, workspace_id: workspace.id };
+    if (!user?.id) {
+      toast.error('Vui lòng đăng nhập để kết nối GitHub App.');
+      return;
+    }
+    const stateObj = { user_id: user.id, workspace_id: workspace.id };
     const connectUrl = `https://github.com/apps/${githubAppName}/installations/new?state=${encodeURIComponent(
       JSON.stringify(stateObj)
     )}`;

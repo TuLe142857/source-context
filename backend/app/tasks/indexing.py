@@ -1,11 +1,12 @@
 import asyncio
+from datetime import datetime, timezone
 import logging
 from pathlib import Path
 import re
 from typing import Any
 from celery import shared_task  # type: ignore[import-untyped]
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -18,14 +19,17 @@ from app.graph.model import ProjectNodeModel
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.project import Project
+from app.model.repo_profile import RepoProfile
+from app.model.subrepo_profile import SubrepoProfile
 from app.model.repository import Repository
 from app.parser import UnsupportedLanguageError
 from app.parser.languages import get_language_registry
 from app.parser.uast import UASTNode
-from app.repository_manager.repo_manager_v2 import (
+from app.repository_manager_v2 import (
     RepoManagerV2,
     post_download_metadata_hook,
 )
+from app.repository_manager_v2.profile_extractor import extract_subproject_profile
 from app.scip import scip_pb2
 from app.scip.sandbox import get_scip_sandbox_registry
 
@@ -98,17 +102,6 @@ async def download_branch_source_stage(
         installation_id=installation_id,
     )
 
-    # ==============================================================================
-    # HOOK XỬ LÝ SAU KHI TẢI REPO (ĐƯỢC ĐÁNH DẤU CHO VIỆC MỞ RỘNG SAU NÀY)
-    # ==============================================================================
-    post_download_metadata = post_download_metadata_hook(
-        destination=destination,
-        repository_url=repo.git_url,
-        branch_name=branch.branch_name,
-        commit_sha=metadata.commit_sha,
-    )
-    logger.info("Hook xử lý sau khi tải repo hoàn tất: %s", post_download_metadata)
-
     branch.local_path = str(destination)
     branch.commit_hashed = metadata.commit_sha
     await db.commit()
@@ -120,6 +113,198 @@ async def download_branch_source_stage(
         metadata.commit_sha,
     )
     return destination, metadata.commit_sha
+
+
+async def extract_repo_profile_stage(
+    branch_id: int,
+    destination: Path,
+    commit_sha: str,
+    workspace_id: int | None = None,
+    session: AsyncSession | None = None,
+) -> None:
+    """Stage: Extracts and saves repository-level and subproject-level profiles.
+
+    Runs in an isolated database transaction so that extracted profiles are committed
+    and persisted even if subsequent indexing stages fail. Skips extraction if a
+    repository profile already exists for this repository with the exact same commit SHA.
+
+    Args:
+        branch_id (int): Target branch ID.
+        destination (Path): Local filesystem path where branch source is cloned.
+        commit_sha (str): Commit SHA of the cloned branch.
+        workspace_id (int | None, optional): Target workspace ID. Defaults to None.
+        session (AsyncSession | None, optional): Optional database session. If None,
+            a new session is created from database.async_session_factory() to ensure
+            transaction isolation. Defaults to None.
+    """
+    if session is None:
+        async with database.async_session_factory() as profile_session:
+            await _run_profile_extraction(
+                branch_id=branch_id,
+                destination=destination,
+                commit_sha=commit_sha,
+                workspace_id=workspace_id,
+                db=profile_session,
+            )
+    else:
+        await _run_profile_extraction(
+            branch_id=branch_id,
+            destination=destination,
+            commit_sha=commit_sha,
+            workspace_id=workspace_id,
+            db=session,
+        )
+
+
+async def _run_profile_extraction(
+    branch_id: int,
+    destination: Path,
+    commit_sha: str,
+    workspace_id: int | None,
+    db: AsyncSession,
+) -> None:
+    """Internal helper to execute profile extraction and commit changes.
+
+    Args:
+        branch_id (int): Target branch ID.
+        destination (Path): Cloned branch source directory.
+        commit_sha (str): Commit SHA.
+        workspace_id (int | None): Workspace ID.
+        db (AsyncSession): Dedicated session for this transaction.
+    """
+    stmt = (
+        select(Branch, Repository)
+        .join(Repository, Branch.repository_id == Repository.id)
+        .where(Branch.id == branch_id)
+    )
+    res = await db.execute(stmt)
+    row = res.first()
+    if row is None:
+        logger.warning(
+            "Cannot extract repo profile: Branch with ID %d not found.", branch_id
+        )
+        return
+
+    branch: Branch = row[0]
+    repo: Repository = row[1]
+    commit_sha_val = commit_sha or "HEAD"
+
+    # Bước 1: Kiểm tra commit hash, nếu đã tồn tại bản ghi với cùng commit_sha thì bỏ qua
+    profile_stmt = select(RepoProfile).where(RepoProfile.repository_id == repo.id)
+    profile_res = await db.execute(profile_stmt)
+    existing_profile = profile_res.scalar_one_or_none()
+
+    if existing_profile is not None and existing_profile.commit_sha == commit_sha_val:
+        logger.info(
+            "Repo profile for repository %s (id=%d) with commit %s already exists. Skipping extraction.",
+            repo.name,
+            repo.id,
+            commit_sha_val,
+        )
+        return
+
+    # Lấy danh sách sub-projects user đã cấu hình cho branch này
+    proj_stmt = select(Project).where(
+        Project.branch_id == branch.id,
+        (Project.workspace_id == workspace_id) | (Project.workspace_id.is_(None)),
+    )
+    branch_projects = list((await db.execute(proj_stmt)).scalars().all())
+    subproj_tuples = [
+        (
+            p.root_dir,
+            p.root_dir,
+            p.language.value if hasattr(p.language, "value") else str(p.language),
+        )
+        for p in branch_projects
+    ]
+
+    post_download_metadata = post_download_metadata_hook(
+        destination=destination,
+        repository_url=repo.git_url,
+        branch_name=branch.branch_name,
+        commit_sha=commit_sha_val,
+        subprojects=subproj_tuples,
+    )
+    logger.info("Hook xử lý sau khi tải repo hoàn tất: %s", post_download_metadata)
+
+    # Lưu/cập nhật RepoProfile
+    if existing_profile is not None:
+        existing_profile.branch_id = branch.id
+        existing_profile.branch_name = branch.branch_name
+        existing_profile.commit_sha = commit_sha_val
+        existing_profile.primary_language = post_download_metadata.get(
+            "primary_language", "unknown"
+        )
+        existing_profile.summary = post_download_metadata.get("summary")
+        existing_profile.readme_content = post_download_metadata.get("readme_content")
+        existing_profile.license_name = post_download_metadata.get("license_name")
+        existing_profile.topics = post_download_metadata.get("topics", [])
+        existing_profile.languages_breakdown = post_download_metadata.get(
+            "languages_breakdown", {}
+        )
+        existing_profile.extra_info = post_download_metadata.get("extra_info", {}) or {}
+        existing_profile.analyzed_at = datetime.now(timezone.utc)
+        profile_record = existing_profile
+    else:
+        new_profile = RepoProfile(
+            repository_id=repo.id,
+            branch_id=branch.id,
+            branch_name=branch.branch_name,
+            commit_sha=commit_sha_val,
+            primary_language=post_download_metadata.get("primary_language", "unknown"),
+            summary=post_download_metadata.get("summary"),
+            readme_content=post_download_metadata.get("readme_content"),
+            license_name=post_download_metadata.get("license_name"),
+            topics=post_download_metadata.get("topics", []),
+            languages_breakdown=post_download_metadata.get("languages_breakdown", {}),
+            extra_info=post_download_metadata.get("extra_info", {}) or {},
+        )
+        db.add(new_profile)
+        await db.flush()
+        profile_record = new_profile
+
+    # Trích xuất và lưu SubrepoProfile cho từng sub-project của user
+    if branch_projects:
+        await db.execute(
+            delete(SubrepoProfile).where(
+                SubrepoProfile.repo_profile_id == profile_record.id
+            )
+        )
+        for proj in branch_projects:
+            proj_path = destination / proj.root_dir.lstrip("./")
+            lang_str = (
+                proj.language.value
+                if hasattr(proj.language, "value")
+                else str(proj.language)
+            )
+            sub_res = extract_subproject_profile(
+                local_dir=proj_path,
+                language=lang_str,
+                name=proj.root_dir,
+                root_dir=proj.root_dir,
+            )
+            subrepo = SubrepoProfile(
+                repo_profile_id=profile_record.id,
+                project_id=proj.id,
+                name=sub_res.name,
+                root_dir=sub_res.root_dir,
+                language=sub_res.language,
+                project_type=sub_res.project_type,
+                frameworks=sub_res.frameworks,
+                tech_stack=sub_res.tech_stack,
+                key_entrypoints=sub_res.key_entrypoints,
+                directory_map=sub_res.directory_map,
+                extra_info=sub_res.extra_info,
+            )
+            db.add(subrepo)
+
+    await db.commit()
+    logger.info(
+        "Successfully saved RepoProfile and SubrepoProfiles for repository %s (id=%d, commit: %s)",
+        repo.name,
+        repo.id,
+        commit_sha_val,
+    )
 
 
 async def parse_tree_sitter_ast_stage(
@@ -153,7 +338,16 @@ async def parse_tree_sitter_ast_stage(
         local_path,
     )
 
-    files = [f for f in project_root.rglob("*") if f.is_file()]
+    files = [
+        f
+        for f in project_root.rglob("*")
+        if f.is_file()
+        and not any(
+            part.startswith(".")
+            or part in ("node_modules", "__pycache__", "venv", ".venv")
+            for part in f.relative_to(project_root).parts
+        )
+    ]
     logger.info(
         "Start parsing source code of project: project_id= %d, project_root: %s, total files = %d",
         project_id,
@@ -369,6 +563,21 @@ async def execute_branch_indexing_pipeline(
             destination,
             commit_sha,
         )
+
+        # Profile extraction stage: run in isolated transaction so it is persisted even if subsequent stages fail
+        try:
+            await extract_repo_profile_stage(
+                branch_id=branch_id,
+                destination=destination,
+                commit_sha=commit_sha,
+                workspace_id=workspace_id,
+            )
+        except Exception as profile_exc:
+            logger.exception(
+                "Profile extraction failed for branch_id=%d: %s",
+                branch_id,
+                profile_exc,
+            )
 
         # Fetch projects under this branch for this workspace
         proj_res = await db.execute(

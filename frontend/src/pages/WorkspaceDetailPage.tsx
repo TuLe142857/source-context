@@ -9,6 +9,7 @@ import { MembersPanel } from '@/components/workspace/MembersPanel';
 import { RepositoriesPanel } from '@/components/workspace/RepositoriesPanel';
 import { BranchesPanel } from '@/components/workspace/BranchesPanel';
 import { IndexingPanel } from '@/components/workspace/IndexingPanel';
+import { linkGitHubInstallation } from '@/api/webhooks.api';
 import { useWorkspaceHierarchyQuery, useWorkspaceMembersQuery, useWorkspaceQuery } from '@/hooks/useWorkspaces';
 
 export function WorkspaceDetailPage() {
@@ -18,15 +19,46 @@ export function WorkspaceDetailPage() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const pendingInstallationId = searchParams.get('pending_installation_id');
+    if (pendingInstallationId) {
+      linkGitHubInstallation({
+        installation_id: Number(pendingInstallationId),
+        workspace_id: workspaceId,
+      })
+        .then(() => {
+          toast.success('Liên kết tài khoản với GitHub App thành công!');
+          queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+          queryClient.invalidateQueries({ queryKey: ['workspaces', workspaceId] });
+        })
+        .catch((err) => {
+          toast.error('Không thể liên kết GitHub App: ' + (err?.message || 'Lỗi'));
+        })
+        .finally(() => {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('pending_installation_id');
+              next.delete('setup_action');
+              return next;
+            },
+            { replace: true }
+          );
+        });
+      return;
+    }
+
     if (searchParams.get('github_connected') === 'true') {
       toast.success('Liên kết tài khoản với GitHub App thành công!');
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['workspaces', workspaceId] });
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete('github_connected');
-        return next;
-      }, { replace: true });
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('github_connected');
+          return next;
+        },
+        { replace: true }
+      );
     }
   }, [searchParams, setSearchParams, queryClient, workspaceId]);
 
