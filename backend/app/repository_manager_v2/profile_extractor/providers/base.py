@@ -5,7 +5,7 @@ Defines the contract for reading repository contents from different sources
 """
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class SourceFileProvider(Protocol):
@@ -75,5 +75,23 @@ class SourceFileProvider(Protocol):
 
         Returns:
             Sequence[str]: List of matching relative paths.
+        """
+        ...
+
+    def get_all_files(self) -> Sequence[str]:
+        """Returns all relative regular file paths available in the repository.
+
+        Excludes internal version control folders (.git) and virtualenvs.
+
+        Returns:
+            Sequence[str]: Complete list of relative file paths.
+        """
+        ...
+
+    def get_api_metadata(self) -> dict[str, Any]:
+        """Returns authoritative API metadata if available (e.g. from GitHub API).
+
+        Returns:
+            dict[str, Any]: Dictionary containing topics, language, license, and stats.
         """
         ...

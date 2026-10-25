@@ -27,7 +27,9 @@ call.
 
 Resolve scope before calling graph or search tools. Try get_path_settings(path) first if the user is working inside a \
 local checkout; fall back to default_workspace() if no path-specific config exists. Otherwise narrow down with \
-list_workspaces -> list_repositories -> list_branches -> list_projects.
+list_workspaces -> list_repositories. Immediately call get_repository_overview(repository_id) to acquire the full \
+architectural profile (frameworks, tech stack, subprojects, directory map, entrypoints) in one call. Use list_branches \
+and list_projects only if you need a specific branch or subproject ID not already resolved.
 
 Once you have a project_id, use list_files_in_project for file_ids, then get_file_structure before get_file_content \
 when you only need an overview or a node_id - avoid reading full file contents unless necessary.

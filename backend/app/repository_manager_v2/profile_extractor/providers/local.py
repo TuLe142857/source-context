@@ -7,6 +7,7 @@ cloned or downloaded to a local disk path.
 from collections.abc import Sequence
 import logging
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class LocalDiskSourceProvider:
             root_path (Path): Root directory path of the repository.
         """
         self._root_path = root_path.resolve()
+        self._all_files: list[str] | None = None
 
     @property
     def root_path(self) -> Path:
@@ -151,3 +153,63 @@ class LocalDiskSourceProvider:
             )
 
         return sorted(results)
+
+    def get_all_files(self) -> Sequence[str]:
+        """Returns all relative regular file paths available in the repository.
+
+        Excludes internal version control folders (.git) and virtualenvs.
+
+        Returns:
+            Sequence[str]: List of relative paths.
+        """
+        if self._all_files is not None:
+            return self._all_files
+
+        results: list[str] = []
+        if self._root_path.exists() and self._root_path.is_dir():
+            try:
+                for file_path in self._root_path.rglob("*"):
+                    if not file_path.is_file():
+                        continue
+                    try:
+                        rel = file_path.relative_to(self._root_path)
+                    except ValueError:
+                        continue
+
+                    # Ignore internal git and common virtualenvs/caches
+                    if any(
+                        part.startswith(".")
+                        or part in ("node_modules", "__pycache__", "venv", ".venv")
+                        for part in rel.parts
+                    ):
+                        continue
+
+                    results.append(str(rel))
+            except (OSError, PermissionError) as exc:
+                logger.warning("Failed to scan files in %s: %s", self._root_path, exc)
+
+        self._all_files = sorted(results)
+        return self._all_files
+
+    def get_api_metadata(self) -> dict[str, Any]:
+        """Returns metadata available from local inspection."""
+        metadata: dict[str, Any] = {}
+        for name in ("LICENSE", "LICENSE.txt", "LICENSE.md", "COPYING"):
+            if self.is_file(name):
+                content = self.read_text(name)
+                if content:
+                    first_line = (
+                        content.splitlines()[0].strip() if content.splitlines() else ""
+                    )
+                    if "MIT" in first_line or "MIT" in content[:200]:
+                        metadata["license_name"] = "MIT License"
+                    elif "Apache" in first_line or "Apache" in content[:200]:
+                        metadata["license_name"] = "Apache-2.0"
+                    elif "BSD" in first_line or "BSD" in content[:200]:
+                        metadata["license_name"] = "BSD License"
+                    elif "GPL" in first_line or "GPL" in content[:200]:
+                        metadata["license_name"] = "GPL License"
+                    else:
+                        metadata["license_name"] = first_line[:50] or "Custom"
+                break
+        return metadata

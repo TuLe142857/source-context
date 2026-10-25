@@ -70,3 +70,39 @@ def register_tools(mcp: MCPServer) -> None:
         }
         res = await client.post("/general/projects", req_body)
         return res.result()
+
+    @mcp.tool(
+        description="Get a comprehensive technical overview and architecture summary of a repository in ONE single "
+        "call. Returns summary, primary language, frameworks, tech stack, sub-projects (e.g. backend/frontend), "
+        "key entrypoints, and directory structure map. "
+        "CRITICAL: ALWAYS call this tool FIRST when beginning to explore or analyze any repository, before "
+        "attempting to list files or read directories. This single call gives you the complete architectural "
+        "blueprint and entrypoints, drastically reducing exploratory tool calls and token consumption."
+    )
+    async def get_repository_overview(
+        client: ApiClientDep,
+        repository_id: Annotated[int, Field(description="Repository ID.", ge=1)],
+        workspace_id: Annotated[
+            int | None,
+            Field(
+                default=None,
+                description="Optional Workspace ID. If omitted, resolved across accessible workspaces.",
+                ge=1,
+            ),
+        ] = None,
+        include_readme: Annotated[
+            bool,
+            Field(
+                default=False,
+                description="Whether to include full raw README markdown (default False to conserve tokens).",
+            ),
+        ] = False,
+    ) -> Any:
+        req_body: dict[str, Any] = {
+            "repository_id": repository_id,
+            "include_readme": include_readme,
+        }
+        if workspace_id is not None:
+            req_body["workspace_id"] = workspace_id
+        res = await client.post("/general/repository-overview", req_body)
+        return res.result()

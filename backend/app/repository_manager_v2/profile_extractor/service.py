@@ -1,91 +1,167 @@
-"""Repository profile extraction orchestrator service.
+"""Repository and sub-repository profile extraction service."""
 
-Acts as a Facade coordinating SourceFileProvider and ExtractorRegistry
-to produce comprehensive technical profiles of repositories.
-"""
-
-from collections.abc import Sequence
 import logging
 from pathlib import Path
+import re
 from typing import Any
 
 from app.repository_manager_v2.profile_extractor.extractors.registry import (
-    ExtractorRegistry,
-    get_default_extractor_registry,
+    SubprojectExtractorRegistry,
+    get_default_subproject_registry,
+)
+from app.repository_manager_v2.profile_extractor.extractor import (
+    extract_subproject_profile,
 )
 from app.repository_manager_v2.profile_extractor.models import (
-    MetricsInfo,
     RepoProfileResult,
-)
-from app.repository_manager_v2.profile_extractor.providers.base import (
-    SourceFileProvider,
-)
-from app.repository_manager_v2.profile_extractor.providers.local import (
-    LocalDiskSourceProvider,
+    SubrepoProfileResult,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class RepoProfileService:
-    """Orchestrator service for profiling repositories."""
+    """Orchestrator service for profiling repositories and their sub-projects."""
 
     def __init__(
         self,
-        registry: ExtractorRegistry | None = None,
+        registry: SubprojectExtractorRegistry | None = None,
     ) -> None:
-        """Initializes the service with an optional custom registry.
+        """Initializes service with optional subproject extractor registry."""
+        self._registry = registry or get_default_subproject_registry()
 
-        Args:
-            registry (ExtractorRegistry | None, optional): Extractor registry to use.
-                Defaults to get_default_extractor_registry().
-        """
-        self._registry = registry or get_default_extractor_registry()
-
-    def profile_provider(
+    def extract_subproject(
         self,
-        provider: SourceFileProvider,
-        repository_url: str | None = None,
-        branch_name: str | None = None,
-        commit_sha: str | None = None,
-        extra_info: dict[str, Any] | None = None,
-    ) -> RepoProfileResult:
-        """Profiles a repository using an abstract SourceFileProvider.
+        local_dir: Path,
+        language: str,
+        name: str = "",
+        root_dir: str = ".",
+    ) -> SubrepoProfileResult:
+        """Extracts technical profile for a configured sub-project from local disk.
 
         Args:
-            provider (SourceFileProvider): File inspection provider.
-            repository_url (str | None, optional): Git clone URL. Defaults to None.
-            branch_name (str | None, optional): Branch name. Defaults to None.
-            commit_sha (str | None, optional): Commit hash. Defaults to None.
-            extra_info (dict[str, Any] | None, optional): Extra metadata. Defaults to None.
+            local_dir (Path): Subproject root directory.
+            language (str): Configured language of the subproject.
+            name (str, optional): Name of the subproject. Defaults to "".
+            root_dir (str, optional): Relative directory inside repository. Defaults to ".".
 
         Returns:
-            RepoProfileResult: Aggregated technical profile.
+            SubrepoProfileResult: Extracted sub-repository profile.
         """
-        extractors = self._registry.get_extractors_for_repo(provider)
+        return extract_subproject_profile(
+            local_dir=local_dir,
+            language=language,
+            name=name,
+            root_dir=root_dir,
+            registry=self._registry,
+        )
 
-        if not extractors:
-            logger.info("No language extractors matched repository files.")
-            result = RepoProfileResult(
-                repository_url=repository_url,
-                branch_name=branch_name,
-                commit_sha=commit_sha,
-                extra_info=extra_info or {},
-            )
-            self._fill_generic_metrics(provider, result.metrics)
-            return result
+    def extract_readme_summary(
+        self, destination: Path | None
+    ) -> tuple[str | None, str | None]:
+        """Extracts content snippet and short summary from root README.
 
-        # Run the primary matching extractor
-        primary_extractor = extractors[0]
-        result = primary_extractor.extract(provider)
-        result.repository_url = repository_url
-        result.branch_name = branch_name
-        result.commit_sha = commit_sha
-        if extra_info:
-            result.extra_info.update(extra_info)
+        Args:
+            destination (Path | None): Local repository directory.
 
-        self._fill_generic_metrics(provider, result.metrics)
-        return result
+        Returns:
+            tuple[str | None, str | None]: (summary, readme_content).
+        """
+        if not destination or not destination.exists():
+            return None, None
+
+        for readme_name in ("README.md", "README", "readme.markdown", "Readme.md"):
+            readme_path = destination / readme_name
+            if readme_path.exists() and readme_path.is_file():
+                try:
+                    content = readme_path.read_text(
+                        encoding="utf-8", errors="ignore"
+                    ).strip()
+                    if not content:
+                        continue
+
+                    # Extract first non-header paragraph as summary
+                    summary: str | None = None
+                    for paragraph in content.split("\n\n"):
+                        p_stripped = paragraph.strip()
+                        if (
+                            p_stripped
+                            and not p_stripped.startswith("#")
+                            and not p_stripped.startswith("!")
+                        ):
+                            clean = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", p_stripped)
+                            clean = re.sub(r"[`*_{}]", "", clean)
+                            clean = " ".join(clean.split())
+                            if len(clean) > 20:
+                                summary = clean[:300]
+                                break
+
+                    readme_snippet = content[:2000]
+                    return summary, readme_snippet
+                except Exception as exc:
+                    logger.debug("Failed reading README at %s: %s", readme_path, exc)
+
+        return None, None
+
+    def profile_repository(
+        self,
+        destination: Path | None,
+        branch_name: str = "main",
+        commit_sha: str = "HEAD",
+        repository_url: str | None = None,
+        api_metadata: dict[str, Any] | None = None,
+        subprojects: list[tuple[str, str, str]] | None = None,
+    ) -> RepoProfileResult:
+        """Profiles the repository and its configured sub-projects.
+
+        Args:
+            destination (Path | None): Local clone destination.
+            branch_name (str, optional): Branch name. Defaults to "main".
+            commit_sha (str, optional): Commit hash. Defaults to "HEAD".
+            repository_url (str | None, optional): Clone URL. Defaults to None.
+            api_metadata (dict[str, Any] | None, optional): Authoritative 1-shot API metadata.
+            subprojects (list[tuple[str, str, str]] | None, optional):
+                List of (name, root_dir, language) subprojects. Defaults to None.
+
+        Returns:
+            RepoProfileResult: Aggregated repository profile with sub-project profiles.
+        """
+        api_meta = api_metadata or {}
+        summary = api_meta.get("description")
+        topics = list(api_meta.get("topics", []))
+        license_name = api_meta.get("license_name")
+        languages_breakdown = dict(api_meta.get("languages_breakdown", {}))
+        primary_language = str(api_meta.get("primary_language", "unknown")).lower()
+
+        # Extract README if local repository is available
+        readme_summary, readme_content = self.extract_readme_summary(destination)
+        if not summary and readme_summary:
+            summary = readme_summary
+
+        subrepos: list[SubrepoProfileResult] = []
+        if destination and subprojects:
+            for proj_name, proj_root, proj_lang in subprojects:
+                proj_dir = destination / proj_root.lstrip("./")
+                subrepo_res = self.extract_subproject(
+                    local_dir=proj_dir,
+                    language=proj_lang,
+                    name=proj_name,
+                    root_dir=proj_root,
+                )
+                subrepos.append(subrepo_res)
+
+        return RepoProfileResult(
+            repository_url=repository_url,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            primary_language=primary_language,
+            summary=summary,
+            readme_content=readme_content,
+            license_name=license_name,
+            topics=topics,
+            languages_breakdown=languages_breakdown,
+            subrepos=subrepos,
+        )
 
     def profile_directory(
         self,
@@ -95,41 +171,15 @@ class RepoProfileService:
         commit_sha: str | None = None,
         extra_info: dict[str, Any] | None = None,
     ) -> RepoProfileResult:
-        """Convenience method to profile a local cloned directory.
-
-        Args:
-            destination (Path): Directory path on disk.
-            repository_url (str | None, optional): Git clone URL. Defaults to None.
-            branch_name (str | None, optional): Branch name. Defaults to None.
-            commit_sha (str | None, optional): Commit hash. Defaults to None.
-            extra_info (dict[str, Any] | None, optional): Extra metadata. Defaults to None.
-
-        Returns:
-            RepoProfileResult: Aggregated technical profile.
-        """
-        provider = LocalDiskSourceProvider(destination)
-        result = self.profile_provider(
-            provider=provider,
+        """Profiles a local directory with default root project."""
+        default_subproject = ("root", ".", "python")
+        return self.profile_repository(
+            destination=destination,
+            branch_name=branch_name or "main",
+            commit_sha=commit_sha or "HEAD",
             repository_url=repository_url,
-            branch_name=branch_name,
-            commit_sha=commit_sha,
-            extra_info=extra_info,
+            subprojects=[default_subproject],
         )
-
-        # Count total files on local disk accurately
-        if destination.exists() and destination.is_dir():
-            try:
-                result.metrics.total_files = len(
-                    [
-                        f
-                        for f in destination.rglob("*")
-                        if f.is_file() and ".git" not in f.parts
-                    ]
-                )
-            except (OSError, PermissionError) as exc:
-                logger.warning("Failed to count files in %s: %s", destination, exc)
-
-        return result
 
     def profile_github_repository(
         self,
@@ -141,85 +191,35 @@ class RepoProfileService:
         summary: str | None = None,
         extra_info: dict[str, Any] | None = None,
     ) -> RepoProfileResult:
-        """Profiles a remote GitHub repository via API without cloning (Zero-Clone).
+        """Profiles a remote GitHub repository via 1-shot API without cloning."""
+        from app.repository_manager_v2.manager import RepoManagerV2
 
-        Args:
-            owner (str): Repository owner.
-            repo (str): Repository name.
-            branch (str, optional): Target branch. Defaults to "main".
-            token (str | None, optional): GitHub access token. Defaults to None.
-            commit_sha (str | None, optional): Specific commit SHA if known. Defaults to None.
-            summary (str | None, optional): Repository summary / description. Defaults to None.
-            extra_info (dict[str, Any] | None, optional): Extra metadata. Defaults to None.
-
-        Returns:
-            RepoProfileResult: Aggregated technical profile extracted via GitHub API.
-        """
-        from app.repository_manager_v2.profile_extractor.providers.github import (
-            GitHubApiSourceProvider,
+        manager = RepoManagerV2()
+        details = manager.get_repo_details(owner, repo, token_or_installation_id=token)
+        languages = manager.get_repo_languages(
+            owner, repo, token_or_installation_id=token
         )
+        languages_breakdown: dict[str, float] = {}
+        total_bytes = sum(languages.values())
+        if total_bytes > 0:
+            languages_breakdown = {
+                k: round((v / total_bytes) * 100, 2) for k, v in languages.items()
+            }
 
-        provider = GitHubApiSourceProvider(
-            owner=owner,
-            repo=repo,
-            branch=branch,
-            token=token,
-        )
-        repo_url = f"https://github.com/{owner}/{repo}.git"
+        api_metadata: dict[str, Any] = {
+            "description": summary or details.get("description"),
+            "topics": details.get("topics", []),
+            "license_name": details.get("license", {}).get("name")
+            if isinstance(details.get("license"), dict)
+            else None,
+            "languages_breakdown": languages_breakdown,
+            "primary_language": details.get("language", "unknown"),
+        }
 
-        result = self.profile_provider(
-            provider=provider,
-            repository_url=repo_url,
+        return self.profile_repository(
+            destination=None,
             branch_name=branch,
-            commit_sha=commit_sha,
-            extra_info=extra_info,
+            commit_sha=commit_sha or "HEAD",
+            repository_url=f"https://github.com/{owner}/{repo}.git",
+            api_metadata=api_metadata,
         )
-
-        # Total files can be directly retrieved from indexed blobs in the Git tree
-        result.metrics.total_files = len(provider._blobs)
-
-        if summary:
-            result.summary = summary
-        elif not result.summary and result.metrics.readme_file:
-            readme_text = provider.read_text(result.metrics.readme_file)
-            if readme_text:
-                result.summary = self._extract_summary_from_readme(readme_text)
-
-        return result
-
-    @staticmethod
-    def _extract_summary_from_readme(readme_text: str) -> str | None:
-        """Extracts first informative paragraph from README markdown."""
-        lines = [line.strip() for line in readme_text.splitlines()]
-        paragraphs: list[str] = []
-        current: list[str] = []
-
-        for line in lines:
-            if not line:
-                if current:
-                    paragraphs.append(" ".join(current))
-                    current = []
-            elif not line.startswith(("#", "[!", "<!--", "```", "![", "<img")):
-                current.append(line)
-
-        if current:
-            paragraphs.append(" ".join(current))
-
-        for para in paragraphs:
-            if len(para) > 20:
-                return para[:500]
-
-        return None
-
-    def _fill_generic_metrics(
-        self,
-        provider: SourceFileProvider,
-        metrics: MetricsInfo,
-    ) -> None:
-        """Fills common metrics like README detection."""
-        root_entries: Sequence[str] = provider.list_dir("")
-        for name in root_entries:
-            if name.lower().startswith("readme") and not metrics.has_readme:
-                metrics.has_readme = True
-                metrics.readme_file = name
-                break

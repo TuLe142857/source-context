@@ -4,9 +4,11 @@ from datetime import datetime
 from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.subrepo_profile import SubrepoProfileResponse
+
 
 class RepoProfileResponse(BaseModel):
-    """Schema representing an extracted technical profile of a repository."""
+    """Schema representing high-level repository profile with nested sub-projects."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -16,15 +18,13 @@ class RepoProfileResponse(BaseModel):
     branch_name: str
     commit_sha: str
     primary_language: str
-    project_type: str
     summary: str | None = None
-    tech_stack: dict[str, Any] = Field(default_factory=dict)
-    dev_commands: dict[str, Any] = Field(default_factory=dict)
-    coding_conventions: dict[str, Any] = Field(default_factory=dict)
-    key_entrypoints: list[str] = Field(default_factory=list)
-    directory_map: dict[str, str] = Field(default_factory=dict)
-    metrics: dict[str, Any] = Field(default_factory=dict)
+    readme_content: str | None = None
+    license_name: str | None = None
+    topics: list[str] = Field(default_factory=list)
+    languages_breakdown: dict[str, float] = Field(default_factory=dict)
     extra_info: dict[str, Any] = Field(default_factory=dict)
+    subrepo_profiles: list[SubrepoProfileResponse] = Field(default_factory=list)
     analyzed_at: datetime
 
 

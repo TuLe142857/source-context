@@ -44,11 +44,11 @@ def post_download_metadata_hook(
     branch_name: str | None = None,
     commit_sha: str | None = None,
     extra_info: dict[str, Any] | None = None,
+    subprojects: list[tuple[str, str, str]] | None = None,
 ) -> dict[str, Any]:
     """Hook xử lý sau khi clone hoặc tải repository về hoàn tất.
 
-    Delegates to RepoProfileService to extract technical stack,
-    dependencies, entrypoints, conventions, and file statistics.
+    Delegates to RepoProfileService to extract repository metadata and subprojects.
 
     Args:
         destination (Path): Đường dẫn thư mục cục bộ chứa mã nguồn repository.
@@ -56,17 +56,18 @@ def post_download_metadata_hook(
         branch_name (str | None, optional): Tên branch vừa tải về. Defaults to None.
         commit_sha (str | None, optional): Commit hash hiện tại. Defaults to None.
         extra_info (dict[str, Any] | None, optional): Thông tin phụ thêm nếu có. Defaults to None.
+        subprojects (list[tuple[str, str, str]] | None, optional): Danh sách (name, root_dir, language).
 
     Returns:
         dict[str, Any]: Dữ liệu thông tin cơ bản và profile được bóc tách từ repository.
     """
     profiler = RepoProfileService()
-    profile = profiler.profile_directory(
+    profile = profiler.profile_repository(
         destination=destination,
         repository_url=repository_url,
-        branch_name=branch_name,
-        commit_sha=commit_sha,
-        extra_info=extra_info,
+        branch_name=branch_name or "main",
+        commit_sha=commit_sha or "HEAD",
+        subprojects=subprojects,
     )
 
     metadata: dict[str, Any] = {
@@ -74,25 +75,20 @@ def post_download_metadata_hook(
         "branch_name": profile.branch_name,
         "commit_sha": profile.commit_sha,
         "local_path": str(destination),
-        "file_count": profile.metrics.total_files,
-        "has_readme": profile.metrics.has_readme,
-        "readme_file": profile.metrics.readme_file,
-        "detected_manifests": profile.metrics.detected_manifests,
         "primary_language": profile.primary_language,
-        "project_type": profile.project_type,
-        "tech_stack": profile.tech_stack.model_dump(),
-        "key_entrypoints": profile.key_entrypoints,
-        "directory_map": profile.directory_map,
-        "dev_commands": profile.dev_commands.model_dump(),
-        "coding_conventions": profile.coding_conventions.model_dump(),
+        "summary": profile.summary,
+        "readme_content": profile.readme_content,
+        "license_name": profile.license_name,
+        "topics": profile.topics,
+        "languages_breakdown": profile.languages_breakdown,
+        "subrepos": [s.model_dump() for s in profile.subrepos],
         "extra_info": profile.extra_info,
     }
 
     logger.info(
-        "post_download_metadata_hook hoàn thành cho %s: %d files, manifests=%s, language=%s",
+        "post_download_metadata_hook hoàn thành cho %s: %d subrepos, language=%s",
         destination.name,
-        profile.metrics.total_files,
-        profile.metrics.detected_manifests,
+        len(profile.subrepos),
         profile.primary_language,
     )
     return metadata
@@ -411,6 +407,42 @@ class RepoManagerV2:
                 f"Failed to get details for repository {owner}/{repo}: {exc}",
                 status_code=status_code,
             ) from exc
+
+    def get_repo_languages(
+        self,
+        owner: str,
+        repo: str,
+        token_or_installation_id: str | int | None = None,
+    ) -> dict[str, int]:
+        """Fetch programming languages byte count for a repository.
+
+        Args:
+            owner (str): Repository owner or organization.
+            repo (str): Repository name.
+            token_or_installation_id (str | int | None, optional): Token or installation ID. Defaults to None.
+
+        Returns:
+            dict[str, int]: Mapping of language name to byte count.
+        """
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Source-Context-Backend",
+        }
+        if token_or_installation_id is not None:
+            if isinstance(token_or_installation_id, int):
+                token = self.get_installation_token(token_or_installation_id)
+            else:
+                token = token_or_installation_id
+            headers["Authorization"] = f"Bearer {token}"
+
+        url = f"https://api.github.com/repos/{owner}/{repo}/languages"
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            data: dict[str, int] = response.json()
+            return data
+        except requests.RequestException:
+            return {}
 
     def list_branches(
         self,

@@ -1,45 +1,37 @@
-"""Base language profile extractor interface.
-
-Defines the strategy interface that every language-specific extractor must implement.
-"""
+"""Base abstract class for language sub-project extractors."""
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
-from app.repository_manager_v2.profile_extractor.models import RepoProfileResult
-from app.repository_manager_v2.profile_extractor.providers.base import (
-    SourceFileProvider,
-)
+from app.repository_manager_v2.profile_extractor.models import SubrepoProfileResult
 
 
-class BaseLanguageExtractor(ABC):
-    """Abstract Strategy interface for language-specific profile extractors."""
+class BaseSubprojectExtractor(ABC):
+    """Abstract base extractor for language-specific subprojects."""
 
     @property
     @abstractmethod
-    def language_name(self) -> str:
-        """Primary programming language name handled by this extractor."""
+    def supported_languages(self) -> list[str]:
+        """List of language identifiers supported by this extractor (e.g. ['python'])."""
         ...
 
     @abstractmethod
-    def can_handle(self, provider: SourceFileProvider) -> bool:
-        """Determines if the repository contains markers/manifests for this language.
+    def extract(
+        self,
+        local_dir: Path,
+        name: str,
+        root_dir: str,
+        language: str | None = None,
+    ) -> SubrepoProfileResult:
+        """Extracts technical profile for the subproject from local disk.
 
         Args:
-            provider (SourceFileProvider): File inspection provider.
+            local_dir (Path): Subproject root directory on local disk.
+            name (str): Subproject name.
+            root_dir (str): Relative root path in repository.
+            language (str | None, optional): Explicit language configured by user.
 
         Returns:
-            bool: True if this extractor can profile the repository.
-        """
-        ...
-
-    @abstractmethod
-    def extract(self, provider: SourceFileProvider) -> RepoProfileResult:
-        """Extracts technical profile, dependencies, and configuration.
-
-        Args:
-            provider (SourceFileProvider): File inspection provider.
-
-        Returns:
-            RepoProfileResult: Extracted language-specific profile.
+            SubrepoProfileResult: Extracted sub-repository profile data.
         """
         ...

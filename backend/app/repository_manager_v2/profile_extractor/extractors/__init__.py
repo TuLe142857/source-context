@@ -1,19 +1,23 @@
-"""Extractors package."""
+"""Language sub-project extractors package."""
 
 from app.repository_manager_v2.profile_extractor.extractors.base import (
-    BaseLanguageExtractor,
+    BaseSubprojectExtractor,
+)
+from app.repository_manager_v2.profile_extractor.extractors.javascript import (
+    JavaScriptSubprojectExtractor,
 )
 from app.repository_manager_v2.profile_extractor.extractors.python import (
-    PythonProfileExtractor,
+    PythonSubprojectExtractor,
 )
 from app.repository_manager_v2.profile_extractor.extractors.registry import (
-    ExtractorRegistry,
-    get_default_extractor_registry,
+    SubprojectExtractorRegistry,
+    get_default_subproject_registry,
 )
 
 __all__ = [
-    "BaseLanguageExtractor",
-    "ExtractorRegistry",
-    "PythonProfileExtractor",
-    "get_default_extractor_registry",
+    "BaseSubprojectExtractor",
+    "JavaScriptSubprojectExtractor",
+    "PythonSubprojectExtractor",
+    "SubprojectExtractorRegistry",
+    "get_default_subproject_registry",
 ]

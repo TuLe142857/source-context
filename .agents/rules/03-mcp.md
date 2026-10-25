@@ -11,11 +11,12 @@ trigger: always_on
 Thực hiện tra cứu theo thứ tự từ tổng quan đến chi tiết:
 1. **Workspace:** Dùng `list_workspaces` để xác định các không gian làm việc khả dụng.
 2. **Repository:** Dùng `list_repositories` với `workspace_id` thu được.
-3. **Branch & Project:** Dùng `list_branches` và `list_projects` để lấy danh sách nhánh (branch) và project con.
-4. **File List:** Dùng `list_files_in_project` để xem danh sách toàn bộ các file trong project.
+3. **Repository Overview (Bắt buộc gọi đầu tiên khi khám phá repo):** Dùng `get_repository_overview` ngay sau khi có `repository_id` để lấy toàn bộ thông tin kiến trúc, tech stack, frameworks, sub-projects, key entrypoints và directory map trong **1 lần gọi duy nhất**.
+4. **Branch & Project:** Chỉ dùng `list_branches` và `list_projects` nếu cần ID cụ thể của nhánh hoặc sub-project chưa có trong overview.
+5. **File List:** Dùng `list_files_in_project` để xem danh sách toàn bộ các file trong project khi cần đi sâu.
 
 ## 3. Tối Ưu Hóa Token & Hiệu Năng
-- **Ưu tiên tổng quan:** Dùng `get_file_structure` hoặc `list_files_in_project` để nắm cấu trúc thư mục trước khi đọc nội dung code.
+- **Ưu tiên tổng quan:** Luôn gọi `get_repository_overview` trước tiên để nắm toàn bộ bức tranh kiến trúc, tránh gọi nhiều tool thăm dò. Sau đó dùng `get_file_structure` hoặc `list_files_in_project` để nắm cấu trúc thư mục trước khi đọc nội dung code.
 - **Hạn chế tiêu thụ Token:** Chỉ gọi `get_file_content` đối với các file thực sự quan trọng (file cấu hình, entrypoint, models cốt lõi). Không tải nội dung file tràn lan.
 - **Tìm kiếm chính xác:** Dùng `search_in_workspace` hoặc `search_in_repo_and_branch` để tìm kiếm từ khóa/hàm cụ thể thay vì duyệt từng file thủ công.
 

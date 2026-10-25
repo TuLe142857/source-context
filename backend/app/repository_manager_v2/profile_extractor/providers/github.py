@@ -56,6 +56,10 @@ class GitHubApiSourceProvider:
         self._dirs: set[str] = set()
         self._content_cache: dict[str, str] = {}
 
+        self._repo_details_loaded: bool = False
+        self._repo_details: dict[str, Any] = {}
+        self._languages_breakdown: dict[str, float] = {}
+
     def _ensure_tree(self) -> None:
         """Fetches the entire recursive Git tree once and indexes paths."""
         if self._tree_loaded:
@@ -200,3 +204,66 @@ class GitHubApiSourceProvider:
                     matches.append(path)
 
         return sorted(matches)
+
+    def _ensure_repo_details(self) -> None:
+        """Fetches repository details and language distribution via GitHub REST API."""
+        if self._repo_details_loaded:
+            return
+
+        # 1. Fetch primary repo details
+        url = f"https://api.github.com/repos/{self.owner}/{self.repo}"
+        try:
+            resp = requests.get(url, headers=self._headers, timeout=self.timeout)
+            if resp.status_code == 200:
+                self._repo_details = resp.json()
+        except requests.RequestException as exc:
+            logger.warning(
+                "Failed to fetch repository details for %s/%s: %s",
+                self.owner,
+                self.repo,
+                exc,
+            )
+
+        # 2. Fetch language breakdown
+        lang_url = f"https://api.github.com/repos/{self.owner}/{self.repo}/languages"
+        try:
+            lang_resp = requests.get(
+                lang_url, headers=self._headers, timeout=self.timeout
+            )
+            if lang_resp.status_code == 200:
+                raw_langs: dict[str, int] = lang_resp.json()
+                total_bytes = sum(raw_langs.values())
+                if total_bytes > 0:
+                    self._languages_breakdown = {
+                        lang: round((count / total_bytes) * 100, 1)
+                        for lang, count in raw_langs.items()
+                    }
+        except requests.RequestException as exc:
+            logger.warning(
+                "Failed to fetch language distribution for %s/%s: %s",
+                self.owner,
+                self.repo,
+                exc,
+            )
+
+        self._repo_details_loaded = True
+
+    def get_api_metadata(self) -> dict[str, Any]:
+        """Returns authoritative API metadata from GitHub API."""
+        self._ensure_repo_details()
+        license_obj = self._repo_details.get("license") or {}
+        return {
+            "primary_language": self._repo_details.get("language"),
+            "description": self._repo_details.get("description"),
+            "topics": self._repo_details.get("topics", []),
+            "license_name": license_obj.get("name") or license_obj.get("spdx_id"),
+            "languages_breakdown": self._languages_breakdown,
+            "default_branch": self._repo_details.get("default_branch"),
+            "size_kb": self._repo_details.get("size"),
+            "homepage": self._repo_details.get("homepage"),
+        }
+
+    def get_all_files(self) -> Sequence[str]:
+        """Returns all relative file paths available in the repository."""
+        self._ensure_tree()
+        return sorted(self._blobs.keys())

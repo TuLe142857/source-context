@@ -1,68 +1,54 @@
-"""Extractor registry managing available language profile extractors.
+"""Registry for language-specific subproject extractors."""
 
-Implements the Registry Pattern to decouple extractor discovery from execution.
-"""
-
-from collections.abc import Sequence
 from functools import lru_cache
 
 from app.repository_manager_v2.profile_extractor.extractors.base import (
-    BaseLanguageExtractor,
+    BaseSubprojectExtractor,
+)
+from app.repository_manager_v2.profile_extractor.extractors.javascript import (
+    JavaScriptSubprojectExtractor,
 )
 from app.repository_manager_v2.profile_extractor.extractors.python import (
-    PythonProfileExtractor,
-)
-from app.repository_manager_v2.profile_extractor.providers.base import (
-    SourceFileProvider,
+    PythonSubprojectExtractor,
 )
 
 
-class ExtractorRegistry:
-    """Registry maintaining active language extractors."""
+class SubprojectExtractorRegistry:
+    """Registry managing available language sub-project extractors."""
 
-    def __init__(
-        self,
-        extractors: Sequence[BaseLanguageExtractor] | None = None,
-    ) -> None:
-        """Initializes the registry with optional initial extractors.
+    def __init__(self) -> None:
+        """Initializes empty extractor registry."""
+        self._extractors: dict[str, BaseSubprojectExtractor] = {}
+
+    def register(self, extractor: BaseSubprojectExtractor) -> None:
+        """Registers an extractor for all its supported languages.
 
         Args:
-            extractors (Sequence[BaseLanguageExtractor] | None, optional): Initial extractors.
+            extractor (BaseSubprojectExtractor): Subproject extractor instance.
         """
-        self._extractors: list[BaseLanguageExtractor] = (
-            list(extractors) if extractors else []
-        )
+        for lang in extractor.supported_languages:
+            self._extractors[lang.lower()] = extractor
 
-    def register(self, extractor: BaseLanguageExtractor) -> None:
-        """Registers a new language extractor.
-
-        Args:
-            extractor (BaseLanguageExtractor): Extractor to register.
-        """
-        self._extractors.append(extractor)
-
-    def get_extractors_for_repo(
-        self,
-        provider: SourceFileProvider,
-    ) -> list[BaseLanguageExtractor]:
-        """Finds all extractors capable of handling the repository.
+    def get(self, language: str) -> BaseSubprojectExtractor | None:
+        """Retrieves an extractor matching the language.
 
         Args:
-            provider (SourceFileProvider): File inspection provider.
+            language (str): Language name (e.g. 'python', 'typescript').
 
         Returns:
-            list[BaseLanguageExtractor]: Extractors that returned True from can_handle.
+            BaseSubprojectExtractor | None: Matching extractor if registered.
         """
-        return [ext for ext in self._extractors if ext.can_handle(provider)]
+        return self._extractors.get(language.lower())
 
 
 @lru_cache
-def get_default_extractor_registry() -> ExtractorRegistry:
-    """Factory creating and caching the default registry with built-in extractors.
+def get_default_subproject_registry() -> SubprojectExtractorRegistry:
+    """Factory creating and caching default registry with built-in language extractors.
 
     Returns:
-        ExtractorRegistry: Default registry populated with standard extractors.
+        SubprojectExtractorRegistry: Registry with Python and JavaScript/TypeScript extractors.
     """
-    registry = ExtractorRegistry()
-    registry.register(PythonProfileExtractor())
+    registry = SubprojectExtractorRegistry()
+    registry.register(PythonSubprojectExtractor())
+    registry.register(JavaScriptSubprojectExtractor())
     return registry
