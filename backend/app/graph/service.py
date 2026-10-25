@@ -11,9 +11,43 @@ from app.core.config import settings
 from app.core import AppException, ErrorCode
 from mypy_boto3_s3 import S3Client
 from fastapi import Depends
+from neomodel import db
 import logging
 
 logger = logging.getLogger(__name__)
+
+_UNUSED_NODES_CONDITION = """
+WHERE d.kind IN ["function", "method", "class"]
+  AND NOT EXISTS {
+    MATCH (d)-[:PARENT_OF*0..]->()<-[:REFERENCE_TO]-(r)
+    WHERE NOT (
+        r.file_node_uid = d.file_node_uid
+        AND r.start_byte >= d.start_byte
+        AND r.end_byte <= d.end_byte
+    )
+  }
+RETURN d
+ORDER BY d.file_node_uid, d.start_byte
+"""
+"""Only functions, methods and classes are checked: the call graph does not record plain
+reads of a name (``return x``), so variables, parameters and constants would always look
+unused. A node is unused when neither it nor any of its children is referenced from
+outside its own span - recursion does not count, a used method keeps its class alive."""
+
+_UNUSED_NODES_IN_PROJECT_QUERY = (
+    """
+MATCH (:Project {uid: $project_id})-[:INCLUDES]->(:File)
+      -[:DECLARE]->()-[:PARENT_OF*0..]->(d:Definition)
+"""
+    + _UNUSED_NODES_CONDITION
+)
+
+_UNUSED_NODES_IN_FILE_QUERY = (
+    """
+MATCH (:File {uid: $file_id})-[:DECLARE]->()-[:PARENT_OF*0..]->(d:Definition)
+"""
+    + _UNUSED_NODES_CONDITION
+)
 
 
 class GraphService:
@@ -196,6 +230,60 @@ class GraphService:
                 callees += child_callees
 
         return callees
+
+    def get_unused_nodes_in_project(self, project_id: int) -> list[dict]:
+        """
+        Find functions, methods and classes in project that are not referenced anywhere.
+        Only functions, methods and classes are checked.
+
+        Args:
+            project_id: ProjectNodeModel's uid
+
+        Returns:
+            ``list[dict]`` of unused nodes
+
+        Raises:
+            AppException:
+                ErrorCode.RESOURCE_NOT_FOUND
+        """
+        self.get_project_node(project_id)
+        return self._find_unused_nodes(
+            _UNUSED_NODES_IN_PROJECT_QUERY, {"project_id": project_id}
+        )
+
+    def get_unused_nodes_in_file(self, file_id: str) -> list[dict]:
+        """
+        Find functions, methods and classes in file that are not referenced anywhere.
+        Only functions, methods and classes are checked.
+
+        Args:
+            file_id: FileNodeModel's uid
+
+        Returns:
+            ``list[dict]`` of unused nodes
+
+        Raises:
+            AppException:
+                ErrorCode.RESOURCE_NOT_FOUND
+        """
+        self.get_file_node(file_id)
+        return self._find_unused_nodes(
+            _UNUSED_NODES_IN_FILE_QUERY, {"file_id": file_id}
+        )
+
+    def _find_unused_nodes(self, query: str, params: dict) -> list[dict]:
+        rows, _ = db.cypher_query(query, params, resolve_objects=True)
+        nodes: list[UASTNodeModel] = [row[0] for row in rows]
+        return [
+            {
+                "id": n.uid,
+                "name": n.name,
+                "file_id": n.file_node_uid,
+                "node_type": n.node_type,
+                "kind": getattr(n, "kind", None),
+            }
+            for n in nodes
+        ]
 
 
 def get_graph_service(
