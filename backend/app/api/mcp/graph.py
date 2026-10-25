@@ -55,6 +55,21 @@ def get_files(
 
 
 @router.get(
+    "/projects/{project_id}/unused-nodes",
+    summary="Find unused functions, methods and classes in project",
+    response_model=ResponseSuccessSchema[list[dict]],
+    responses=build_error_docs(ErrorCode.RESOURCE_NOT_FOUND),
+)
+def get_unused_nodes_in_project(
+    project_id: int,
+    graph_service: GraphServiceDep,
+    user: CurrentAgent,
+) -> APIResponse:
+    res = graph_service.get_unused_nodes_in_project(project_id)
+    return APIResponse.ok(res)
+
+
+@router.get(
     "/files/{file_id}/structure",
     response_model=ResponseSuccessSchema[list[FileStructureNode]],
     responses=build_error_docs(ErrorCode.RESOURCE_NOT_FOUND),
@@ -80,6 +95,21 @@ def get_file_contents(
     user: CurrentAgent,
 ):
     res = graph_service.get_file_content(file_id)
+    return APIResponse.ok(res)
+
+
+@router.get(
+    "/files/{file_id}/unused-nodes",
+    summary="Find unused functions, methods and classes in file",
+    response_model=ResponseSuccessSchema[list[dict]],
+    responses=build_error_docs(ErrorCode.RESOURCE_NOT_FOUND),
+)
+def get_unused_nodes_in_file(
+    file_id: str,
+    graph_service: GraphServiceDep,
+    user: CurrentAgent,
+) -> APIResponse:
+    res = graph_service.get_unused_nodes_in_file(file_id)
     return APIResponse.ok(res)
 
 

@@ -74,3 +74,19 @@ def register_tools(mcp: MCPServer) -> None:
     ) -> Any:
         res = await client.get(f"/graph/nodes/{node_id}/callees")
         return res.result()
+
+    @mcp.tool(description="Find functions, methods and classes in a project that are not referenced anywhere.")
+    async def find_unused_nodes_in_project(
+        client: ApiClientDep,
+        project_id: Annotated[str, Field(description="Project ID.")],
+    ) -> Any:
+        res = await client.get(f"/graph/projects/{project_id}/unused-nodes")
+        return res.result()
+
+    @mcp.tool(description="Find functions, methods and classes in a file that are not referenced anywhere.")
+    async def find_unused_nodes_in_file(
+        client: ApiClientDep,
+        file_id: Annotated[str, Field(description="File ID.")],
+    ) -> Any:
+        res = await client.get(f"/graph/files/{file_id}/unused-nodes")
+        return res.result()
