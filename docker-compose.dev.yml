@@ -22,7 +22,6 @@ services:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
-      - ./source-context.2026-10-16.private-key.pem:/app/source-context.2026-10-16.private-key.pem:ro
 #      - workspace_repos:/app/workspace-repositories
 
   celery-worker:
@@ -36,7 +35,6 @@ services:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
-      - ./source-context.2026-10-16.private-key.pem:/app/source-context.2026-10-16.private-key.pem:ro
 #      - workspace_repos:/app/workspace-repositories
 
   postgres:

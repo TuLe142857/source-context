@@ -76,6 +76,7 @@ services:
       - "127.0.0.1:${SOURCE_CONTEXT_BACKEND_PORT:-8000}:8000"
     volumes:
       - workspace_repos:/workspace-repositories
+      - ./source-context.2026-10-16.private-key.pem:/app/source-context.2026-10-16.private-key.pem:ro
 
   celery-worker:
 #    image: ghcr.io/tule142857/source-context/backend:latest
@@ -96,6 +97,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - workspace_repos:/workspace-repositories
+      - ./source-context.2026-10-16.private-key.pem:/app/source-context.2026-10-16.private-key.pem:ro
     command: celery -A app.worker.celery_worker worker --loglevel=info
 
   postgres:
