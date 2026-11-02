@@ -65,6 +65,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         s3_client.exceptions.BucketAlreadyOwnedByYou,
     ):
         logger.info("Bucket Already Exists. No need to create")
+    except Exception as exc:
+        logger.warning("Could not connect to S3: %s", exc)
 
     yield
 

@@ -76,6 +76,8 @@ class ProjectNodeModel(StructuredNode):
     """path from repository root"""
 
     files: RelationshipManager = RelationshipTo("FileNodeModel", "INCLUDES")  # type: ignore[assignment]
+    routes: RelationshipManager = RelationshipTo("RouteNodeModel", "EXPOSES")  # type: ignore[assignment]
+    call_sites: RelationshipManager = RelationshipTo("HttpCallSiteModel", "CONTAINS_CALL")  # type: ignore[assignment]
     branch: RelationshipManager = RelationshipFrom("BranchNodeModel", "INCLUDES")  # type: ignore[assignment]
 
 
@@ -213,6 +215,9 @@ class FunctionNodeModel(DefinitionNodeModel):
     is_static: bool = BooleanProperty()  # type: ignore[assignment]
     is_abstract: bool = BooleanProperty()  # type: ignore[assignment]
     is_override: bool = BooleanProperty()  # type: ignore[assignment]
+    routes_handled: RelationshipManager = RelationshipTo("RouteNodeModel", "HANDLES")  # type: ignore[assignment]
+    cross_calls: RelationshipManager = RelationshipTo("RouteNodeModel", "CROSS_HTTP_CALLS")  # type: ignore[assignment]
+    outgoing_calls: RelationshipManager = RelationshipTo("HttpCallSiteModel", "MAKES_HTTP_CALL")  # type: ignore[assignment]
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -367,3 +372,39 @@ def get_model_cls_for_uast_node(uast_node: UASTNode) -> type[UAST_NODE_MODEL_TYP
         type of Neo4jModel
     """
     return _MODEL_BY_NODE_TYPE[type(uast_node)]
+
+
+class RouteNodeModel(StructuredNode):
+    __label__ = "Route"
+
+    uid: str = StringProperty(required=True, unique_index=True)  # type: ignore[assignment]
+    method: str = StringProperty(required=True)  # type: ignore[assignment]
+    path: str = StringProperty(required=True)  # type: ignore[assignment]
+    raw_path: str = StringProperty()  # type: ignore[assignment]
+    protocol: str = StringProperty(default="http")  # type: ignore[assignment]
+    framework: str = StringProperty()  # type: ignore[assignment]
+
+    project: RelationshipManager = RelationshipFrom("ProjectNodeModel", "EXPOSES")  # type: ignore[assignment]
+    handlers: RelationshipManager = RelationshipFrom("FunctionNodeModel", "HANDLES")  # type: ignore[assignment]
+    cross_callers: RelationshipManager = RelationshipFrom(  # type: ignore[assignment]
+        "FunctionNodeModel", "CROSS_HTTP_CALLS"
+    )
+    incoming_calls: RelationshipManager = RelationshipFrom(  # type: ignore[assignment]
+        "HttpCallSiteModel", "CALLS_ROUTE"
+    )
+
+
+class HttpCallSiteModel(StructuredNode):
+    __label__ = "HttpCallSite"
+
+    uid: str = StringProperty(required=True, unique_index=True)  # type: ignore[assignment]
+    method: str = StringProperty(required=True)  # type: ignore[assignment]
+    raw_path: str = StringProperty(required=True)  # type: ignore[assignment]
+    canonical_path: str = StringProperty(required=True)  # type: ignore[assignment]
+    client_library: str = StringProperty()  # type: ignore[assignment]
+    file_path: str = StringProperty()  # type: ignore[assignment]
+    caller_name: str = StringProperty()  # type: ignore[assignment]
+
+    project: RelationshipManager = RelationshipFrom("ProjectNodeModel", "CONTAINS_CALL")  # type: ignore[assignment]
+    caller: RelationshipManager = RelationshipFrom("FunctionNodeModel", "MAKES_HTTP_CALL")  # type: ignore[assignment]
+    matched_route: RelationshipManager = RelationshipTo("RouteNodeModel", "CALLS_ROUTE")  # type: ignore[assignment]

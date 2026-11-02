@@ -390,6 +390,40 @@ async def parse_tree_sitter_ast_stage(
             save_file_node(uast_root_node, project_id, file_content_bytes, file.suffix)
             logger.info("Saving nodes in file %s to neo4j success", file.name)
 
+            try:
+                from app.route_extractor.service import get_route_indexing_service
+
+                get_route_indexing_service().extract_and_persist_file_routes(
+                    project_id=project_id,
+                    file_path=str(file.relative_to(project_root)),
+                    file_bytes=file_content_bytes,
+                    uast_root=uast_root_node,
+                )
+            except Exception as route_exc:
+                logger.warning(
+                    "Route extraction warning for file %s in project %d: %s",
+                    file.name,
+                    project_id,
+                    route_exc,
+                )
+
+            try:
+                from app.cross_repo.service import get_cross_repo_service
+
+                get_cross_repo_service().extract_and_persist_file_calls(
+                    project_id=project_id,
+                    file_path=str(file.relative_to(project_root)),
+                    file_bytes=file_content_bytes,
+                    uast_root=uast_root_node,
+                )
+            except Exception as call_exc:
+                logger.warning(
+                    "Call site extraction warning for file %s in project %d: %s",
+                    file.name,
+                    project_id,
+                    call_exc,
+                )
+
         except UnsupportedLanguageError:
             logger.info(
                 "Ignore file %s, because can't find language config for this file",
@@ -695,3 +729,20 @@ def index_branch_task(workspace_id: int, branch_id: int, job_id: int) -> None:
             await database.engine.dispose()
 
     asyncio.run(_runner())
+
+    # Automatically trigger cross-repo linking for the workspace
+    try:
+        from app.tasks.cross_repo import link_workspace_cross_repo_task
+
+        logger.info(
+            "Triggering automatic cross-repo linking for workspace %d after branch %d indexing",
+            workspace_id,
+            branch_id,
+        )
+        link_workspace_cross_repo_task.delay(workspace_id)
+    except Exception as link_exc:
+        logger.warning(
+            "Failed to enqueue automatic cross-repo linking for workspace %d: %s",
+            workspace_id,
+            link_exc,
+        )

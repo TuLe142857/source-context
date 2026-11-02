@@ -1,1 +1,2 @@
 from .indexing import index_branch_task as index_branch_task
+from .cross_repo import link_workspace_cross_repo_task as link_workspace_cross_repo_task
