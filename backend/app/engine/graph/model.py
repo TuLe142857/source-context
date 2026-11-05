@@ -13,7 +13,7 @@ from neomodel import (
     RelationshipManager,
 )
 
-from app.parser.uast import (
+from app.engine.parser.uast import (
     UASTNode,
     DefinitionNode,
     TypeDefinitionNode,
@@ -100,7 +100,7 @@ class FileNodeModel(StructuredNode):
 class UASTNodeModel(StructuredNode):
     """
     Map from UASTNode
-    app/parser/usast/node.py
+    app/engine/parser/uast/node.py
     """
 
     __label__ = "Node"
@@ -127,7 +127,7 @@ class UASTNodeModel(StructuredNode):
     children: RelationshipManager = RelationshipTo("UASTNodeModel", "PARENT_OF")  # type: ignore[assignment]
     parent: RelationshipManager = RelationshipFrom("UASTNodeModel", "PARENT_OF")  # type: ignore[assignment]
 
-    # call graph edges, written by app/graph/build.py
+    # call graph edges, written by app/engine/graph/build.py
     references: RelationshipManager = RelationshipTo("UASTNodeModel", "REFERENCE_TO")  # type: ignore[assignment]
     referenced_by: RelationshipManager = RelationshipFrom(  # type: ignore[assignment]
         "UASTNodeModel", "REFERENCE_TO"

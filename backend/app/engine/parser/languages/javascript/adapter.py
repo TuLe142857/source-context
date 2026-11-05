@@ -6,7 +6,7 @@ from pathlib import Path
 import tree_sitter_javascript
 from tree_sitter import Language, Node, Query
 
-from app.parser.uast import (
+from app.engine.parser.uast import (
     BaseMetadataCaptureHandler,
     BaseNodeCaptureHandler,
     BuildContext,

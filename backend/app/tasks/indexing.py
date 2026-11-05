@@ -14,24 +14,24 @@ from app.core.postgres import database
 from app.embedding.embedding_pipeline import process_uast_batch_llm_summaries
 from app.embedding.utils import extract_summarizable_nodes
 from app.enums import BranchIndexingStatus, IndexingJobStatus
-from app.graph import build_call_graph_for_project, save_file_node
-from app.graph.model import ProjectNodeModel
+from app.engine.graph import build_call_graph_for_project, save_file_node
+from app.engine.graph.model import ProjectNodeModel
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.project import Project
 from app.model.repo_profile import RepoProfile
 from app.model.subrepo_profile import SubrepoProfile
 from app.model.repository import Repository
-from app.parser import UnsupportedLanguageError
-from app.parser.languages import get_language_registry
-from app.parser.uast import UASTNode
+from app.engine.parser import UnsupportedLanguageError
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import UASTNode
 from app.repository_manager_v2 import (
     RepoManagerV2,
     post_download_metadata_hook,
 )
 from app.repository_manager_v2.profile_extractor import extract_subproject_profile
-from app.scip import scip_pb2
-from app.scip.sandbox import get_scip_sandbox_registry
+from app.engine.scip import scip_pb2
+from app.engine.scip.sandbox import get_scip_sandbox_registry
 
 logger = logging.getLogger(__name__)
 

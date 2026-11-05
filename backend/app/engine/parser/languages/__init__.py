@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from app.parser.language_registry import LanguageRegistry
+from app.engine.parser.language_registry import LanguageRegistry
 
 from . import javascript
 from . import python

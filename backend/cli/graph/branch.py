@@ -3,7 +3,7 @@ import uuid
 import typer
 from neomodel import db
 
-from app.graph.model import BranchNodeModel, RepositoryNodeModel
+from app.engine.graph.model import BranchNodeModel, RepositoryNodeModel
 
 cli = typer.Typer(name="branch", help="Manage branches")
 

@@ -10,7 +10,7 @@ from openai import OpenAI
 
 from app.core.config import settings
 from app.embedding.base import BaseInference, build_summary_prompts
-from app.parser.uast.node import UASTNode
+from app.engine.parser.uast import UASTNode
 
 logger = logging.getLogger(__name__)
 

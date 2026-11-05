@@ -7,7 +7,7 @@ from typing import Any
 import tree_sitter_python
 from tree_sitter import Language, Node, Query
 
-from app.parser.uast import (
+from app.engine.parser.uast import (
     BaseMetadataCaptureHandler,
     BaseNodeCaptureHandler,
     BuildContext,

@@ -7,14 +7,14 @@ import re
 import tree_sitter_typescript
 from tree_sitter import Language, Node, Query
 
-from app.parser.languages.javascript.adapter import (
+from app.engine.parser.languages.javascript.adapter import (
     JavaScriptAttributeCaptureHandler,
     JavaScriptCallCaptureHandler,
     JavaScriptDefinitionCaptureHandler,
     JavaScriptDependencyCaptureHandler,
     JavaScriptMetadataCaptureHandler,
 )
-from app.parser.uast import (
+from app.engine.parser.uast import (
     BaseNodeCaptureHandler,
     BuildContext,
     LanguageAdapter,

@@ -26,9 +26,9 @@ from typing import Any
 
 from neomodel import db
 
-from app.scip import scip_pb2 as scip
-from app.scip.index_reader import SymbolOccurrence, SymbolTable, read_index
-from app.scip.position import LineIndex
+from app.engine.scip import scip_pb2 as scip
+from app.engine.scip.index_reader import SymbolOccurrence, SymbolTable, read_index
+from app.engine.scip.position import LineIndex
 
 from .model import (
     DefinitionNodeModel,

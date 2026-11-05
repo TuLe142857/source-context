@@ -8,7 +8,7 @@ import pytest
 from app.domain.source_file import (
     compute_source_content_hash,
 )
-from app.parser import (
+from app.engine.parser import (
     ParseStatus,
     RepositoryParserService,
     SourceFileChange,

@@ -8,11 +8,11 @@ from pathlib import (
 from app.domain.source_file import (
     compute_source_content_hash,
 )
-from app.parser.repository_contracts import (
+from app.engine.parser.repository_contracts import (
     ParsedSourceFile,
     RepositoryParseBatch,
 )
-from app.parser.uast import ContainerNode
+from app.engine.parser.uast import ContainerNode
 
 from .contracts import ChunkingOptions
 from .exceptions import RepositoryChunkingError

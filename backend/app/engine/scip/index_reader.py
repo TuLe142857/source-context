@@ -23,8 +23,8 @@ Two properties of real indexer output shape the design:
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from app.scip import scip_pb2
-from app.scip.symbol import is_local_symbol
+from app.engine.scip import scip_pb2
+from app.engine.scip.symbol import is_local_symbol
 
 _DEFINITION_ROLE = scip_pb2.Definition
 

@@ -5,10 +5,10 @@ from textwrap import dedent
 
 from tree_sitter import Query
 
-from app.parser.languages.javascript.adapter import get_query
+from app.engine.parser.languages.javascript.adapter import get_query
 
-from app.parser.languages import get_language_registry
-from app.parser.uast import (
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import (
     CallNode,
     FunctionNode,
     ImportNode,

@@ -2,11 +2,11 @@ import typer
 
 from pathlib import Path
 from neomodel import db
-from app.parser.languages import get_language_registry
-from app.graph.save_node import save_file_node
-from app.graph.model import BranchNodeModel, ProjectNodeModel
-from app.parser import UnsupportedLanguageError
-from app.parser.uast import ContainerNode
+from app.engine.parser.languages import get_language_registry
+from app.engine.graph import save_file_node
+from app.engine.graph.model import BranchNodeModel, ProjectNodeModel
+from app.engine.parser import UnsupportedLanguageError
+from app.engine.parser.uast import ContainerNode
 
 import uuid
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.graph.service import GraphServiceDep
+from app.engine.graph.service import GraphServiceDep
 from app.core import APIResponse, ResponseSuccessSchema, build_error_docs, ErrorCode
 from app.api.dependencies import CurrentAgent
 

@@ -19,7 +19,7 @@ from app.embedding.openai_client import (
     get_openai_client,
     get_openai_inference,
 )
-from app.parser.uast.node import UASTNode
+from app.engine.parser.uast import UASTNode
 
 logger = logging.getLogger(__name__)
 

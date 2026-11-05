@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 from typing import Any, Iterator
 
-from app.parser.uast.node import (
+from app.engine.parser.uast import (
     ContainerNode,
     FunctionNode,
     TypeDefinitionNode,

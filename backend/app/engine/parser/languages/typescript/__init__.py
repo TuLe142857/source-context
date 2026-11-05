@@ -6,8 +6,8 @@ from app.domain.source_file import (
     SOURCE_LANGUAGE_EXTENSIONS,
     SourceLanguage,
 )
-from app.parser.language_registry import LanguageConfig
-from app.parser.uast import BaseUASTConverter, UASTConverter
+from app.engine.parser.language_registry import LanguageConfig
+from app.engine.parser.uast import BaseUASTConverter, UASTConverter
 
 from .adapter import (
     get_tsx_adapter,

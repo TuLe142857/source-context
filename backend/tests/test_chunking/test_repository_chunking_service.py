@@ -10,10 +10,10 @@ from app.chunking import (
 from app.domain.source_file import (
     compute_source_content_hash,
 )
-from app.parser import (
+from app.engine.parser import (
     ParserService,
 )
-from app.parser.repository_contracts import (
+from app.engine.parser.repository_contracts import (
     ParsedSourceFile,
     RepositoryParseBatch,
     SourceFileChange,

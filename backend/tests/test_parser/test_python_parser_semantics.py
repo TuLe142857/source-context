@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 from textwrap import dedent
 
-from app.parser.languages import get_language_registry
-from app.parser.uast import (
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import (
     CallNode,
     FunctionNode,
     ImportNode,

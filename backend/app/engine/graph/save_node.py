@@ -3,7 +3,7 @@ from pathlib import Path
 
 from neomodel import db
 
-from app.parser.uast import (
+from app.engine.parser.uast import (
     ContainerNode,
     UASTNode,
 )
