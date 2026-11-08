@@ -11,6 +11,8 @@ from neomodel import (
     get_config,
     BooleanProperty,
     RelationshipManager,
+    FloatProperty,
+    StructuredRel,
 )
 
 from app.engine.parser.uast import (
@@ -78,6 +80,12 @@ class ProjectNodeModel(StructuredNode):
     files: RelationshipManager = RelationshipTo("FileNodeModel", "INCLUDES")  # type: ignore[assignment]
     branch: RelationshipManager = RelationshipFrom("BranchNodeModel", "INCLUDES")  # type: ignore[assignment]
 
+    # owned API nodes, written by app/engine/api_map
+    api_endpoints: RelationshipManager = RelationshipTo(  # type: ignore[assignment]
+        "ApiEndpointNodeModel", "EXPOSES_API"
+    )
+    api_calls: RelationshipManager = RelationshipTo("ApiCallNodeModel", "HAS_API_CALL")  # type: ignore[assignment]
+
 
 class FileNodeModel(StructuredNode):
     __label__ = "File"
@@ -132,6 +140,16 @@ class UASTNodeModel(StructuredNode):
     referenced_by: RelationshipManager = RelationshipFrom(  # type: ignore[assignment]
         "UASTNodeModel", "REFERENCE_TO"
     )
+
+    # API anchors, written by app/engine/api_map
+    handled_endpoints: RelationshipManager = RelationshipTo(  # type: ignore[assignment]
+        "ApiEndpointNodeModel", "HANDLES_API"
+    )
+    """Endpoints this node is the handler of."""
+    api_calls: RelationshipManager = RelationshipTo(  # type: ignore[assignment]
+        "ApiCallNodeModel", "MAKES_API_CALL"
+    )
+    """API calls made at this node, in practice a ``Call`` node."""
 
     @classmethod
     def extract_kwargs(cls, uast_node: UASTNode) -> dict:
@@ -367,3 +385,142 @@ def get_model_cls_for_uast_node(uast_node: UASTNode) -> type[UAST_NODE_MODEL_TYP
         type of Neo4jModel
     """
     return _MODEL_BY_NODE_TYPE[type(uast_node)]
+
+
+class ResolvesToRel(StructuredRel):
+    """Properties of ``RESOLVES_TO``, the edge from an ``ApiCall`` to the ``ApiEndpoint`` it reaches.
+
+    Derived data, written by the api_map linking stage. It is the only API edge that may join two
+    projects, so queries must keep both ends inside the projects of the current workspace, and
+    deleting a project must never follow it.
+    """
+
+    rule: str = StringProperty(required=True)  # type: ignore[assignment]
+    """Matching rule that produced the edge: ``exact``, ``pattern``, ``suffix`` or ``heuristic``."""
+
+    confidence: float = FloatProperty(required=True)  # type: ignore[assignment]
+    """Confidence of the match, between 0 and 1."""
+
+
+class ApiNodeModel(StructuredNode):
+    """Base of every API node. Abstract.
+
+    Classes are split by role first, then by protocol: ``ApiEndpointNodeModel`` (provider side)
+    and ``ApiCallNodeModel`` (consumer side) are abstract too, and each protocol adds one concrete
+    class per role, which pins ``protocol`` with a default.
+
+    An API node belongs to exactly one project, through ``EXPOSES_API`` or ``HAS_API_CALL``;
+    ``project_id`` repeats that owner so cross-project queries can filter by workspace. Edges from
+    UAST nodes only anchor the API in code and may be missing, e.g. for an endpoint read from an
+    OpenAPI file.
+    """
+
+    __label__ = "Api"
+
+    uid: str = StringProperty(required=True, unique_index=True)  # type: ignore[assignment]
+    """Deterministic, built from the owner and the API identity, so re-running the extraction
+    merges nodes instead of duplicating them."""
+
+    project_id: int = IntegerProperty(required=True, index=True)  # type: ignore[assignment]
+    """``uid`` of the owning ``ProjectNodeModel``."""
+
+    protocol: str = StringProperty(required=True)  # type: ignore[assignment]
+    """``rest``, ``grpc``, ``graphql``... Pinned by each concrete class, never passed by hand."""
+
+    match_key: str | None = StringProperty(index=True)  # type: ignore[assignment]
+    """Normalized key the linking stage matches on, computed by the protocol's strategy.
+    ``None`` when the target cannot be known statically."""
+
+    signature: str | None = StringProperty()  # type: ignore[assignment]
+    """Human-readable form, e.g. ``GET /users/{id}`` or ``user.v1.UserService/GetUser``."""
+
+    raw: str | None = StringProperty()  # type: ignore[assignment]
+    """Text as written in the source, e.g. the route string or the URL expression."""
+
+    source: str = StringProperty(default="code")  # type: ignore[assignment]
+    """Where the API was found: ``code``, ``openapi``, ``proto`` or ``sdl``."""
+
+    file_node_uid: str | None = StringProperty()  # type: ignore[assignment]
+    """File where the endpoint is declared or the call is made."""
+
+
+    metadata: dict | None = JSONProperty()  # type: ignore[assignment]
+    """Protocol or framework specific extras that no query filters on."""
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        if type(self) in (ApiNodeModel, ApiEndpointNodeModel, ApiCallNodeModel):
+            raise TypeError(f"{type(self).__name__} is an abstract class")
+        super().__init__(*args, **kwargs)
+
+
+class ApiEndpointNodeModel(ApiNodeModel):
+    """Provider side, abstract: an operation the project serves (route, RPC, resolver, subscriber)."""
+
+    __label__ = "ApiEndpoint"
+
+    framework: str | None = StringProperty()  # type: ignore[assignment]
+    """e.g. ``fastapi``, ``express``, ``spring``."""
+
+    project: RelationshipManager = RelationshipFrom("ProjectNodeModel", "EXPOSES_API")  # type: ignore[assignment]
+    """Owning project, exactly one."""
+
+    handlers: RelationshipManager = RelationshipFrom("UASTNodeModel", "HANDLES_API")  # type: ignore[assignment]
+    """Innermost definitions that run the operation: methods or functions, not their class."""
+
+    resolved_calls: RelationshipManager = RelationshipFrom(  # type: ignore[assignment]
+        "ApiCallNodeModel", "RESOLVES_TO", model=ResolvesToRel
+    )
+    """Calls matched to this endpoint, possibly from other projects."""
+
+
+class ApiCallNodeModel(ApiNodeModel):
+    """Consumer side, abstract: one place in code that calls an operation (request, RPC, publish)."""
+
+    __label__ = "ApiCall"
+
+    library: str | None = StringProperty()  # type: ignore[assignment]
+    """Client library, e.g. ``requests``, ``axios``, ``fetch``."""
+
+    is_dynamic: bool = BooleanProperty(default=False)  # type: ignore[assignment]
+    """The target is built at runtime and could only be partly resolved."""
+
+    target_hint: str | None = StringProperty()  # type: ignore[assignment]
+    """Host or base-URL expression, e.g. ``http://catalog:8000`` or ``${CATALOG_URL}``,
+    which helps pick the target service."""
+
+    project: RelationshipManager = RelationshipFrom("ProjectNodeModel", "HAS_API_CALL")  # type: ignore[assignment]
+    """Owning project, exactly one."""
+
+    call_site: RelationshipManager = RelationshipFrom("UASTNodeModel", "MAKES_API_CALL")  # type: ignore[assignment]
+    """``Call`` node making the call; the enclosing function is reached through ``PARENT_OF``."""
+
+    endpoints: RelationshipManager = RelationshipTo(  # type: ignore[assignment]
+        "ApiEndpointNodeModel", "RESOLVES_TO", model=ResolvesToRel
+    )
+    """Endpoints this call was matched to; none when the target is external or unresolved."""
+
+
+class RestEndpointNodeModel(ApiEndpointNodeModel):
+    """REST route served by the project."""
+
+    __label__ = "RestEndpoint"
+
+    http_method: str = StringProperty(required=True)  # type: ignore[assignment]
+    """Upper case: ``GET``, ``POST`` or * for ALL"""
+
+    path: str = StringProperty(required=True)  # type: ignore[assignment]
+    """Full path template, router and mount prefixes included, e.g. ``/api/v1/users/{id}``."""
+
+    path_params: list[str] = ArrayProperty(StringProperty())  # type: ignore[assignment]
+
+
+class RestCallNodeModel(ApiCallNodeModel):
+    """HTTP request made from code to a REST endpoint."""
+
+    __label__ = "RestCall"
+
+    http_method: str | None = StringProperty()  # type: ignore[assignment]
+    """Upper case; ``None`` when it cannot be read statically."""
+
+    path: str | None = StringProperty()  # type: ignore[assignment]
+    """Path part of the URL, base URL removed; ``None`` when fully dynamic."""
