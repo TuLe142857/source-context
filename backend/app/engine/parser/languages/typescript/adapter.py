@@ -8,6 +8,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Node, Query
 
 from app.engine.parser.languages.javascript.adapter import (
+    apply_decorators,
     JavaScriptAttributeCaptureHandler,
     JavaScriptCallCaptureHandler,
     JavaScriptDefinitionCaptureHandler,
@@ -541,6 +542,12 @@ class TypeScriptTypeDefinitionCaptureHandler(
             context,
         )
 
+        apply_decorators(
+            builder,
+            ts_child,
+            context,
+        )
+
         _apply_symbol_modifiers(
             builder,
             ts_child,
@@ -713,6 +720,12 @@ class TypeScriptFunctionCaptureHandler(
 
         JavaScriptDefinitionCaptureHandler._apply_pending_docstring(
             builder,
+            context,
+        )
+
+        apply_decorators(
+            builder,
+            ts_child,
             context,
         )
 

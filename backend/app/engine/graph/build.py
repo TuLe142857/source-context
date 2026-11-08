@@ -27,7 +27,12 @@ from typing import Any
 from neomodel import db
 
 from app.engine.scip import scip_pb2 as scip
-from app.engine.scip.index_reader import SymbolOccurrence, SymbolTable, read_index
+from app.engine.scip.index_reader import (
+    SymbolOccurrence,
+    SymbolTable,
+    normalize_document_path,
+    read_index,
+)
 from app.engine.scip.position import LineIndex
 
 from .model import (
@@ -124,7 +129,7 @@ def _iter_indexed_files(
 
     files: list[FileNodeModel] = project_node.files.all()
     for file_node in files:
-        relative_path = _normalize_path(file_node.relative_path or "")
+        relative_path = normalize_document_path(file_node.relative_path or "")
 
         occurrences = symbol_table.occurrences_by_document.get(relative_path)
         if occurrences is None:
@@ -141,19 +146,6 @@ def _iter_indexed_files(
             _group_nodes_by_name(_load_file_nodes(file_node)),
             _group_occurrences_by_name(occurrences, LineIndex(source), relative_path),
         )
-
-
-def _normalize_path(relative_path: str) -> str:
-    """Bring a stored path into the form SCIP uses: ``/`` separators, no ``./`` prefix.
-
-    Args:
-        relative_path: Path as stored on ``FileNodeModel``.
-
-    Returns:
-        The normalized path.
-    """
-
-    return relative_path.replace("\\", "/").removeprefix("./")
 
 
 def _load_file_nodes(file_node: FileNodeModel) -> list[UASTNodeModel]:

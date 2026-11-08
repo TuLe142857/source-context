@@ -520,3 +520,65 @@ def test_typescript_byte_ranges_support_unicode_and_crlf() -> None:
     assert function_text.endswith(
         "}",
     )
+
+
+def test_typescript_import_names_and_aliases() -> None:
+    source = dedent(
+        """\
+        import express from "express";
+        import { Router, json as parseJson } from "express";
+        import * as http from "node:http";
+        import "./polyfills";
+        """,
+    )
+
+    root, _ = parse_typescript(source)
+
+    imports = [
+        (node.module_path, node.imported_names, node.alias)
+        for node in find_nodes(root, ImportNode)
+        if isinstance(node, ImportNode)
+    ]
+
+    assert imports == [
+        ("express", ["default"], {"default": "express"}),
+        ("express", ["Router", "json"], {"json": "parseJson"}),
+        ("node:http", [], {"node:http": "http"}),
+        ("./polyfills", [], {}),
+    ]
+
+
+def test_typescript_decorators_are_kept_on_classes_and_methods() -> None:
+    source = dedent(
+        """\
+        @Controller("accounts")
+        export class AccountsController {
+          @UseGuards(AuthGuard)
+          // a comment between decorators
+          @Get(":id")
+          findOne(@Param("id") id: string) {
+            return id;
+          }
+
+          create() {}
+        }
+        """,
+    )
+
+    root, _ = parse_typescript(source)
+
+    controller = find_single_node(root, TypeDefinitionNode, name="AccountsController")
+    find_one = find_single_node(root, FunctionNode, name="findOne")
+    create = find_single_node(root, FunctionNode, name="create")
+
+    assert isinstance(controller, TypeDefinitionNode)
+    assert isinstance(find_one, FunctionNode) and isinstance(create, FunctionNode)
+    assert controller.decorators == ['@Controller("accounts")']
+    assert find_one.decorators == ["@UseGuards(AuthGuard)", '@Get(":id")']
+    assert create.decorators == []
+    # the decorator calls stay references of the call graph
+    assert {node.name for node in find_nodes(root, CallNode)} >= {
+        "Controller",
+        "Get",
+        "UseGuards",
+    }

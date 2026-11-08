@@ -190,6 +190,8 @@ class ImportNode(DependencyNode):
     def to_dict(self) -> dict[str, Any]:
         additional_data = {
             "module_path": self.module_path,
+            "imported_names": self.imported_names,
+            "alias": self.alias,
         }
         return super().to_dict() | additional_data
 

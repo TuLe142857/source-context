@@ -515,3 +515,25 @@ def test_javascript_byte_ranges_support_unicode_and_crlf() -> None:
     assert function_text.endswith(
         "}",
     )
+
+
+def test_javascript_require_bindings() -> None:
+    source = dedent(
+        """\
+        const axios = require("axios");
+        const { Router, json: parseJson } = require("express");
+        """,
+    )
+
+    root, _ = parse_javascript(source)
+
+    imports = [
+        (node.module_path, node.imported_names, node.alias)
+        for node in find_nodes(root, ImportNode)
+        if isinstance(node, ImportNode)
+    ]
+
+    assert imports == [
+        ("axios", [], {"axios": "axios"}),
+        ("express", ["Router", "json"], {"json": "parseJson"}),
+    ]

@@ -371,6 +371,86 @@ class PythonVariableCaptureHandler(
         return builder
 
 
+class PythonImportCaptureHandler(
+    BaseNodeCaptureHandler,
+):
+    """Build Python imports with the names they bind.
+
+    ``import a.b as c``         -> module_path="a.b", alias={"a.b": "c"}, one node per module
+    ``from m import x as y, z`` -> module_path="m", imported_names=["x", "z"], alias={"x": "y"}
+    ``from m import *``         -> module_path="m", imported_names=["*"]
+
+    An empty ``imported_names`` therefore means ``import <module>``, which keeps
+    ``from datetime import datetime`` apart from ``import datetime``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            capture_patterns="dependency.import",
+        )
+
+    def create_builder(
+        self,
+        capture_name: str,
+        ts_child: Node,
+        parent_builder: UASTNodeBuilder,
+        context: BuildContext,
+    ) -> UASTNodeBuilder:
+        """Extract module path, imported names and aliases from the fields."""
+
+        builder = super().create_builder(
+            capture_name,
+            ts_child,
+            parent_builder,
+            context,
+        )
+
+        if ts_child.type == "import_from_statement":
+            module_node = ts_child.child_by_field_name(
+                "module_name",
+            )
+            module_path = (
+                context.get_text(module_node) if module_node is not None else None
+            )
+            builder.set("module_path", module_path).set_name(module_path)
+
+            for name_node in ts_child.children_by_field_name("name"):
+                name, alias = self._name_and_alias(name_node, context)
+                if name is None:
+                    continue
+                builder.append("imported_names", name)
+                if alias is not None:
+                    builder.attributes_map.setdefault("alias", {})[name] = alias
+
+            if any(child.type == "wildcard_import" for child in ts_child.children):
+                builder.append("imported_names", "*")
+
+            return builder
+
+        # One `name` of an import_statement: dotted_name or aliased_import.
+        module_path, alias = self._name_and_alias(ts_child, context)
+        builder.set("module_path", module_path).set_name(module_path)
+        if module_path is not None and alias is not None:
+            builder.set("alias", {module_path: alias})
+
+        return builder
+
+    @staticmethod
+    def _name_and_alias(
+        name_node: Node,
+        context: BuildContext,
+    ) -> tuple[str | None, str | None]:
+        if name_node.type != "aliased_import":
+            return context.get_text(name_node), None
+
+        name = name_node.child_by_field_name("name")
+        alias = name_node.child_by_field_name("alias")
+        return (
+            context.get_text(name) if name is not None else None,
+            context.get_text(alias) if alias is not None else None,
+        )
+
+
 class PythonCallCaptureHandler(
     BaseNodeCaptureHandler,
 ):
@@ -481,6 +561,7 @@ class PythonAdapter(LanguageAdapter):
                 PythonMetadataCaptureHandler(),
                 PythonParameterCaptureHandler(),
                 PythonVariableCaptureHandler(),
+                PythonImportCaptureHandler(),
                 PythonCallCaptureHandler(),
                 PythonAttributeCaptureHandler(),
                 PythonDefinitionCaptureHandler(),

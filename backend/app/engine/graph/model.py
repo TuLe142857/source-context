@@ -505,6 +505,10 @@ class RestEndpointNodeModel(ApiEndpointNodeModel):
 
     __label__ = "RestEndpoint"
 
+    protocol: str = StringProperty(default="rest")  # type: ignore[assignment]
+    """Pinned: neomodel forbids ``required`` together with ``default``, so the base keeps
+    ``required`` and every concrete class overrides it with its default."""
+
     http_method: str = StringProperty(required=True)  # type: ignore[assignment]
     """Upper case: ``GET``, ``POST`` or * for ALL"""
 
@@ -518,6 +522,9 @@ class RestCallNodeModel(ApiCallNodeModel):
     """HTTP request made from code to a REST endpoint."""
 
     __label__ = "RestCall"
+
+    protocol: str = StringProperty(default="rest")  # type: ignore[assignment]
+    """Pinned, see ``RestEndpointNodeModel.protocol``."""
 
     http_method: str | None = StringProperty()  # type: ignore[assignment]
     """Upper case; ``None`` when it cannot be read statically."""

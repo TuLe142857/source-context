@@ -73,6 +73,52 @@ def _strip_string_quotes(value: str) -> str:
     return value
 
 
+_CLASS_MEMBER_TYPES = {
+    "method_definition",
+    "public_field_definition",
+    "field_definition",
+    "abstract_method_signature",
+}
+
+
+def apply_decorators(
+    builder: UASTNodeBuilder,
+    ts_child: Node,
+    context: BuildContext,
+) -> None:
+    """Append the decorators of a class or class member to ``decorators``, as text.
+
+    Tree-sitter keeps decorators outside the node they decorate: a class member's are its
+    preceding siblings in ``class_body``, an exported class's are children of the
+    ``export_statement``. They stay ordinary nodes of the tree, so the calls inside them are
+    still converted to ``CallNode`` (call graph references are unchanged).
+    """
+
+    decorator_nodes: list[Node] = [
+        child for child in ts_child.children if child.type == "decorator"
+    ]
+
+    if ts_child.type in _CLASS_MEMBER_TYPES:
+        preceding: list[Node] = []
+        sibling = ts_child.prev_named_sibling
+        while sibling is not None and sibling.type in {"decorator", "comment"}:
+            if sibling.type == "decorator":
+                preceding.append(sibling)
+            sibling = sibling.prev_named_sibling
+        decorator_nodes = list(reversed(preceding)) + decorator_nodes
+
+    parent = ts_child.parent
+    if parent is not None and parent.type == "export_statement":
+        decorator_nodes = [
+            child for child in parent.children if child.type == "decorator"
+        ] + decorator_nodes
+
+    for decorator in decorator_nodes:
+        text = context.get_text(decorator)
+        if text is not None:
+            builder.append("decorators", text.strip())
+
+
 class JavaScriptMetadataCaptureHandler(
     BaseMetadataCaptureHandler,
 ):
@@ -138,6 +184,12 @@ class JavaScriptDefinitionCaptureHandler(
 
         self._apply_pending_docstring(
             builder,
+            context,
+        )
+
+        apply_decorators(
+            builder,
+            ts_child,
             context,
         )
 
@@ -560,7 +612,92 @@ class JavaScriptDependencyCaptureHandler(
             module_path,
         )
 
+        if ts_child.type == "import_statement":
+            self._apply_import_clause(builder, ts_child, module_path, context)
+        elif ts_child.type == "call_expression":
+            self._apply_require_binding(builder, ts_child, module_path, context)
+
         return builder
+
+    @staticmethod
+    def _apply_import_clause(
+        builder: UASTNodeBuilder,
+        ts_child: Node,
+        module_path: str,
+        context: BuildContext,
+    ) -> None:
+        """Names an ES import binds, with the same convention as Python's ImportNode.
+
+        ``import x from "m"``          -> imported_names=["default"], alias={"default": "x"}
+        ``import { a, b as c } from``  -> imported_names=["a", "b"], alias={"b": "c"}
+        ``import * as ns from "m"``    -> module form: imported_names=[], alias={"m": "ns"}
+        """
+
+        clause = next(
+            (child for child in ts_child.children if child.type == "import_clause"),
+            None,
+        )
+        if clause is None:
+            return
+        alias_map = builder.attributes_map.setdefault("alias", {})
+        for child in clause.named_children:
+            if child.type == "identifier":
+                builder.append("imported_names", "default")
+                alias_map["default"] = context.get_text(child)
+            elif child.type == "namespace_import":
+                local = next(
+                    (c for c in child.named_children if c.type == "identifier"), None
+                )
+                if local is not None:
+                    alias_map[module_path] = context.get_text(local)
+            elif child.type == "named_imports":
+                for specifier in child.named_children:
+                    name_node = specifier.child_by_field_name("name")
+                    if specifier.type != "import_specifier" or name_node is None:
+                        continue
+                    name = context.get_text(name_node)
+                    if name is None:
+                        continue
+                    builder.append("imported_names", name)
+                    alias = specifier.child_by_field_name("alias")
+                    if alias is not None:
+                        alias_map[name] = context.get_text(alias)
+
+    @staticmethod
+    def _apply_require_binding(
+        builder: UASTNodeBuilder,
+        ts_child: Node,
+        module_path: str,
+        context: BuildContext,
+    ) -> None:
+        """``const x = require("m")`` is the module form, ``const { a, b: c } = require("m")``
+        imports names."""
+
+        declarator = ts_child.parent
+        if declarator is None or declarator.type != "variable_declarator":
+            return
+        name_node = declarator.child_by_field_name("name")
+        if name_node is None:
+            return
+        alias_map = builder.attributes_map.setdefault("alias", {})
+        if name_node.type == "identifier":
+            alias_map[module_path] = context.get_text(name_node)
+            return
+        if name_node.type != "object_pattern":
+            return
+        for prop in name_node.named_children:
+            if prop.type == "shorthand_property_identifier_pattern":
+                if (text := context.get_text(prop)) is not None:
+                    builder.append("imported_names", text)
+            elif prop.type == "pair_pattern":
+                key_node = prop.child_by_field_name("key")
+                key = context.get_text(key_node) if key_node is not None else None
+                value = prop.child_by_field_name("value")
+                if key is None:
+                    continue
+                builder.append("imported_names", key)
+                if value is not None and value.type == "identifier":
+                    alias_map[key] = context.get_text(value)
 
 
 class JavaScriptCallCaptureHandler(

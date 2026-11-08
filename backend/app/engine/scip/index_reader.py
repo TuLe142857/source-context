@@ -120,6 +120,19 @@ class SymbolTable:
         return set(self.occurrences_by_document)
 
 
+def normalize_document_path(relative_path: str) -> str:
+    """Bring a stored path into the form SCIP uses: ``/`` separators, no ``./`` prefix.
+
+    Args:
+        relative_path: Path as stored on ``FileNodeModel`` or ``ContainerNode.path``.
+
+    Returns:
+        The normalized path.
+    """
+
+    return relative_path.replace("\\", "/").removeprefix("./")
+
+
 def qualify_symbol(symbol: str, document_path: str) -> str:
     """Make a document-scoped symbol globally unique.
 

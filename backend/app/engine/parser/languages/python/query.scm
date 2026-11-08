@@ -128,23 +128,13 @@
 ; Dependencies
 ; ---------------------------------------------------------------------------
 
-(import_statement) @dependency.import
+; One ImportNode per module of an `import` statement (`import a, b as c` binds two names).
+; Module path, imported names and aliases are read by PythonImportCaptureHandler.
 
 (import_statement
-  (dotted_name) @meta.module_path)
-
-(import_statement
-  (aliased_import
-    name: (dotted_name) @meta.module_path))
-
+  name: (_) @dependency.import)
 
 (import_from_statement) @dependency.import
-
-(import_from_statement
-  module_name: (dotted_name) @meta.module_path)
-
-(import_from_statement
-  module_name: (relative_import) @meta.module_path)
 
 
 ; ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import shlex
 from dataclasses import dataclass
 from typing import Callable
 import tarfile
@@ -151,6 +152,23 @@ class SCIPSandboxRegistry:
         return self._sandboxes.get(language)
 
 
+def scip_typescript_command(project_path: str, output_path: str) -> str:
+    """scip-typescript, for JavaScript and TypeScript projects alike.
+
+    ``--infer-tsconfig`` writes a ``tsconfig.json`` (with ``allowJs``) when the project has none,
+    but the project volume is mounted read-only: the project is indexed from a writable copy.
+    Document paths stay relative to the project root, as SCIP expects. Without
+    ``--infer-tsconfig``, a JavaScript project without ``tsconfig.json`` indexes no file.
+    """
+
+    work = "/tmp/scip-project"
+    script = (
+        f"cp -a {shlex.quote(project_path)} {work} && cd {work} && "
+        f"scip-typescript index --infer-tsconfig --output {shlex.quote(output_path)}"
+    )
+    return f"sh -c {shlex.quote(script)}"
+
+
 @lru_cache
 def get_scip_sandbox_registry() -> SCIPSandboxRegistry:
     sandboxes = (
@@ -181,16 +199,12 @@ def get_scip_sandbox_registry() -> SCIPSandboxRegistry:
         SCIPSandbox(
             language="javascript",
             image_tags=["sandbox/node24:latest"],
-            command_builder=lambda project_path, output_path: (
-                f"scip-typescript index --output {output_path}"
-            ),
+            command_builder=scip_typescript_command,
         ),
         SCIPSandbox(
             language="typescript",
             image_tags=["sandbox/node24:latest"],
-            command_builder=lambda project_path, output_path: (
-                f"scip-typescript index --infer-tsconfig --output {output_path}"
-            ),
+            command_builder=scip_typescript_command,
         ),
     )
     return SCIPSandboxRegistry(sandboxes)
