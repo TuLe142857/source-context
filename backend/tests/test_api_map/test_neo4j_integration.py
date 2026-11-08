@@ -197,3 +197,56 @@ def test_javascript_projects_build_anchor_and_link(neo4j: None) -> None:
         tuple(r) for r in rows
     }
     assert all(rule == "exact" for *_, rule in rows)
+
+
+def test_list_project_endpoints_and_calls(neo4j: None) -> None:
+    """The read side behind ``GET /mcp/v1/api-map/projects/{id}/endpoints|calls``."""
+
+    from unittest.mock import MagicMock
+
+    from app.core import AppException
+    from app.engine.graph.service import GraphService
+
+    graph_service = GraphService(MagicMock())  # S3 is not used by the API map
+
+    # earlier tests of this module already created these projects
+    db.cypher_query(_CLEANUP, {"ids": IDS})
+    server_roots = _stage2(SERVER, ("shop/main.py", "shop/routers"))
+    client_roots = _stage2(CLIENT, ("shop/clients",))
+    _build(SERVER, server_roots)
+    _build(CLIENT, client_roots)
+    link_api_map([SERVER, CLIENT])
+
+    endpoints = graph_service.list_api_endpoints_in_project(SERVER)
+    assert len(endpoints) == 8
+    get_user = next(
+        e for e in endpoints if e["signature"] == "GET /api/v1/users/{user_id}"
+    )
+    assert get_user["protocol"] == "rest"
+    assert get_user["details"] == {
+        "http_method": "GET",
+        "path": "/api/v1/users/{user_id}",
+        "path_params": ["user_id"],
+    }
+    assert get_user["handler_name"] == "get_user"
+    assert get_user["handler_node_id"] is not None
+    assert get_user["file_path"] == "shop/routers/users.py"
+    assert get_user["start_line"] >= 1
+    assert get_user["caller_count"] >= 1
+    assert get_user["metadata"]["detector"] == "framework"
+
+    calls = graph_service.list_api_calls_in_project(CLIENT)
+    assert len(calls) == 8
+    assert all(c["call_node_id"] is not None for c in calls)
+    assert [(c["file_path"], c["start_line"]) for c in calls] == sorted(
+        (c["file_path"], c["start_line"]) for c in calls
+    )
+    delete = next(c for c in calls if c["signature"] == "DELETE /api/v1/users/1")
+    assert delete["details"] == {"http_method": "DELETE", "path": "/api/v1/users/1"}
+    assert [(t["signature"], t["rule"]) for t in delete["targets"]] == [
+        ("DELETE /api/v1/users/{user_id}", "pattern")
+    ]
+    assert delete["targets"][0]["project_id"] == SERVER
+
+    with pytest.raises(AppException):
+        graph_service.list_api_endpoints_in_project(990_999_999)
