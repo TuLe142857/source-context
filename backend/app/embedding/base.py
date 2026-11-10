@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from app.embedding.utils import extract_source_code
-from app.parser.uast.node import UASTNode
+from app.engine.parser.uast import UASTNode
 
 
 def build_summary_prompts(

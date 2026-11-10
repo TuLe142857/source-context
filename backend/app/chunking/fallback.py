@@ -1,6 +1,6 @@
 """Fallback splitting for oversized source spans."""
 
-from app.parser.uast import UASTNode
+from app.engine.parser.uast import UASTNode
 
 from .contracts import ChunkSizeUnit
 from .size import ChunkSizeMeasurer

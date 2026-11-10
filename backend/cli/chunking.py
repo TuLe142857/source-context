@@ -12,7 +12,7 @@ from app.chunking import (
     ChunkSizeUnit,
     SourceChunk,
 )
-from app.parser import (
+from app.engine.parser import (
     ParserService,
     UnsupportedLanguageError,
 )

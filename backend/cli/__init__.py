@@ -7,6 +7,7 @@ from .parse_code import cli as parse_code_command
 
 from .scip import cli as scip_command
 from .graph import cli as graph_command
+from .api_map import cli as api_map_command
 
 cli = typer.Typer()
 
@@ -19,6 +20,7 @@ cli.add_typer(
 
 cli.add_typer(graph_command)
 cli.add_typer(scip_command)
+cli.add_typer(api_map_command)
 
 
 def run() -> None:

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from app.parser.uast import UASTNode
+from app.engine.parser.uast import UASTNode
 
 
 @dataclass(frozen=True, slots=True)

@@ -14,24 +14,25 @@ from app.core.postgres import database
 from app.embedding.embedding_pipeline import process_uast_batch_llm_summaries
 from app.embedding.utils import extract_summarizable_nodes
 from app.enums import BranchIndexingStatus, IndexingJobStatus
-from app.graph import build_call_graph_for_project, save_file_node
-from app.graph.model import ProjectNodeModel
+from app.engine.api_map import build_api_map_for_project, link_api_map
+from app.engine.graph import build_call_graph_for_project, save_file_node
+from app.engine.graph.model import ProjectNodeModel
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.project import Project
 from app.model.repo_profile import RepoProfile
 from app.model.subrepo_profile import SubrepoProfile
 from app.model.repository import Repository
-from app.parser import UnsupportedLanguageError
-from app.parser.languages import get_language_registry
-from app.parser.uast import UASTNode
+from app.engine.parser import UnsupportedLanguageError
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import UASTNode
 from app.repository_manager_v2 import (
     RepoManagerV2,
     post_download_metadata_hook,
 )
 from app.repository_manager_v2.profile_extractor import extract_subproject_profile
-from app.scip import scip_pb2
-from app.scip.sandbox import get_scip_sandbox_registry
+from app.engine.scip import scip_pb2
+from app.engine.scip.sandbox import get_scip_sandbox_registry
 
 logger = logging.getLogger(__name__)
 
@@ -404,23 +405,26 @@ async def run_scip_and_build_graph_stage(
     root_dir: str,
     language: str,
     local_path: Path,
+    file_roots: list[UASTNode] | None = None,
 ) -> dict[str, Any]:
     """
     Stage 3: Combined template handler for running SCIP indexer & building Code Graph DB (Neo4j).
 
     - Index SCIP
     - Build call graph
+    - Build API map (endpoints and calls); runs without SCIP too, with same-file resolution
     Args:
         project_id (int): Target project ID.
         root_dir (str): Sub-directory root path inside branch.
         language (str): Programming language target.
         local_path (Path): Path to branch source code directory.
+        file_roots (list[UASTNode] | None): Stage-2 UAST roots of this run; the API map anchors
+            on them, so stale File nodes of earlier runs are never used.
 
     Returns:
         dict[str, Any]: SCIP indexing and Code Graph construction result placeholder.
     """
     project_root = local_path / root_dir
-    project_root_relative = project_root.relative_to(settings.repository_workspace_root)
 
     logger.info(
         "Stage 3 (Combined): SCIP indexing and Code Graph DB construction for project_id=%d (%s) at %s",
@@ -430,20 +434,61 @@ async def run_scip_and_build_graph_stage(
     )
     sandbox_registry = get_scip_sandbox_registry()
     sandbox = sandbox_registry.get_sandbox(language)
+    index: scip_pb2.Index | None = None
     if sandbox is None:
-        raise ValueError(f"No SCIP sandbox available for language: {language}")
+        logger.warning(
+            "No SCIP sandbox for language %s: call graph skipped, API map without SCIP",
+            language,
+        )
+    else:
+        project_root_relative = project_root.relative_to(
+            settings.repository_workspace_root
+        )
+        logger.info("Start indexing scip")
+        index_bytes = sandbox.index(str(project_root_relative))
+        index = scip_pb2.Index()
+        index.ParseFromString(index_bytes)
+        logger.info(
+            f"SCIP indexing successful, total documents = {len(index.documents)}"
+        )
 
-    logger.info("Start indexing scip")
-    index_bytes = sandbox.index(str(project_root_relative))
-    index = scip_pb2.Index()
-    index.ParseFromString(index_bytes)
-    logger.info(f"SCIP indexing successful, total documents = {len(index.documents)}")
+        logger.info("Start building call graph")
+        build_call_graph_for_project(project_id, index, project_root)
+        logger.info("Build call graph successful")
 
-    logger.info("Start building call graph")
-    build_call_graph_for_project(project_id, index, project_root)
-    logger.info("Build call graph successful")
+    api_map: dict[str, int] = {}
+    try:
+        logger.info("Start building API map")
+        api_map = build_api_map_for_project(
+            project_id, project_root, index=index, file_roots=file_roots
+        )
+    except Exception:
+        # The API map is derived data: a failure must not fail the indexing job.
+        logger.exception("API map failed for project_id=%d", project_id)
 
-    return {"status": "scip_graph_built", "language": language, "neo4j_nodes": 0}
+    return {
+        "status": "scip_graph_built",
+        "language": language,
+        "neo4j_nodes": 0,
+        "api_map": api_map,
+    }
+
+
+def link_workspace_api_map_stage(project_ids: list[int]) -> int:
+    """
+    Stage 3b: Link API calls to endpoints (RESOLVES_TO) across the projects of a workspace.
+
+    Runs after every project of the branch went through stage 3: saving a project's API nodes
+    drops the links other projects had to it, so the whole workspace is linked again.
+
+    Returns:
+        Number of links created; 0 when linking failed (logged, never raised).
+    """
+    try:
+        return link_api_map(project_ids)
+    except Exception:
+        logger.exception("API linking failed for projects %s", project_ids)
+        return 0
 
 
 async def build_vector_embeddings_stage(
@@ -622,8 +667,25 @@ async def execute_branch_indexing_pipeline(
         await db.commit()
         for p in projects:
             await run_scip_and_build_graph_stage(
-                p.id, p.root_dir, str(p.language), destination
+                p.id,
+                p.root_dir,
+                str(p.language),
+                destination,
+                uast_parse_results.get(p.id),
             )
+
+        # Step 3b: API links across every project of the workspace, other branches included
+        workspace_project_ids = list(
+            (
+                await db.execute(
+                    select(Project.id).where(
+                        (Project.workspace_id == workspace_id)
+                        | (Project.workspace_id.is_(None))
+                    )
+                )
+            ).scalars()
+        )
+        link_workspace_api_map_stage(workspace_project_ids)
 
         # Step 4: Vector DB Embeddings Construction
         job.status = IndexingJobStatus.PROCESSING

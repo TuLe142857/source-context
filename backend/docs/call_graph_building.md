@@ -1,8 +1,8 @@
 # Call graph building
 
 > [!NOTE]
-> See [build.py](../app/graph/build.py), [model.py](../app/graph/model.py),
-> [index_reader.py](../app/scip/index_reader.py), [position.py](../app/scip/position.py)
+> See [build.py](../app/engine/graph/build.py), [model.py](../app/engine/graph/model.py),
+> [index_reader.py](../app/engine/scip/index_reader.py), [position.py](../app/engine/scip/position.py)
 
 Tree-sitter only knows *syntax*: it sees `g.greet()` but cannot tell which `greet` that is.
 SCIP supplies the missing name resolution. Building the call graph is therefore a **join
@@ -30,9 +30,9 @@ flowchart TD
 Both inputs must already exist:
 
 - **Neo4j** holds the UAST of every file, written by
-  [save_node.py](../app/graph/save_node.py).
+  [save_node.py](../app/engine/graph/save_node.py).
 - **`scip.Index`** is produced by `SCIPSandbox.index()`
-  ([sandbox.py](../app/scip/sandbox.py)) and parsed with `Index.ParseFromString`.
+  ([sandbox.py](../app/engine/scip/sandbox.py)) and parsed with `Index.ParseFromString`.
 - **`project_root`** is the directory the SCIP document paths are relative to — the same
   `local_path / root_dir` that stage 2 walked. It is required because the coordinate
   conversion needs the raw file bytes.
@@ -61,7 +61,7 @@ SCIP addresses source as `(line, character)` and counts *characters*. Tree-sitte
 `bytes`, so its columns and `start_byte`/`end_byte` count *bytes*. The two agree only on
 pure ASCII.
 
-Every conversion goes through `LineIndex` ([position.py](../app/scip/position.py)).
+Every conversion goes through `LineIndex` ([position.py](../app/engine/scip/position.py)).
 Skipping it silently corrupts any line containing a non-ASCII character:
 
 ```
@@ -173,7 +173,7 @@ flowchart LR
 ```
 
 `REFERENCE_TO` is declared on `UASTNodeModel` as `references` / `referenced_by`
-([model.py](../app/graph/model.py)). Because neomodel applies every label in the class
+([model.py](../app/engine/graph/model.py)). Because neomodel applies every label in the class
 hierarchy, a `CallNodeModel` is stored as `:Call:Reference:Node`, so `MATCH (n:Reference)`
 matches all three reference kinds.
 
@@ -207,7 +207,7 @@ MATCH (n)-[:REFERENCE_TO]->(n) RETURN count(n);
 
 ## Known limitations
 
-- **Python (and JS/TS) only.** [java/query.scm](../app/parser/languages/java/query.scm)
+- **Python (and JS/TS) only.** [java/query.scm](../app/engine/parser/languages/java/query.scm)
   has no `@reference.*` captures, so Java files produce no reference nodes and no edges.
   Adding Java support is a query change, not a `build.py` change.
 - **`Document.position_encoding` is not read.** `LineIndex` treats `character` as a code

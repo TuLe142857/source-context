@@ -2,8 +2,8 @@
 
 from collections.abc import Sequence
 
-from app.parser.contracts import ParseResult
-from app.parser.uast import (
+from app.engine.parser import ParseResult
+from app.engine.parser.uast import (
     ContainerNode,
     UASTNode,
 )

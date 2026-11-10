@@ -1,5 +1,6 @@
 from mcp.server import MCPServer
 
+from .api_map import register_tools as register_api_map_tools
 from .base import register_tools as register_base_tools
 from .debug import register_tools as register_debug_tools
 from .graph import register_tools as register_graph_tools
@@ -17,6 +18,7 @@ def register_tools(mcp: MCPServer) -> None:
     register_base_tools(mcp)
     register_graph_tools(mcp)
     register_vector_tools(mcp)
+    register_api_map_tools(mcp)
 
 
 __all__ = ["register_tools"]
