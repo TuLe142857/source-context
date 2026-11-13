@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from contextlib import nullcontext
 from typing import Any
 
 from neomodel import db
@@ -41,7 +42,12 @@ RETURN DISTINCT n.uid, n.start_byte, n.end_byte, n.node_type
 """
 
 
-def save_detections(ctx: ApiMapContext, detections: list[Detection]) -> None:
+def save_detections(
+    ctx: ApiMapContext,
+    detections: list[Detection],
+    *,
+    transactional: bool = True,
+) -> None:
     """Replace the project's API nodes, then connect them to the project and to their anchors.
 
     API uids are deterministic, so deleting and recreating keeps them stable while dropping
@@ -53,7 +59,7 @@ def save_detections(ctx: ApiMapContext, detections: list[Detection]) -> None:
     anchor_uids = _anchor_uids(ctx, detections)
     rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
     unanchored = 0
-    with db.transaction:
+    with (db.transaction if transactional else nullcontext()):
         db.cypher_query(_DELETE, {"project_id": ctx.project_id})
         for node, anchor in detections:
             node.save()

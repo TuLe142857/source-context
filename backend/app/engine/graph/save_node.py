@@ -1,23 +1,23 @@
+import hashlib
 import io
+from contextlib import nullcontext
 from pathlib import Path
 
 from neomodel import db
 
+from app.core.config import settings
+from app.core.s3 import get_s3_client
 from app.engine.parser.uast import (
     ContainerNode,
     UASTNode,
 )
 
 from .model import (
-    ProjectNodeModel,
     FileNodeModel,
+    ProjectNodeModel,
     UASTNodeModel,
     get_model_cls_for_uast_node,
 )
-
-from app.core.s3 import get_s3_client
-from app.core.config import settings
-import uuid
 
 
 def save_file_node(
@@ -25,6 +25,8 @@ def save_file_node(
     project_id: int,
     source_bytes: bytes | None = None,
     file_ext: str | None = None,
+    *,
+    transactional: bool = True,
 ) -> FileNodeModel:
     """
 
@@ -49,8 +51,12 @@ def save_file_node(
         )
 
     if (source_bytes is not None) and (len(source_bytes) > 0):
+        file_identity = uast_root.path or uast_root.name or "unknown"
+        path_hash = hashlib.sha256(file_identity.encode("utf-8")).hexdigest()
+        content_hash = hashlib.sha256(source_bytes).hexdigest()
         source_code_key = (
-            f"source_code_file/{str(uuid.uuid4())}{file_ext if file_ext else ''}"
+            f"source_code_file/project_{project_id}/{path_hash}/"
+            f"{content_hash}{file_ext if file_ext else ''}"
         )
 
         source_byte_io = io.BytesIO(source_bytes)
@@ -63,7 +69,7 @@ def save_file_node(
     else:
         source_code_key = None
 
-    with db.transaction:
+    with (db.transaction if transactional else nullcontext()):
         project_node: ProjectNodeModel = ProjectNodeModel.nodes.get(uid=project_id)
 
         file_node: FileNodeModel = FileNodeModel(

@@ -27,6 +27,8 @@ def build_api_map_for_project(
     project_root: Path,
     index: scip.Index | None = None,
     file_roots: list[UASTNode] | None = None,
+    *,
+    transactional: bool = True,
 ) -> dict[str, int]:
     """Detect the APIs of one project and replace its API nodes in Neo4j.
 
@@ -61,7 +63,7 @@ def build_api_map_for_project(
         roots,
     )
     detections = detect_apis(ctx)
-    save_detections(ctx, detections)
+    save_detections(ctx, detections, transactional=transactional)
     summary = summarize(detections)
     logger.info("API map for project %s: %s", project_id, summary)
     return summary

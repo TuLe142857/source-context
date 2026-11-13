@@ -1,8 +1,8 @@
 """Utility functions for UAST node source extraction, signature extraction, identifier parsing, and structured embedding formatting."""
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 from typing import Any, Iterator
 
 from app.engine.parser.uast import (
@@ -63,6 +63,9 @@ class EnrichedNodeData:
     workspace_id: int
     branch_id: int
     node_id: str
+    project_id: int | None
+    start_byte: int
+    end_byte: int
     node_type: str
     kind: str
     name: str

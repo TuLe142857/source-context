@@ -2,8 +2,8 @@
 
 import io
 import logging
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 from app.core.config import settings
@@ -74,6 +74,7 @@ def parse_and_convert_file(file_path: Path) -> UASTNode | None:
 def batch_embed_nodes_template(
     enhanced_batch: list[EnrichedNodeData],
     vector_store: QdrantVectorStore | None = None,
+    persist: bool = True,
 ) -> list[EnrichedNodeData]:
     print(enhanced_batch[0].branch_id)
     """Embeds enriched node chunks with Voyage AI (voyage-code-3) and upserts vector points to Qdrant Vector DB.
@@ -101,8 +102,8 @@ def batch_embed_nodes_template(
         if idx < len(embeddings):
             item.embedding = embeddings[idx]
 
-    # Batch upsert to Qdrant Vector DB
-    store.upsert_batch(enhanced_batch, vector_size=1024)
+    if persist:
+        store.upsert_batch(enhanced_batch, vector_size=1024)
     return enhanced_batch
 
 
@@ -110,11 +111,13 @@ def process_uast_batch_llm_summaries(
     workspace_id: int,
     branch_id: int,
     candidate_tuples: list[tuple[UASTNode, UASTNode, Path]],
+    project_id: int | None = None,
     batch_size: int = 50,
     max_nodes: int | None = None,
     client: BaseInference | Any | None = None,
     model: str | None = None,
     vector_store: QdrantVectorStore | None = None,
+    persist_to_store: bool = True,
 ) -> list[list[EnrichedNodeData]]:
     """Enhances node metadata, generates LLM summaries, computes Voyage AI embeddings, and upserts points to Qdrant in batches.
 
@@ -204,6 +207,9 @@ def process_uast_batch_llm_summaries(
                 workspace_id=workspace_id,
                 branch_id=branch_id,
                 node_id=target_node.id,
+                project_id=project_id,
+                start_byte=target_node.start_byte,
+                end_byte=target_node.end_byte,
                 node_type=target_node.node_type,
                 kind=getattr(target_node, "kind", target_node.node_type),
                 name=target_node.name or "unnamed",
@@ -222,6 +228,7 @@ def process_uast_batch_llm_summaries(
         embedded_batch = batch_embed_nodes_template(
             enhanced_batch=enhanced_batch,
             vector_store=qdrant_store,
+            persist=persist_to_store,
         )
         all_embedded_batches.append(embedded_batch)
 
@@ -271,6 +278,7 @@ def run_embedding_pipeline(
         workspace_id=workspace_id,
         branch_id=branch_id,
         candidate_tuples=candidate_tuples,
+        project_id=None,
         batch_size=batch_size,
         max_nodes=max_nodes,
         client=client,

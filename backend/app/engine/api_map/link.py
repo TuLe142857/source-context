@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections import Counter, defaultdict
 from collections.abc import Sequence
+from contextlib import nullcontext
 from typing import Any
 
 from neomodel import db
@@ -26,7 +27,12 @@ SET r.rule = row.rule, r.confidence = row.confidence
 """
 
 
-def link_api_map(project_ids: Sequence[int], include_tests: bool = False) -> int:
+def link_api_map(
+    project_ids: Sequence[int],
+    include_tests: bool = False,
+    *,
+    transactional: bool = True,
+) -> int:
     """Recompute every ``RESOLVES_TO`` of the calls of ``project_ids``.
 
     Both ends stay inside ``project_ids``, the projects of one workspace. Calls from test files
@@ -73,7 +79,7 @@ def link_api_map(project_ids: Sequence[int], include_tests: bool = False) -> int
                     }
                 )
 
-    with db.transaction:
+    with (db.transaction if transactional else nullcontext()):
         db.cypher_query(_CLEAR, {"project_ids": ids})
         if links:
             db.cypher_query(_CREATE, {"rows": links})

@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE indexing_states
+    ADD COLUMN checkpoint_valid BOOLEAN NOT NULL DEFAULT FALSE;
+
+COMMIT;

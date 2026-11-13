@@ -2,6 +2,7 @@
 
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
+from app.model.indexing_state import IndexingRun, IndexingState
 from app.model.member import Member
 from app.model.pat import PAT
 from app.model.project import Project
@@ -16,6 +17,8 @@ from app.model.workspace_repository import WorkspaceRepository
 __all__ = [
     "Branch",
     "IndexingJob",
+    "IndexingRun",
+    "IndexingState",
     "Member",
     "PAT",
     "Project",

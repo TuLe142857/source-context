@@ -5,15 +5,15 @@ inspect authorized repositories, fetch branch metadata, clone or download privat
 and execute post-download processing hooks.
 """
 
-from collections.abc import Sequence
-from datetime import datetime
 import logging
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import threading
 import time
+from collections.abc import Sequence
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -22,6 +22,7 @@ import requests
 
 from app.core.config import Settings, settings
 from app.domain.repository import GitRepositoryMetadata
+from app.repository_manager.diff import GitChangeManifest, parse_name_status_z
 from app.repository_manager_v2.exceptions import (
     GitCommandError,
     GitCommandTimeoutError,
@@ -753,6 +754,7 @@ class RepoManagerV2:
         branch_name: str,
         destination: Path,
         installation_id: int | None = None,
+        base_commit_sha: str | None = None,
     ) -> GitRepositoryMetadata:
         """Clone a specific branch into destination, or fetch latest if already present.
 
@@ -812,35 +814,57 @@ class RepoManagerV2:
                     shutil.rmtree(destination, ignore_errors=True)
                 raise
         else:
-            try:
-                # Fetch latest commits using authenticated URL if private
-                fetch_source = target_clone_url if token is not None else "origin"
-                self._run_git(
-                    [
-                        "-C",
-                        str(destination),
-                        "fetch",
-                        fetch_source,
-                        branch_name,
-                        "--depth",
-                        "1",
-                    ],
-                    check=False,
-                )
-                self._run_git(
-                    [
-                        "-C",
-                        str(destination),
-                        "reset",
-                        "--hard",
-                        "FETCH_HEAD",
-                    ],
-                    check=False,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Error during git fetch/reset for %s: %s", destination, exc
-                )
+            # Fetch/reset must succeed before its HEAD can be reported as the
+            # requested snapshot. Otherwise the worker could checkpoint an old tree.
+            fetch_source = target_clone_url if token is not None else "origin"
+            self._run_git(
+                [
+                    "-C",
+                    str(destination),
+                    "fetch",
+                    fetch_source,
+                    branch_name,
+                    "--depth",
+                    "1",
+                ]
+            )
+            self._run_git(
+                [
+                    "-C",
+                    str(destination),
+                    "reset",
+                    "--hard",
+                    "FETCH_HEAD",
+                ]
+            )
+
+        if base_commit_sha:
+            fetch_source = target_clone_url if token is not None else "origin"
+            self._run_git(
+                [
+                    "-C",
+                    str(destination),
+                    "fetch",
+                    "--no-tags",
+                    "--unshallow",
+                    fetch_source,
+                    branch_name,
+                ],
+                check=False,
+            )
+            self._run_git(
+                [
+                    "-C",
+                    str(destination),
+                    "fetch",
+                    "--no-tags",
+                    "--depth",
+                    "1",
+                    fetch_source,
+                    base_commit_sha,
+                ],
+                check=False,
+            )
 
         commit_sha = self._run_git(
             ["-C", str(destination), "rev-parse", "HEAD"]
@@ -852,6 +876,45 @@ class RepoManagerV2:
             commit_sha=commit_sha,
             remote_url=clean_remote_url,
         )
+
+    def compare_commits(
+        self, repository_path: Path, base_sha: str, target_sha: str
+    ) -> GitChangeManifest:
+        """Compare two locally available commits, rejecting invalid ancestry/diffs."""
+        if any(not re.fullmatch(r"[0-9a-fA-F]{40,64}", sha) for sha in (base_sha, target_sha)):
+            raise ValueError("Git commit IDs must be full hexadecimal object IDs")
+        repo = str(repository_path)
+        for sha in (base_sha, target_sha):
+            result = self._run_git(
+                ["-C", repo, "cat-file", "-e", f"{sha}^{{commit}}"], check=False
+            )
+            if result.returncode != 0:
+                raise ValueError(f"Git commit is unavailable locally: {sha}")
+        ancestry = self._run_git(
+            ["-C", repo, "merge-base", "--is-ancestor", base_sha, target_sha],
+            check=False,
+        )
+        if ancestry.returncode == 1:
+            raise ValueError("Target commit is not a descendant of the checkpoint")
+        if ancestry.returncode != 0:
+            raise ValueError("Could not verify Git commit ancestry")
+        result = self._run_git(
+            [
+                "-C",
+                repo,
+                "diff",
+                "--name-status",
+                "-z",
+                "--find-renames",
+                base_sha,
+                target_sha,
+                "--",
+            ],
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ValueError("Git commit comparison failed")
+        return parse_name_status_z(result.stdout)
 
     def _run_git(
         self,

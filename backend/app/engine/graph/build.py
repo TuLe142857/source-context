@@ -115,8 +115,8 @@ def _iter_indexed_files(
     """Yield each project file's UAST nodes next to its SCIP occurrences.
 
     Both mappings are keyed by identifier text, which is what the matching relies on.
-    Files the indexer did not cover, and files no longer readable on disk, are skipped —
-    a partial graph is more useful than a failed build.
+    Every persisted source file must be represented by SCIP and remain readable;
+    otherwise the caller must roll back the project graph replacement.
 
     Args:
         project_node: The project whose files are walked.
@@ -133,14 +133,12 @@ def _iter_indexed_files(
 
         occurrences = symbol_table.occurrences_by_document.get(relative_path)
         if occurrences is None:
-            logger.debug("No SCIP document for %s, skipping", relative_path)
-            continue
+            raise RuntimeError(f"SCIP index is missing project file: {relative_path}")
 
         try:
             source = (project_root / relative_path).read_bytes()
-        except OSError:
-            logger.warning("Cannot read %s, skipping", relative_path)
-            continue
+        except OSError as exc:
+            raise RuntimeError(f"Cannot read indexed project file: {relative_path}") from exc
 
         yield (
             _group_nodes_by_name(_load_file_nodes(file_node)),

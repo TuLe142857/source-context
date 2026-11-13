@@ -1,40 +1,65 @@
 import asyncio
-from datetime import datetime, timezone
 import logging
-from pathlib import Path
 import re
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
 from typing import Any
-from celery import shared_task  # type: ignore[import-untyped]
 
-from sqlalchemy import delete, select
+from celery import shared_task  # type: ignore[import-untyped]
+from neomodel import db as graph_db
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.postgres import database
+from app.core.qdrant import QdrantVectorStore
 from app.embedding.embedding_pipeline import process_uast_batch_llm_summaries
 from app.embedding.utils import extract_summarizable_nodes
-from app.enums import BranchIndexingStatus, IndexingJobStatus
 from app.engine.api_map import build_api_map_for_project, link_api_map
 from app.engine.graph import build_call_graph_for_project, save_file_node
 from app.engine.graph.model import ProjectNodeModel
-from app.model.branch import Branch
-from app.model.indexing_job import IndexingJob
-from app.model.project import Project
-from app.model.repo_profile import RepoProfile
-from app.model.subrepo_profile import SubrepoProfile
-from app.model.repository import Repository
+from app.engine.graph.persistence import (
+    cleanup_project_artifacts,
+    clear_project_call_relationships,
+    clear_project_graph,
+    delete_source_artifacts,
+    project_source_artifact_keys,
+    remove_project_files,
+)
 from app.engine.parser import UnsupportedLanguageError
 from app.engine.parser.languages import get_language_registry
 from app.engine.parser.uast import UASTNode
+from app.engine.scip import scip_pb2
+from app.engine.scip.sandbox import get_scip_sandbox_registry
+from app.enums import BranchIndexingStatus, IndexingJobStatus
+from app.indexing.version import INDEX_VERSION
+from app.model.branch import Branch
+from app.model.indexing_job import IndexingJob
+from app.model.indexing_state import IndexingRun, IndexingState
+from app.model.project import Project
+from app.model.repo_profile import RepoProfile
+from app.model.repository import Repository
+from app.model.subrepo_profile import SubrepoProfile
+from app.repository_manager.diff import GitChangeManifest, select_indexing_mode
 from app.repository_manager_v2 import (
     RepoManagerV2,
     post_download_metadata_hook,
 )
 from app.repository_manager_v2.profile_extractor import extract_subproject_profile
-from app.engine.scip import scip_pb2
-from app.engine.scip.sandbox import get_scip_sandbox_registry
 
 logger = logging.getLogger(__name__)
+
+
+def _paths_within_project(paths: tuple[str, ...], root_dir: str) -> set[str]:
+    root = PurePosixPath(root_dir.replace("\\", "/")).as_posix().strip("/")
+    if root in ("", "."):
+        return {PurePosixPath(path).as_posix() for path in paths}
+    prefix = f"{root}/"
+    return {
+        PurePosixPath(path[len(prefix) :]).as_posix()
+        for path in paths
+        if path.startswith(prefix)
+    }
 
 
 async def download_branch_source_stage(
@@ -66,6 +91,7 @@ async def download_branch_source_stage(
 
     branch: Branch = row[0]
     repo: Repository = row[1]
+    indexing_state = await db.get(IndexingState, (workspace_id, branch_id))
 
     # Resolve GitHub App installation_id for private repo access
     from app.repository_manager.resolver import resolve_repository_installation_id
@@ -101,6 +127,9 @@ async def download_branch_source_stage(
         branch_name=branch.branch_name,
         destination=destination,
         installation_id=installation_id,
+        base_commit_sha=(
+            indexing_state.indexed_commit_sha if indexing_state is not None else None
+        ),
     )
 
     branch.local_path = str(destination)
@@ -312,6 +341,9 @@ async def parse_tree_sitter_ast_stage(
     project_id: int,
     root_dir: str,
     local_path: Path,
+    *,
+    transactional: bool = True,
+    include_paths: set[str] | None = None,
 ) -> list[UASTNode]:
     """
     Stage 2: Template handler for Tree-sitter AST parsing:
@@ -347,6 +379,10 @@ async def parse_tree_sitter_ast_stage(
             part.startswith(".")
             or part in ("node_modules", "__pycache__", "venv", ".venv")
             for part in f.relative_to(project_root).parts
+        )
+        and (
+            include_paths is None
+            or f.relative_to(project_root).as_posix() in include_paths
         )
     ]
     logger.info(
@@ -388,7 +424,13 @@ async def parse_tree_sitter_ast_stage(
             logger.info("Parsing file %s completed", file.name)
 
             logger.info("Start saving nodes in file file %s to neo4j", file.name)
-            save_file_node(uast_root_node, project_id, file_content_bytes, file.suffix)
+            save_file_node(
+                uast_root_node,
+                project_id,
+                file_content_bytes,
+                file.suffix,
+                transactional=transactional,
+            )
             logger.info("Saving nodes in file %s to neo4j success", file.name)
 
         except UnsupportedLanguageError:
@@ -406,6 +448,8 @@ async def run_scip_and_build_graph_stage(
     language: str,
     local_path: Path,
     file_roots: list[UASTNode] | None = None,
+    *,
+    transactional: bool = True,
 ) -> dict[str, Any]:
     """
     Stage 3: Combined template handler for running SCIP indexer & building Code Graph DB (Neo4j).
@@ -448,23 +492,20 @@ async def run_scip_and_build_graph_stage(
         index_bytes = sandbox.index(str(project_root_relative))
         index = scip_pb2.Index()
         index.ParseFromString(index_bytes)
-        logger.info(
-            f"SCIP indexing successful, total documents = {len(index.documents)}"
-        )
+        logger.info("SCIP indexing successful, total documents = %d", len(index.documents))
 
         logger.info("Start building call graph")
         build_call_graph_for_project(project_id, index, project_root)
         logger.info("Build call graph successful")
 
-    api_map: dict[str, int] = {}
-    try:
-        logger.info("Start building API map")
-        api_map = build_api_map_for_project(
-            project_id, project_root, index=index, file_roots=file_roots
-        )
-    except Exception:
-        # The API map is derived data: a failure must not fail the indexing job.
-        logger.exception("API map failed for project_id=%d", project_id)
+    logger.info("Start building API map")
+    api_map = build_api_map_for_project(
+        project_id,
+        project_root,
+        index=index,
+        file_roots=file_roots,
+        transactional=transactional,
+    )
 
     return {
         "status": "scip_graph_built",
@@ -474,7 +515,9 @@ async def run_scip_and_build_graph_stage(
     }
 
 
-def link_workspace_api_map_stage(project_ids: list[int]) -> int:
+def link_workspace_api_map_stage(
+    project_ids: list[int], *, transactional: bool = True
+) -> int:
     """
     Stage 3b: Link API calls to endpoints (RESOLVES_TO) across the projects of a workspace.
 
@@ -482,13 +525,9 @@ def link_workspace_api_map_stage(project_ids: list[int]) -> int:
     drops the links other projects had to it, so the whole workspace is linked again.
 
     Returns:
-        Number of links created; 0 when linking failed (logged, never raised).
+        Number of links created.
     """
-    try:
-        return link_api_map(project_ids)
-    except Exception:
-        logger.exception("API linking failed for projects %s", project_ids)
-        return 0
+    return link_api_map(project_ids, transactional=transactional)
 
 
 async def build_vector_embeddings_stage(
@@ -498,6 +537,10 @@ async def build_vector_embeddings_stage(
     root_dir: str,
     branch_id: int,
     workspace_id: int,
+    *,
+    full_reconcile: bool = True,
+    deleted_paths: set[str] | None = None,
+    defer_cleanup: bool = False,
 ) -> dict[str, Any]:
     """Stage 4: Generates vector embeddings for UAST nodes and upserts to Qdrant Vector DB.
 
@@ -521,25 +564,65 @@ async def build_vector_embeddings_stage(
     )
 
     candidate_tuples: list[tuple[UASTNode, UASTNode, Path]] = []
+    file_paths: dict[str, Path] = {}
     for root_node in file_roots:
-        file_path_str = getattr(root_node, "file_path", None) or ""
+        file_path_str = getattr(root_node, "path", None) or ""
         file_path = project_root / file_path_str if file_path_str else project_root
+        file_paths[str(file_path)] = file_path
 
         summarizable_nodes = extract_summarizable_nodes(root_node)
         for target_node in summarizable_nodes:
             candidate_tuples.append((root_node, target_node, file_path))
 
-    if not candidate_tuples:
+    if candidate_tuples:
+        embedded_batches = await asyncio.to_thread(
+            process_uast_batch_llm_summaries,
+            workspace_id=workspace_id,
+            branch_id=branch_id,
+            candidate_tuples=candidate_tuples,
+            project_id=project_id,
+            batch_size=50,
+            persist_to_store=False,
+        )
+    else:
         logger.info("No summarizable nodes found for project_id=%d", project_id)
-        return {"status": "vector_embedded", "qdrant_points": 0}
+        embedded_batches = []
 
-    embedded_batches = await asyncio.to_thread(
-        process_uast_batch_llm_summaries,
-        workspace_id=workspace_id,
-        branch_id=branch_id,
-        candidate_tuples=candidate_tuples,
-        batch_size=50,
-    )
+    vectors_by_file: dict[str, list[Any]] = {path: [] for path in file_paths}
+    for batch in embedded_batches:
+        for item in batch:
+            vectors_by_file.setdefault(item.file_path, []).append(item)
+    from app.core.qdrant import QdrantVectorStore
+
+    vector_store = QdrantVectorStore()
+    pending_files: list[tuple[str, list[Any]]] = []
+    for file_path, items in vectors_by_file.items():
+        if defer_cleanup:
+            vector_store.upsert_batch(items)
+            pending_files.append((file_path, items))
+        else:
+            vector_store.replace_file(
+                items,
+                workspace_id=workspace_id,
+                branch_id=branch_id,
+                project_id=project_id,
+                file_path=file_path,
+            )
+    if full_reconcile and not defer_cleanup:
+        vector_store.reconcile_project_files(
+            workspace_id=workspace_id,
+            branch_id=branch_id,
+            project_id=project_id,
+            current_file_paths=set(file_paths),
+        )
+    elif not defer_cleanup:
+        for relative_path in deleted_paths or set():
+            vector_store.delete_file(
+                workspace_id=workspace_id,
+                branch_id=branch_id,
+                project_id=project_id,
+                file_path=str(project_root / relative_path),
+            )
 
     total_points = sum(len(b) for b in embedded_batches)
     logger.info(
@@ -547,7 +630,13 @@ async def build_vector_embeddings_stage(
         total_points,
         project_id,
     )
-    return {"status": "vector_embedded", "qdrant_points": total_points}
+    return {
+        "status": "vector_embedded",
+        "qdrant_points": total_points,
+        "pending_files": pending_files,
+        "deleted_paths": deleted_paths or set(),
+        "full_reconcile": full_reconcile,
+    }
 
 
 def sanitize_error_message(msg: str) -> str:
@@ -584,11 +673,27 @@ async def execute_branch_indexing_pipeline(
     if job is None:
         logger.error("IndexingJob %d not found.", job_id)
         return
+    if job.status == IndexingJobStatus.COMPLETED:
+        logger.info("IndexingJob %d already completed; skipping duplicate delivery.", job_id)
+        return
+
+    run_res = await db.execute(
+        select(IndexingRun)
+        .where(IndexingRun.job_id == job_id)
+        .order_by(IndexingRun.id.desc())
+    )
+    run = run_res.scalars().first()
+    state = await db.get(IndexingState, (workspace_id, branch_id))
+    projects: list[Project] = []
 
     try:
         # Step 1: Download/Clone Branch Source
         job.status = IndexingJobStatus.PROCESSING
-        job.progress_pct = 20
+        job.progress_pct = 0
+        if run is not None:
+            run.status = "RUNNING"
+            run.current_stage = "DOWNLOAD"
+            run.started_at = datetime.now(timezone.utc)
         await db.commit()
 
         branch_res = await db.execute(select(Branch).where(Branch.id == branch_id))
@@ -602,6 +707,71 @@ async def execute_branch_indexing_pipeline(
         destination, commit_sha = await download_branch_source_stage(
             branch_id=branch_id, db=db, workspace_id=workspace_id
         )
+        change_manifest: GitChangeManifest | None = None
+        force_full = (
+            run is not None
+            and run.fallback_reason == "Explicit full reindex requested"
+        )
+        diff_error = None
+        checkpoint_compatible = (
+            state is not None and state.index_version == INDEX_VERSION
+        )
+        checkpoint_consistent = state is not None and state.checkpoint_valid
+        if (
+            run is not None
+            and not force_full
+            and run.base_commit_sha
+            and checkpoint_compatible
+            and checkpoint_consistent
+        ):
+            try:
+                change_manifest = RepoManagerV2(
+                    app_settings=settings,
+                    timeout_seconds=settings.git_command_timeout_seconds,
+                ).compare_commits(destination, run.base_commit_sha, commit_sha)
+            except Exception as diff_exc:
+                diff_error = sanitize_error_message(str(diff_exc))[:512]
+
+        if run is not None:
+            run.mode, run.fallback_reason = select_indexing_mode(
+                base_commit_sha=run.base_commit_sha,
+                checkpoint_compatible=checkpoint_compatible,
+                checkpoint_consistent=checkpoint_consistent,
+                manifest=change_manifest,
+                diff_error=diff_error,
+                force_full=force_full,
+            )
+            if run.mode == "NOOP":
+                run.status = "COMPLETED"
+                run.current_stage = "COMPLETED"
+                run.completed_at = datetime.now(timezone.utc)
+                job.status = IndexingJobStatus.COMPLETED
+                job.progress_pct = 100
+                if branch is not None:
+                    branch.indexing_status = BranchIndexingStatus.INDEXED
+                state.latest_observed_commit_sha = commit_sha
+                state.indexed_commit_sha = commit_sha
+                state.status = "INDEXED"
+                state.index_version = INDEX_VERSION
+                state.checkpoint_valid = True
+                await db.commit()
+                return
+
+        if run is not None and change_manifest is not None:
+            run.statistics = {
+                **(run.statistics or {}),
+                "added_files": len(change_manifest.added),
+                "modified_files": len(change_manifest.modified),
+                "deleted_files": len(change_manifest.deleted_paths),
+                "renamed_files": len(change_manifest.renamed),
+                "type_changed_files": len(change_manifest.type_changed),
+            }
+        if run is not None:
+            run.target_commit_sha = commit_sha
+            run.current_stage = "PROFILE"
+        if state is not None:
+            state.latest_observed_commit_sha = commit_sha
+        await db.commit()
         logger.info(
             "Stage 1 complete: Branch %d successfully cloned to %s (commit: %s)",
             branch_id,
@@ -632,7 +802,7 @@ async def execute_branch_indexing_pipeline(
                 | (Project.workspace_id.is_(None)),
             )
         )
-        projects = proj_res.scalars().all()
+        projects = list(proj_res.scalars().all())
 
         if not projects:
             # If no sub-projects are configured under this branch yet, complete the job
@@ -641,6 +811,15 @@ async def execute_branch_indexing_pipeline(
             job.error_message = None
             if branch is not None:
                 branch.indexing_status = BranchIndexingStatus.INDEXED
+            if run is not None:
+                run.status = "COMPLETED"
+                run.current_stage = "COMPLETED"
+                run.completed_at = datetime.now(timezone.utc)
+            if state is not None:
+                state.indexed_commit_sha = commit_sha
+                state.index_version = INDEX_VERSION
+                state.checkpoint_valid = True
+                state.status = "INDEXED"
             await db.commit()
             logger.info(
                 "IndexingJob %d for branch_id=%d COMPLETED (no sub-projects configured).",
@@ -651,56 +830,220 @@ async def execute_branch_indexing_pipeline(
 
         # Step 2: Tree-sitter AST Parsing
         job.status = IndexingJobStatus.PROCESSING
-        job.progress_pct = 40
+        job.progress_pct = 0
+        if run is not None:
+            run.current_stage = "PARSE"
 
         await db.commit()
         uast_parse_results: dict[int, list[UASTNode]] = {}
-        for p in projects:
-            parse_result = await parse_tree_sitter_ast_stage(
-                project_id=p.id, root_dir=p.root_dir, local_path=destination
-            )
-            uast_parse_results[p.id] = parse_result
-
-        # Step 3: SCIP Indexing & Code Graph Building (Single Combined Stage)
         job.status = IndexingJobStatus.PROCESSING
-        job.progress_pct = 70
-        await db.commit()
-        for p in projects:
-            await run_scip_and_build_graph_stage(
-                p.id,
-                p.root_dir,
-                str(p.language),
-                destination,
-                uast_parse_results.get(p.id),
-            )
-
-        # Step 3b: API links across every project of the workspace, other branches included
-        workspace_project_ids = list(
-            (
-                await db.execute(
-                    select(Project.id).where(
-                        (Project.workspace_id == workspace_id)
-                        | (Project.workspace_id.is_(None))
-                    )
-                )
-            ).scalars()
+        job.progress_pct = 0
+        previous_artifact_keys = set().union(
+            *(project_source_artifact_keys(p.id) for p in projects)
         )
-        link_workspace_api_map_stage(workspace_project_ids)
+        if run is not None:
+            failed_run_stats = await db.scalars(
+                select(IndexingRun.statistics).where(
+                    IndexingRun.workspace_id == workspace_id,
+                    IndexingRun.branch_id == branch_id,
+                    IndexingRun.id < run.id,
+                    IndexingRun.status == "FAILED",
+                )
+            )
+            for statistics in failed_run_stats.all():
+                previous_artifact_keys.update(
+                    (statistics or {}).get("pending_artifact_delete", [])
+                )
+        if run is not None:
+            run.current_stage = "SCIP_GRAPH"
+            run.statistics = {
+                **(run.statistics or {}),
+                "pending_artifact_delete": sorted(
+                    set(run.statistics.get("pending_artifact_delete", []))
+                    | previous_artifact_keys
+                ),
+            }
+        await db.commit()
+        if run is not None:
+            previous_artifact_keys = set(
+                (run.statistics or {}).get("pending_artifact_delete", [])
+            )
+        if state is not None:
+            state.checkpoint_valid = False
+            await db.commit()
+        # The project graph is replaced inside one Neo4j transaction. Readers see
+        # the old graph until commit; any parser/SCIP/API failure rolls back it.
+        incremental = run is not None and run.mode == "INCREMENTAL"
+        with graph_db.transaction:
+            for p in projects:
+                changed_paths = (
+                    _paths_within_project(
+                        change_manifest.changed_paths, p.root_dir
+                    )
+                    if incremental and change_manifest is not None
+                    else set()
+                )
+                deleted_paths = (
+                    _paths_within_project(
+                        change_manifest.deleted_paths, p.root_dir
+                    )
+                    if incremental and change_manifest is not None
+                    else set()
+                )
+                if incremental:
+                    remove_project_files(p.id, changed_paths | deleted_paths)
+                else:
+                    clear_project_graph(p.id)
+                parse_result = await parse_tree_sitter_ast_stage(
+                    project_id=p.id,
+                    root_dir=p.root_dir,
+                    local_path=destination,
+                    transactional=False,
+                    include_paths=changed_paths if incremental else None,
+                )
+                uast_parse_results[p.id] = parse_result
+                clear_project_call_relationships(p.id)
+                await run_scip_and_build_graph_stage(
+                    p.id,
+                    p.root_dir,
+                    str(p.language),
+                    destination,
+                    None,
+                    transactional=False,
+                )
+
+            workspace_project_ids = list(
+                (
+                    await db.execute(
+                        select(Project.id)
+                    )
+                ).scalars()
+            )
+            link_workspace_api_map_stage(
+                workspace_project_ids, transactional=False
+            )
 
         # Step 4: Vector DB Embeddings Construction
         job.status = IndexingJobStatus.PROCESSING
-        job.progress_pct = 90
+        job.progress_pct = 0
+        if run is not None:
+            run.current_stage = "EMBEDDING"
         await db.commit()
+        vector_cleanup_work: list[tuple[int, dict[str, Any]]] = []
         for p in projects:
             file_roots = uast_parse_results.get(p.id, [])
-            await build_vector_embeddings_stage(
+            project_deleted_paths = (
+                _paths_within_project(
+                    change_manifest.deleted_paths, p.root_dir
+                )
+                if incremental and change_manifest is not None
+                else set()
+            )
+            vector_result = await build_vector_embeddings_stage(
                 project_id=p.id,
                 file_roots=file_roots,
                 local_path=destination,
                 root_dir=p.root_dir,
                 branch_id=branch_id,
                 workspace_id=workspace_id,
+                full_reconcile=not incremental,
+                deleted_paths=project_deleted_paths,
+                defer_cleanup=True,
             )
+            vector_cleanup_work.append((p.id, vector_result))
+
+        if run is not None:
+            run.statistics = {
+                **(run.statistics or {}),
+                "processed_files": sum(
+                    len(file_roots) for file_roots in uast_parse_results.values()
+                ),
+            }
+            await db.commit()
+
+        vector_store = QdrantVectorStore()
+        legacy_affected_paths: set[str] = set()
+        project_roots = {
+            str(destination / project.root_dir) for project in projects
+        }
+        for project_id, result in vector_cleanup_work:
+            for file_path, items in result["pending_files"]:
+                vector_store.replace_file(
+                    items,
+                    workspace_id=workspace_id,
+                    branch_id=branch_id,
+                    project_id=project_id,
+                    file_path=file_path,
+                )
+            if result["full_reconcile"]:
+                vector_store.reconcile_project_files(
+                    workspace_id=workspace_id,
+                    branch_id=branch_id,
+                    project_id=project_id,
+                    current_file_paths={
+                        file_path for file_path, _items in result["pending_files"]
+                    },
+                )
+            else:
+                project = next(p for p in projects if p.id == project_id)
+                paths_to_delete = set(result["deleted_paths"])
+                if incremental and change_manifest is not None:
+                    changed_paths = _paths_within_project(
+                        change_manifest.changed_paths, project.root_dir
+                    )
+                    parsed_paths = {
+                        root.path for root in uast_parse_results.get(project_id, [])
+                    }
+                    paths_to_delete.update(changed_paths - parsed_paths)
+                for relative_path in paths_to_delete:
+                    legacy_affected_paths.add(
+                        str(destination / project.root_dir / relative_path)
+                    )
+                    vector_store.delete_file(
+                        workspace_id=workspace_id,
+                        branch_id=branch_id,
+                        project_id=project_id,
+                        file_path=str(
+                            (destination / project.root_dir / relative_path)
+                        ),
+                    )
+            if incremental:
+                project = next(p for p in projects if p.id == project_id)
+                affected_paths = (
+                    _paths_within_project(
+                        change_manifest.changed_paths, project.root_dir
+                    )
+                    | _paths_within_project(
+                        change_manifest.deleted_paths, project.root_dir
+                    )
+                    if change_manifest is not None
+                    else set()
+                )
+                legacy_affected_paths.update(
+                    str(destination / project.root_dir / relative_path)
+                    for relative_path in affected_paths
+                )
+
+        vector_store.reconcile_legacy_points(
+            workspace_id=workspace_id,
+            branch_id=branch_id,
+            affected_paths=legacy_affected_paths if incremental else None,
+            project_roots=None if incremental else project_roots,
+        )
+
+        new_artifact_keys = set().union(
+            *(project_source_artifact_keys(p.id) for p in projects)
+        )
+        delete_source_artifacts(previous_artifact_keys - new_artifact_keys)
+        for p in projects:
+            cleanup_project_artifacts(p.id)
+        if run is not None:
+            run.statistics = {
+                key: value
+                for key, value in (run.statistics or {}).items()
+                if key != "pending_artifact_delete"
+            }
+            await db.commit()
 
         job.status = IndexingJobStatus.COMPLETED
         job.progress_pct = 100
@@ -708,6 +1051,15 @@ async def execute_branch_indexing_pipeline(
 
         if branch is not None:
             branch.indexing_status = BranchIndexingStatus.INDEXED
+        if run is not None:
+            run.status = "COMPLETED"
+            run.current_stage = "COMPLETED"
+            run.completed_at = datetime.now(timezone.utc)
+        if state is not None:
+            state.indexed_commit_sha = commit_sha
+            state.index_version = INDEX_VERSION
+            state.checkpoint_valid = True
+            state.status = "INDEXED"
 
         await db.commit()
         logger.info(
@@ -719,8 +1071,23 @@ async def execute_branch_indexing_pipeline(
 
     except Exception as exc:
         logger.exception("IndexingJob %d failed: %s", job_id, exc)
+        for project in projects:
+            try:
+                cleanup_project_artifacts(project.id)
+            except Exception:
+                logger.exception(
+                    "Failed to clean unreferenced source artifacts for project %d",
+                    project.id,
+                )
         job.status = IndexingJobStatus.FAILED
         job.error_message = sanitize_error_message(str(exc))
+        if run is not None:
+            run.status = "FAILED"
+            run.error_message = job.error_message
+            run.current_stage = "FAILED"
+            run.completed_at = datetime.now(timezone.utc)
+        if state is not None:
+            state.status = "FAILED"
 
         branch_err_res = await db.execute(select(Branch).where(Branch.id == branch_id))
         err_branch = branch_err_res.scalar_one_or_none()
@@ -749,10 +1116,31 @@ def index_branch_task(workspace_id: int, branch_id: int, job_id: int) -> None:
     async def _runner() -> None:
         try:
             await database.engine.dispose()
-            async with database.async_session_factory() as session:
-                await execute_branch_indexing_pipeline(
-                    workspace_id, branch_id, job_id, session
-                )
+            # Session-level advisory locks belong to one PostgreSQL connection.
+            # Keep that connection checked out for the entire job; an AsyncSession
+            # may return its connection to the pool at each commit.
+            async with database.engine.connect() as lock_connection:
+                lock_keys = [0x494E430000000001, 0x494E440000000000 | branch_id]
+                acquired_lock_keys: list[int] = []
+                try:
+                    for lock_key in lock_keys:
+                        await lock_connection.execute(
+                            text("SELECT pg_advisory_lock(:lock_key)"),
+                            {"lock_key": lock_key},
+                        )
+                        await lock_connection.commit()
+                        acquired_lock_keys.append(lock_key)
+                    async with database.async_session_factory() as session:
+                        await execute_branch_indexing_pipeline(
+                            workspace_id, branch_id, job_id, session
+                        )
+                finally:
+                    for lock_key in reversed(acquired_lock_keys):
+                        await lock_connection.execute(
+                            text("SELECT pg_advisory_unlock(:lock_key)"),
+                            {"lock_key": lock_key},
+                        )
+                        await lock_connection.commit()
         finally:
             await database.engine.dispose()
 
