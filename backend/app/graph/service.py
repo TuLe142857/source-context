@@ -5,7 +5,7 @@ from .model import (
     TypeDefinitionNodeModel,
     FunctionNodeModel,
 )
-from typing import cast, Annotated
+from typing import cast, Annotated, Any
 from app.core.s3 import get_s3_client
 from app.core.config import settings
 from app.core import AppException, ErrorCode
@@ -63,7 +63,7 @@ class GraphService:
         node = UASTNodeModel.nodes.get_or_none(uid=node_id)
         if node is None:
             raise AppException(ErrorCode.RESOURCE_NOT_FOUND)
-        return node
+        return cast(UASTNodeModel, node)
 
     def get_project_node(self, project_id: int) -> ProjectNodeModel:
         """
@@ -105,39 +105,116 @@ class GraphService:
             (f.relative_path, f.uid) for f in file_nodes if f.relative_path is not None
         ]
 
-    def get_file_structure(self, file_id: str) -> list[dict]:
-        """
+    def find_files_by_path(
+        self,
+        query: str,
+        project_ids: list[int] | None = None,
+        limit: int = 5,
+    ) -> list[FileNodeModel]:
+        """Find FileNodeModels matching a path or name query.
+
         Args:
-            file_id: FileNodeModel's uid
+            query (str): File name, relative path, or partial path query.
+            project_ids (list[int] | None, optional): Optional list of project UIDs to filter within. Defaults to None.
+            limit (int, optional): Maximum number of files to return. Defaults to 5.
 
         Returns:
-            file structure as list
+            list[FileNodeModel]: List of matched FileNodeModel instances.
+        """
+        clean_query = query.strip().lstrip("/")
+        if not clean_query:
+            return []
+
+        has_project_filter = bool(project_ids)
+        params: dict[str, Any] = {
+            "query": clean_query,
+            "has_project_filter": has_project_filter,
+            "project_ids": project_ids or [],
+            "limit": limit,
+        }
+
+        # Step 1: Exact, Suffix, or Filename match
+        cypher = """
+        MATCH (p:Project)-[:INCLUDES]->(f:File)
+        WHERE ($has_project_filter = false OR p.uid IN $project_ids)
+          AND (
+            f.uid = $query
+            OR f.relative_path = $query
+            OR f.name = $query
+            OR f.relative_path ENDS WITH ('/' + $query)
+            OR $query ENDS WITH ('/' + f.relative_path)
+            OR toLower(f.name) = toLower($query)
+            OR toLower(f.relative_path) ENDS WITH toLower($query)
+          )
+        RETURN f
+        LIMIT $limit
+        """
+        rows, _ = db.cypher_query(cypher, params, resolve_objects=True)
+        file_nodes: list[FileNodeModel] = [
+            row[0] for row in rows if isinstance(row[0], FileNodeModel)
+        ]
+
+        # Step 2: Fallback substring match if no exact/suffix match found
+        if not file_nodes:
+            fallback_cypher = """
+            MATCH (p:Project)-[:INCLUDES]->(f:File)
+            WHERE ($has_project_filter = false OR p.uid IN $project_ids)
+              AND (
+                toLower(f.name) CONTAINS toLower($query)
+                OR toLower(f.relative_path) CONTAINS toLower($query)
+              )
+            RETURN f
+            LIMIT $limit
+            """
+            fb_rows, _ = db.cypher_query(fallback_cypher, params, resolve_objects=True)
+            file_nodes = [
+                row[0] for row in fb_rows if isinstance(row[0], FileNodeModel)
+            ]
+
+        return file_nodes
+
+    def get_file_structure(self, file_id: str) -> list[dict[str, Any]]:
+        """Retrieves hierarchical file structure including classes, methods, and functions.
+
+        Args:
+            file_id (str): FileNodeModel's uid.
+
+        Returns:
+            list[dict[str, Any]]: Hierarchical list of definitions with signatures,
+                line ranges, docstrings, and summaries.
 
         Raises:
-            AppException:
-                ErrorCode.RESOURCE_NOT_FOUND
+            AppException: ErrorCode.RESOURCE_NOT_FOUND if file is not found.
         """
-
         file_node = self.get_file_node(file_id)
 
-        def build_result(n: TypeDefinitionNodeModel | FunctionNodeModel) -> dict:
-            res = {"id": n.uid, "name": n.name, "type": n.kind, "children": []}
+        def _build_node_dict(
+            n: TypeDefinitionNodeModel | FunctionNodeModel,
+        ) -> dict[str, Any]:
+            children_res: list[dict[str, Any]] = []
             for c in n.children.all():
-                if isinstance(c, TypeDefinitionNodeModel) or isinstance(
-                    c, FunctionNodeModel
-                ):
-                    res["children"].append(build_result(c))
-            return res
+                if isinstance(c, (TypeDefinitionNodeModel, FunctionNodeModel)):
+                    children_res.append(_build_node_dict(c))
+
+            return {
+                "id": n.uid,
+                "name": n.name,
+                "type": getattr(n, "kind", n.node_type),
+                "signature": getattr(n, "signature", None),
+                "summary": getattr(n, "summary", None),
+                "docstring": n.docstring,
+                "start_row": n.start_row,
+                "end_row": n.end_row,
+                "start_column": n.start_column,
+                "end_column": n.end_column,
+                "children": children_res,
+            }
 
         nodes: list[UASTNodeModel] = file_node.children.all()
-        result = []
+        result: list[dict[str, Any]] = []
         for node in nodes:
-            if not (
-                isinstance(node, TypeDefinitionNodeModel)
-                or isinstance(node, FunctionNodeModel)
-            ):
-                continue
-            result.append(build_result(node))
+            if isinstance(node, (TypeDefinitionNodeModel, FunctionNodeModel)):
+                result.append(_build_node_dict(node))
 
         return result
 
@@ -230,6 +307,190 @@ class GraphService:
                 callees += child_callees
 
         return callees
+
+    def find_symbol_definitions(
+        self,
+        symbol: str,
+        file_query: str | None = None,
+        project_ids: list[int] | None = None,
+        limit: int = 5,
+    ) -> list[tuple[UASTNodeModel, FileNodeModel]]:
+        """Find definition nodes and their parent files matching a symbol name.
+
+        Args:
+            symbol (str): Symbol name (function, class, method).
+            file_query (str | None, optional): Optional file name or path filter. Defaults to None.
+            project_ids (list[int] | None, optional): Optional project IDs filter. Defaults to None.
+            limit (int, optional): Maximum definitions to return. Defaults to 5.
+
+        Returns:
+            list[tuple[UASTNodeModel, FileNodeModel]]: List of (definition_node, file_node) tuples.
+        """
+        clean_symbol = symbol.strip()
+        if not clean_symbol:
+            return []
+
+        has_project_filter = bool(project_ids)
+        clean_file = file_query.strip().lstrip("/") if file_query else ""
+        has_file_filter = bool(clean_file)
+
+        params: dict[str, Any] = {
+            "symbol": clean_symbol,
+            "has_project_filter": has_project_filter,
+            "project_ids": project_ids or [],
+            "has_file_filter": has_file_filter,
+            "file_query": clean_file,
+            "limit": limit,
+        }
+
+        cypher = """
+        MATCH (p:Project)-[:INCLUDES]->(f:File)-[:DECLARE]->()-[:PARENT_OF*0..]->(d:Definition)
+        WHERE ($has_project_filter = false OR p.uid IN $project_ids)
+          AND ($has_file_filter = false OR f.relative_path = $file_query OR f.relative_path ENDS WITH ('/' + $file_query) OR f.name = $file_query)
+          AND (d.name = $symbol OR toLower(d.name) = toLower($symbol))
+        RETURN d, f
+        LIMIT $limit
+        """
+        rows, _ = db.cypher_query(cypher, params, resolve_objects=True)
+        results: list[tuple[UASTNodeModel, FileNodeModel]] = []
+        for row in rows:
+            if (
+                len(row) >= 2
+                and isinstance(row[0], UASTNodeModel)
+                and isinstance(row[1], FileNodeModel)
+            ):
+                results.append((row[0], row[1]))
+
+        return results
+
+    def get_rich_usages(self, node_uid: str) -> list[dict[str, Any]]:
+        """Find rich details of all nodes that call or reference this node or its members.
+
+        Args:
+            node_uid (str): The target node's UID.
+
+        Returns:
+            list[dict[str, Any]]: List of rich caller usage dictionaries.
+        """
+        cypher = """
+        MATCH (target:Node {uid: $node_uid})
+        MATCH (target)-[:PARENT_OF*0..]->(member:Node)<-[:REFERENCE_TO]-(ref:Node)
+        OPTIONAL MATCH (enclosing:Definition)-[:PARENT_OF*0..]->(ref)
+        OPTIONAL MATCH (f:File {uid: ref.file_node_uid})
+        WHERE NOT (
+            ref.file_node_uid = target.file_node_uid
+            AND ref.start_byte >= target.start_byte
+            AND ref.end_byte <= target.end_byte
+        )
+        RETURN 
+            ref.uid AS ref_id,
+            ref.name AS ref_name,
+            ref.node_type AS ref_type,
+            ref.start_row AS ref_start_row,
+            ref.end_row AS ref_end_row,
+            f.relative_path AS file_path,
+            f.uid AS file_id,
+            enclosing.uid AS enclosing_id,
+            enclosing.name AS enclosing_name,
+            enclosing.kind AS enclosing_kind,
+            enclosing.signature AS enclosing_signature,
+            enclosing.start_row AS enclosing_start_row,
+            enclosing.end_row AS enclosing_end_row,
+            enclosing.docstring AS enclosing_docstring,
+            enclosing.summary AS enclosing_summary
+        """
+        rows, cols = db.cypher_query(cypher, {"node_uid": node_uid})
+        seen: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            record = dict(zip(cols, row))
+            enclosing_id = record.get("enclosing_id")
+            key = enclosing_id or record.get("ref_id")
+            if not key:
+                continue
+
+            ref_start = record.get("ref_start_row")
+            if key not in seen:
+                seen[key] = {
+                    "caller_id": enclosing_id or record.get("ref_id"),
+                    "caller_name": record.get("enclosing_name")
+                    or record.get("ref_name"),
+                    "caller_kind": record.get("enclosing_kind")
+                    or record.get("ref_type"),
+                    "caller_signature": record.get("enclosing_signature"),
+                    "file_path": record.get("file_path"),
+                    "file_id": record.get("file_id"),
+                    "start_row": record.get("enclosing_start_row")
+                    or record.get("ref_start_row"),
+                    "end_row": record.get("enclosing_end_row")
+                    or record.get("ref_end_row"),
+                    "call_lines": [ref_start] if ref_start is not None else [],
+                    "docstring": record.get("enclosing_docstring"),
+                    "summary": record.get("enclosing_summary"),
+                }
+            else:
+                if ref_start is not None and ref_start not in seen[key]["call_lines"]:
+                    seen[key]["call_lines"].append(ref_start)
+
+        return list(seen.values())
+
+    def get_rich_callees(self, node_uid: str) -> list[dict[str, Any]]:
+        """Find rich details of all nodes that this node or its children call or reference.
+
+        Args:
+            node_uid (str): The target node's UID.
+
+        Returns:
+            list[dict[str, Any]]: List of rich callee dictionaries.
+        """
+        cypher = """
+        MATCH (target:Node {uid: $node_uid})
+        MATCH (target)-[:PARENT_OF*0..]->(ref:Node)-[:REFERENCE_TO]->(callee:Node)
+        OPTIONAL MATCH (f:File {uid: callee.file_node_uid})
+        RETURN DISTINCT
+            callee.uid AS callee_id,
+            callee.name AS callee_name,
+            callee.node_type AS callee_type,
+            callee.signature AS callee_signature,
+            callee.start_row AS callee_start_row,
+            callee.end_row AS callee_end_row,
+            callee.docstring AS callee_docstring,
+            callee.summary AS callee_summary,
+            f.relative_path AS file_path,
+            f.uid AS file_id,
+            ref.start_row AS call_line
+        """
+        rows, cols = db.cypher_query(cypher, {"node_uid": node_uid})
+        callees_map: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            record = dict(zip(cols, row))
+            c_id = record.get("callee_id")
+            if not c_id or c_id == node_uid:
+                continue
+            call_line = record.get("call_line")
+            if c_id not in callees_map:
+                callees_map[c_id] = {
+                    "callee_id": c_id,
+                    "callee_name": record.get("callee_name"),
+                    "callee_kind": getattr(
+                        record.get("callee_type"), "value", record.get("callee_type")
+                    ),
+                    "callee_signature": record.get("callee_signature"),
+                    "file_path": record.get("file_path"),
+                    "file_id": record.get("file_id"),
+                    "start_row": record.get("callee_start_row"),
+                    "end_row": record.get("callee_end_row"),
+                    "docstring": record.get("callee_docstring"),
+                    "summary": record.get("callee_summary"),
+                    "call_lines": [call_line] if call_line is not None else [],
+                }
+            else:
+                if (
+                    call_line is not None
+                    and call_line not in callees_map[c_id]["call_lines"]
+                ):
+                    callees_map[c_id]["call_lines"].append(call_line)
+
+        return list(callees_map.values())
 
     def get_unused_nodes_in_project(self, project_id: int) -> list[dict]:
         """

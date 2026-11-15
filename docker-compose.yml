@@ -141,6 +141,9 @@ services:
     restart: unless-stopped
     environment:
       - QDRANT__TELEMETRY_DISABLED=true
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_QDRANT_PORT:-6333}:6333"
+
 #    volumes:
 #      - qdrant_data:/qdrant/storage
     healthcheck:

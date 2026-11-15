@@ -1,0 +1,523 @@
+[
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q1_blast_radius",
+    "dimension": "D1_Impact",
+    "question_text": "If the function get_user_by_email changes its signature or return type, which route handlers and services across the codebase will be directly affected? List the caller functions and their containing files.",
+    "metrics": {
+      "conversation_id": "8af8ebcc-dd7d-4ae6-af80-fa820d38928f",
+      "status": "SUCCESS",
+      "response": "If `get_user_by_email` changes its signature or return type, the following route handlers, services, and test utilities will be directly affected:\n\n---\n\n### 1. Route Handlers\n\n#### **[app/api/routes/users.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py)**\n* **`create_user`** ([L56–L77](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L56-L77)) – calls `get_user_by_email` at line 60 to verify email uniqueness before user creation.\n* **`update_user_me`** ([L81–L99](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L81-L99)) – calls `get_user_by_email` at line 89 to check for conflicting emails when a user updates their profile.\n* **`register_user`** ([L146–L158](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L146-L158)) – calls `get_user_by_email` at line 150 to verify email uniqueness during open registration.\n* **`update_user`** ([L186–L210](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L186-L210)) – calls `get_user_by_email` at line 203 to verify that an updated email is not taken by another user.\n\n#### **[app/api/routes/login.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py)**\n* **`recover_password`** ([L53–L73](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L53-L73)) – calls `get_user_by_email` at line 57 to locate the user requesting a password reset email.\n* **`reset_password`** ([L77–L96](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L77-L96)) – calls `get_user_by_email` at line 84 to look up the user decoded from the reset token.\n* **`recover_password_html_content`** ([L104–L122](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L104-L122)) – calls `get_user_by_email` at line 108 to render password recovery HTML preview.\n\n---\n\n### 2. Services / CRUD Functions\n\n#### **[app/crud.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py)**\n* **`authenticate`** ([L44–L59](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L44-L59)) – calls `get_user_by_email` at line 45 to retrieve the user record before password validation.\n\n---\n\n### 3. Test Utilities & Test Callers\n\n#### **[tests/utils/user.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/utils/user.py)**\n* **`authentication_token_from_email`** ([L29–L48](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/utils/user.py#L29-L48)) – calls `get_user_by_email` at line 38.\n\n#### **[tests/api/routes/test_users.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_users.py)**\n* **`test_create_user_new_email`** ([L36–L56](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L36-L56)) – line 54\n* **`test_get_existing_user_as_superuser`** ([L59–L75](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L59-L75)) – line 73\n* **`test_get_existing_user_current_user`** ([L89–L113](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L89-L113)) – line 111\n* **`test_delete_user_current_super_user_error`** ([L492–L504](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L492-L504)) – line 495\n",
+      "cli_duration_seconds": 31.936536852,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 31456,
+        "output_tokens": 3320,
+        "thinking_tokens": 1800,
+        "cache_read_tokens": 56986,
+        "total_tokens": 34776
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.222349366,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "get_user_by_email",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.065423254,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/8af8ebcc-dd7d-4ae6-af80-fa820d38928f/.system_generated/steps/2/output.txt"
+          },
+          "output_length_chars": 22
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.14975102,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "get_user_by_email",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10238
+        }
+      ],
+      "tool_call_count": 3,
+      "mcp_tool_call_count": 2,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 35.074
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q2_security_callers",
+    "dimension": "D2_Usages",
+    "question_text": "Which functions across the application call the password verification helper verify_password?",
+    "metrics": {
+      "conversation_id": "6ecd908f-31e9-4dc8-a584-40f07e2f0467",
+      "status": "SUCCESS",
+      "response": "Across the application, the `verify_password` helper is called by the following functions:\n\n### Application Logic\n* **`authenticate`** in [app/crud.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L44-L59) (lines 49, 51)\n  * Signature: `def authenticate(session: Session, email: str, password: str) -> User | None`\n* **`update_password_me`** in [app/api/routes/users.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L103-L120) (line 109)\n  * Signature: `def update_password_me(session: SessionDep, body: UpdatePassword, current_user: CurrentUser) -> Any`\n\n---\n\n### Test Suite\n* **`test_update_user`** in [tests/crud/test_user.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/crud/test_user.py#L79-L92) (line 91)\n* **`test_authenticate_user_with_bcrypt_upgrades_to_argon2`** in [tests/crud/test_user.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/crud/test_user.py#L95-L129) (line 124)\n* **`test_reset_password`** in [tests/api/routes/test_login.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_login.py#L81-L109) (line 108)\n* **`test_login_with_bcrypt_password_upgrades_to_argon2`** in [tests/api/routes/test_login.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_login.py#L128-L161) (line 158)\n* **`test_update_password_me`** in [tests/api/routes/test_users.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L223-L263) (lines 244, 260)\n* **`test_register_user`** in [tests/api/routes/test_users.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L318-L338) (line 337)\n",
+      "cli_duration_seconds": 17.585812368,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 15483,
+        "output_tokens": 1868,
+        "thinking_tokens": 1131,
+        "cache_read_tokens": 13061,
+        "total_tokens": 17351
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.192125222,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "verify_password",
+            "workspace_id": 1
+          },
+          "output_length_chars": 4599
+        }
+      ],
+      "tool_call_count": 1,
+      "mcp_tool_call_count": 1,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 20.673
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q3_init_dependencies",
+    "dimension": "D3_Callees",
+    "question_text": "What internal helper functions, security utilities, or database routines are directly invoked during the initial database setup in init_db?",
+    "metrics": {
+      "conversation_id": "5e163b56-611c-40a6-b33c-43dfff89ec16",
+      "status": "SUCCESS",
+      "response": "During the initial database setup in [`init_db`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/core/db.py#L14-L32), the following functions, utilities, and database routines are directly invoked:\n\n### 1. Directly Invoked in `init_db`\n- **Database Query Routine**:\n  - `session.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).first()`: Queries the database session to check if the first superuser already exists.\n- **Model Schema Instantiation**:\n  - [`UserCreate(...)`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/models.py#L20-L21): Instantiates the superuser creation model using configuration settings (`settings.FIRST_SUPERUSER`, `settings.FIRST_SUPERUSER_PASSWORD`, `is_superuser=True`).\n- **Internal CRUD Helper**:\n  - [`crud.create_user(session=session, user_create=user_in)`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L9-L16): Called when no existing superuser is found to create and persist the record.\n\n---\n\n### 2. Downstream Routines Executed by `crud.create_user`\nWhen `init_db` invokes `create_user`, the following internal routines are triggered:\n- **Security Utility**:\n  - [`get_password_hash(user_create.password)`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/core/security.py): Hashes the superuser plaintext password.\n- **Database Persistence Routines**:\n  - `session.add(db_obj)`\n  - `session.commit()`\n  - `session.refresh(db_obj)`\n",
+      "cli_duration_seconds": 32.843780871,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 24827,
+        "output_tokens": 1749,
+        "thinking_tokens": 1080,
+        "cache_read_tokens": 53548,
+        "total_tokens": 26576
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_find_node_callees",
+          "mcp_tool": null,
+          "duration_seconds": 0.3720847,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "init_db",
+            "workspace_id": 1
+          },
+          "output_length_chars": 1878
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.185864941,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "init_db",
+            "workspace_id": 1
+          },
+          "output_length_chars": 3623
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.12481986,
+          "parameters": {
+            "file": "app/core/db.py",
+            "line_end": 35,
+            "line_start": 10,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 1268
+        },
+        {
+          "step_index": 8,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.077924453,
+          "parameters": {
+            "file": "app/crud.py",
+            "line_end": 20,
+            "line_start": 7,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 2541
+        }
+      ],
+      "tool_call_count": 4,
+      "mcp_tool_call_count": 4,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 36.052
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q4_semantic_search",
+    "dimension": "D4_Semantic",
+    "question_text": "Find the function responsible for decoding a password-reset token and returning the subject email, and identify which endpoint calls it to complete the password reset flow.",
+    "metrics": {
+      "conversation_id": "69fbde13-56d2-4b9c-9d14-a6bdbd39ad32",
+      "status": "SUCCESS",
+      "response": "### 1. Function Responsible for Decoding the Token\n\nThe function is **`verify_password_reset_token`**, located in [utils.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L117-L124):\n\n```python\ndef verify_password_reset_token(token: str) -> str | None:\n    try:\n        decoded_token = jwt.decode(\n            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]\n        )\n        return str(decoded_token[\"sub\"])\n    except InvalidTokenError:\n        return None\n```\n\n---\n\n### 2. Endpoint That Completes the Password Reset Flow\n\nThe endpoint calling this function is **`POST /api/v1/reset-password/`** (defined as `@router.post(\"/reset-password/\")` via handler **`reset_password`**), located in [login.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L77-L96):\n\n```python\n@router.post(\"/reset-password/\")\ndef reset_password(session: SessionDep, body: NewPassword) -> Message:\n    \"\"\"\n    Reset password\n    \"\"\"\n    email = verify_password_reset_token(token=body.token)\n    if not email:\n        raise HTTPException(status_code=400, detail=\"Invalid token\")\n    user = crud.get_user_by_email(session=session, email=email)\n    if not user:\n        # Don't reveal that the user doesn't exist - use same error as invalid token\n        raise HTTPException(status_code=400, detail=\"Invalid token\")\n    elif not user.is_active:\n        raise HTTPException(status_code=400, detail=\"Inactive user\")\n    user_in_update = UserUpdate(password=body.new_password)\n    crud.update_user(\n        session=session,\n        db_user=user,\n        user_in=user_in_update,\n    )\n    return Message(message=\"Password updated successfully\")\n```\n",
+      "cli_duration_seconds": 37.033739847,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 40655,
+        "output_tokens": 2404,
+        "thinking_tokens": 1251,
+        "cache_read_tokens": 199789,
+        "total_tokens": 43059
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_search_in_repo_and_branch",
+          "mcp_tool": null,
+          "duration_seconds": 0.509475966,
+          "parameters": {
+            "branch_name": "master",
+            "query": "decoding a password reset token and returning the subject email",
+            "repository_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.097028772,
+          "parameters": {
+            "EndLine": 100,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/69fbde13-56d2-4b9c-9d14-a6bdbd39ad32/.system_generated/steps/2/output.txt",
+            "StartLine": 1
+          },
+          "output_length_chars": 22
+        },
+        {
+          "step_index": 6,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.098398007,
+          "parameters": {
+            "EndLine": 250,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/69fbde13-56d2-4b9c-9d14-a6bdbd39ad32/.system_generated/steps/2/output.txt",
+            "StartLine": 101
+          },
+          "output_length_chars": 22
+        },
+        {
+          "step_index": 8,
+          "tool_name": "mcp_source-context_search_in_repo_and_branch",
+          "mcp_tool": null,
+          "duration_seconds": 0.48725644,
+          "parameters": {
+            "branch_name": "master",
+            "query": "def verify_password_reset_token",
+            "repository_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 10,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.12993607,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "verify_password_reset_token",
+            "workspace_id": 1
+          },
+          "output_length_chars": 2353
+        },
+        {
+          "step_index": 12,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.225148988,
+          "parameters": {
+            "file": "app/utils.py",
+            "line_end": 130,
+            "line_start": 110,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 4012
+        },
+        {
+          "step_index": 14,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.120852,
+          "parameters": {
+            "file": "app/api/routes/login.py",
+            "line_end": 100,
+            "line_start": 70,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 4166
+        },
+        {
+          "step_index": 16,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.476491009,
+          "parameters": {
+            "file": "app/api/main.py",
+            "line_end": 50,
+            "line_start": 1,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 485
+        },
+        {
+          "step_index": 18,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.056014994,
+          "parameters": {
+            "file": "app/main.py",
+            "line_end": 50,
+            "line_start": 1,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 1036
+        }
+      ],
+      "tool_call_count": 9,
+      "mcp_tool_call_count": 7,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 40.271
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q5_dead_code",
+    "dimension": "D5_DeadCode",
+    "question_text": "In the database CRUD module, identify any top-level entity creation or retrieval function that is never called by any route handler or application service (excluding test files).",
+    "metrics": {
+      "conversation_id": "3283d84a-f90d-4e10-ae7f-12bdaef8297d",
+      "status": "SUCCESS",
+      "response": "In the database CRUD module ([crud.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L62-L67)), the entity creation function never called by any route handler or application service is:\n\n### **`create_item`**\n* **Signature**: `def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -> Item`\n* **Defined at**: [crud.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L62-L67)\n* **Details**:\n  * The `POST /items/` route handler in [items.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py#L48-L57) performs item creation directly via the session (`Item.model_validate(...)`, `session.add(...)`) rather than importing and using `crud.create_item`.\n  * The only caller across the codebase is the test utility helper `create_random_item` in [item.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/tests/utils/item.py#L8-L15).\n",
+      "cli_duration_seconds": 37.783694727,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 43517,
+        "output_tokens": 2220,
+        "thinking_tokens": 1353,
+        "cache_read_tokens": 179202,
+        "total_tokens": 45737
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.159086775,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 2737
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_find_unused_nodes_in_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.105236499,
+          "parameters": {
+            "file_id": "c88c1b54-4e6e-4a3e-9498-f6d0e2b0d7d3"
+          },
+          "output_length_chars": 77
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.102780761,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 1,
+            "symbol": "create_item",
+            "workspace_id": 1
+          },
+          "output_length_chars": 563
+        },
+        {
+          "step_index": 8,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.158473762,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 1,
+            "symbol": "create_user",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10239
+        },
+        {
+          "step_index": 10,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.120116091,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 1,
+            "symbol": "get_user_by_email",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10239
+        },
+        {
+          "step_index": 12,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.101644188,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 1,
+            "symbol": "authenticate",
+            "workspace_id": 1
+          },
+          "output_length_chars": 3733
+        },
+        {
+          "step_index": 14,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.15508786,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 1,
+            "symbol": "update_user",
+            "workspace_id": 1
+          },
+          "output_length_chars": 2816
+        },
+        {
+          "step_index": 16,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.120234943,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 2541
+        },
+        {
+          "step_index": 18,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.115867538,
+          "parameters": {
+            "file": "app/api/routes/items.py",
+            "line_end": 50,
+            "line_start": 1,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 3524
+        }
+      ],
+      "tool_call_count": 9,
+      "mcp_tool_call_count": 9,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 40.766
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q6_module_outline",
+    "dimension": "D6_Structure",
+    "question_text": "Inspect utils.py and summarize all email generation and template rendering functions defined in it, including their exact parameter signatures and return types.",
+    "metrics": {
+      "conversation_id": "c96cd311-216a-4563-bf4f-2c0ad162ddb3",
+      "status": "SUCCESS",
+      "response": "In [utils.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py), the template rendering and email generation functions are defined as follows:\n\n---\n\n### Supporting Data Structure\n\n#### [EmailData](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L19-L21)\n```python\n@dataclass\nclass EmailData:\n    html_content: str\n    subject: str\n```\nA dataclass holding the rendered HTML content and subject line returned by all email generation helper functions.\n\n---\n\n### Template Rendering Function\n\n#### [`render_email_template`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L24-L30)\n* **Signature**:\n  ```python\n  def render_email_template(*, template_name: str, context: dict[str, Any]) -> str\n  ```\n* **Parameters**:\n  * `template_name: str` *(keyword-only)*: Name of the template file in the `email-templates` directory (e.g. `\"test_email.html\"`).\n  * `context: dict[str, Any]` *(keyword-only)*: Key-value mapping passed to the Jinja2 `Template.render()` call.\n* **Return Type**: `str` (the rendered HTML string).\n* **Summary**: Reads the Jinja2 template file from `app/email-templates/<template_name>`, renders it using the provided `context`, and returns the raw HTML output.\n\n---\n\n### Email Generation Functions\n\n#### 1. [`generate_test_email`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L59-L66)\n* **Signature**:\n  ```python\n  def generate_test_email(email_to: str) -> EmailData\n  ```\n* **Parameters**:\n  * `email_to: str`: Destination email address.\n* **Return Type**: `EmailData`\n* **Summary**: Generates a test email with subject `\"<project_name> - Test email\"` and renders the `test_email.html` template.\n\n#### 2. [`generate_reset_password_email`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L69-L83)\n* **Signature**:\n  ```python\n  def generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData\n  ```\n* **Parameters**:\n  * `email_to: str`: Destination email address.\n  * `email: str`: Username / email identifier of the account requesting the reset.\n  * `token: str`: Password reset JWT token.\n* **Return Type**: `EmailData`\n* **Summary**: Constructs a password recovery link (`{FRONTEND_HOST}/reset-password?token={token}`) and renders the `reset_password.html` template with subject `\"<project_name> - Password recovery for user <email>\"`.\n\n#### 3. [`generate_new_account_email`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L86-L101)\n* **Signature**:\n  ```python\n  def generate_new_account_email(email_to: str, username: str, password: str) -> EmailData\n  ```\n* **Parameters**:\n  * `email_to: str`: Destination email address.\n  * `username: str`: Username for the newly created user account.\n  * `password: str`: Generated password for the newly created account.\n* **Return Type**: `EmailData`\n* **Summary**: Generates an onboarding email containing the user's login credentials and link to the frontend by rendering `new_account.html` with subject `\"<project_name> - New account for user <username>\"`.\n\n---\n\n### Related Email Utility\n\n* **[`send_email`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L33-L56)**:\n  ```python\n  def send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None\n  ```\n  Consumes the generated `subject` and `html_content` (from `EmailData`) and dispatches the email via SMTP using the `emails` package.\n",
+      "cli_duration_seconds": 27.039888336,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 18588,
+        "output_tokens": 2787,
+        "thinking_tokens": 1630,
+        "cache_read_tokens": 25781,
+        "total_tokens": 21375
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.138478299,
+          "parameters": {
+            "file": "app/utils.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 4182
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.077378274,
+          "parameters": {
+            "file": "app/utils.py",
+            "line_end": 105,
+            "line_start": 1,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 4012
+        }
+      ],
+      "tool_call_count": 2,
+      "mcp_tool_call_count": 2,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 30.24
+    }
+  }
+]

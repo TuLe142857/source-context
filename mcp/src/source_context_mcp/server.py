@@ -17,32 +17,25 @@ codebase — letting an agent explore and understand large, multi-repository cod
 access."
 """
 
-SERVER_INSTRUCTIONS = """
-SourceContextMCP gives read-only access to a pre-indexed source of truth for one or more codebases, organized as: \
-workspace -> repository -> branch -> project -> file -> node (class/method/function/variable/...).
-
-Most tools require one or more IDs (workspace_id, repository_id, project_id, file_id, node_id). These are opaque and \
-server-assigned - never guess them. Always obtain them from the matching listing tool or reuse an ID from a previous \
-call.
-
-Resolve scope before calling graph or search tools. Try get_path_settings(path) first if the user is working inside a \
-local checkout; fall back to default_workspace() if no path-specific config exists. Otherwise narrow down with \
-list_workspaces -> list_repositories. Immediately call get_repository_overview(repository_id) to acquire the full \
-architectural profile (frameworks, tech stack, subprojects, directory map, entrypoints) in one call. Use list_branches \
-and list_projects only if you need a specific branch or subproject ID not already resolved.
-
-Once you have a project_id, use list_files_in_project for file_ids, then get_file_structure before get_file_content \
-when you only need an overview or a node_id - avoid reading full file contents unless necessary.
-
-For call-graph relationships on a node_id: use find_node_usages before renaming or changing a signature to assess \
-blast radius, and find_node_callees to understand what a symbol depends on. Prefer graph traversal over semantic \
-search when you need precise, complete relationships - semantic search is approximate and may miss or over-return \
-results.
-
-Use search_in_workspace or search_in_repo_and_branch (prefer the latter when repository/branch is already known - more \
-precise) when you don't know exact file/node names. Treat semantic search as an entry point, then switch to graph \
-tools for precise structured details.
-"""
+SERVER_INSTRUCTIONS = (
+    "SourceContextMCP provides intelligent, pre-indexed access to codebases, call graphs, AST structures, "
+    "and AI vector semantic search.\n\n"
+    "Core Guidelines:\n"
+    "1. Semantic Search for Concepts: ALWAYS use search_in_repo_and_branch first when asked to locate or identify "
+    "functions/classes by what they DO or what feature they implement, "
+    "whenever exact file or symbol names are not given.\n"
+    "2. File Outlines: Use get_file_structure(file='path/or/name') to inspect classes, functions, signatures, "
+    "and docstrings of a specific file once the file name/path is known.\n"
+    "3. Impact Analysis: Use analyze_impact(symbol='name') for one-shot impact analysis (callers, call lines, callees, "
+    "affected files) to assess blast radius in a single call.\n"
+    "4. Callers & Callees: Use find_node_usages(symbol='name') to find callers, and find_node_callees(symbol='name') "
+    "to find internal functions/utilities called.\n"
+    "5. Read Raw Source Code: Use get_file_content(file='path/or/name') only when you need "
+    "the exact raw implementation body.\n"
+    "6. Scope: Pass pre-resolved repository_id and branch directly; do not call listing tools when scope is known.\n"
+    "7. Trust Graph & Vector Results: Use tool results directly. "
+    "Do not repeatedly download raw file contents to manually grep.\n"
+)
 
 
 def make_life_span(

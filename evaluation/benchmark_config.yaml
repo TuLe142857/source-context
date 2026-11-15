@@ -1,0 +1,81 @@
+settings:
+  agy_binary: "agy"
+  model: "Gemini 3.8 Flash (Medium)"
+  mcp_server_name: "source-context-mcp"
+  output_dir: "./eval_results"
+  timeout_seconds: 300                                    
+  output_format: "stream-json"
+
+conditions:
+  - name: "antigravity_default"
+    use_mcp: false
+    system_hint: "Use only standard file exploration tools (grep, read, list) to answer the question."
+
+  - name: "antigravity_mcp"
+    use_mcp: true
+    system_hint: "Use source-context MCP tools to answer the question directly. Trust Graph, AST, and Vector search results directly — do NOT make redundant read_file or get_file_content calls to re-verify code that MCP tools already provided."
+
+repositories:
+  - id: "django"
+    path: "/home/huuhieu/projects/django"
+    mcp_context:
+      workspace_id: 1
+      project_id: 1
+      repository_id: 1
+      branch: "main"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the active user model resolution helper get_user_model changes its signature or return type, which views, forms, authentication backends, and management commands across the codebase will be directly affected? List the affected caller functions and their containing files."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which security routines, middleware components, cryptographic signers, and authentication handlers across the application call the timing-safe string comparison helper constant_time_compare?"
+
+      - q_id: "Q3_login_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions, security utilities, and signal dispatchers are directly invoked by the session establishment function login in the authentication module?"
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the class responsible for generating and validating one-time password reset tokens using HMAC and timestamp encoding, and describe how its token validation mechanism determines whether a token has expired or is invalid."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the web shortcuts module (shortcuts.py), identify which asynchronous or synchronous helper functions have zero incoming calls or references anywhere else in the Django framework (excluding tests)."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect shortcuts.py and summarize all top-level HTTP response, redirect, and model object retrieval helper functions defined in it, including their exact parameter signatures and docstrings."
+
+  - id: "full-stack-fastapi-template"
+    path: "/home/huuhieu/projects/full-stack-fastapi-template/backend"
+    mcp_context:
+      workspace_id: 1
+      project_id: 2
+      repository_id: 2
+      branch: "master"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the user retrieval function get_user_by_email changes its signature or return type, which route handlers, services, and authentication endpoints across the codebase will be directly affected? List the caller functions and their containing files."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which route handlers and services across the application call the password verification helper verify_password?"
+
+      - q_id: "Q3_init_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions, security utilities, or database routines are directly invoked during the initial database setup in init_db?"
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the function responsible for decoding a password-reset token and returning the subject email, and identify which endpoint calls it to complete the password reset flow."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the database CRUD module (crud.py), identify any top-level entity creation or retrieval function that is never called by any route handler or application service (excluding test files)."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect utils.py and summarize all email generation and template rendering functions defined in it, including their exact parameter signatures and return types."

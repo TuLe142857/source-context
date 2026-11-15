@@ -4,12 +4,13 @@ import io
 import logging
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Literal
 
 from app.core.config import settings
 from app.core.qdrant import QdrantVectorStore
 from app.embedding.base import BaseInference
 from app.embedding.inference import get_inference_client, get_summary
+from app.embedding.no_llm_pipeline import process_uast_batch_no_llm
 from app.embedding.utils import (
     EnrichedNodeData,
     chunk_list,
@@ -19,7 +20,9 @@ from app.embedding.utils import (
     extract_summarizable_nodes,
     format_node_for_embedding,
 )
-from app.embedding.voyage_embedder import get_voyage_embedder
+from app.embedding.voyage_embedder import (
+    batch_embed_nodes_template,
+)
 from app.parser.languages import get_language_registry
 from app.parser.uast import UASTNode
 
@@ -69,41 +72,6 @@ def parse_and_convert_file(file_path: Path) -> UASTNode | None:
     )
 
     return uast_root
-
-
-def batch_embed_nodes_template(
-    enhanced_batch: list[EnrichedNodeData],
-    vector_store: QdrantVectorStore | None = None,
-) -> list[EnrichedNodeData]:
-    print(enhanced_batch[0].branch_id)
-    """Embeds enriched node chunks with Voyage AI (voyage-code-3) and upserts vector points to Qdrant Vector DB.
-
-    Args:
-        enhanced_batch (list[EnrichedNodeData]): Batch of enriched nodes with structured text and LLM summaries.
-        vector_store (QdrantVectorStore | None): Optional target QdrantVectorStore instance.
-
-    Returns:
-        list[EnrichedNodeData]: Enriched nodes with vector embeddings populated.
-    """
-    if not enhanced_batch:
-        return []
-
-    embedder = get_voyage_embedder()
-    store = vector_store or QdrantVectorStore()
-
-    texts = [
-        item.formatted_embed_text or item.summary or item.signature
-        for item in enhanced_batch
-    ]
-
-    embeddings = embedder.embed_documents(texts)
-    for idx, item in enumerate(enhanced_batch):
-        if idx < len(embeddings):
-            item.embedding = embeddings[idx]
-
-    # Batch upsert to Qdrant Vector DB
-    store.upsert_batch(enhanced_batch, vector_size=1024)
-    return enhanced_batch
 
 
 def process_uast_batch_llm_summaries(
@@ -231,6 +199,64 @@ def process_uast_batch_llm_summaries(
     return all_embedded_batches
 
 
+def process_uast_batch_nodes(
+    workspace_id: int,
+    branch_id: int,
+    candidate_tuples: list[tuple[UASTNode, UASTNode, Path]],
+    batch_size: int = 50,
+    max_nodes: int | None = None,
+    client: BaseInference | Any | None = None,
+    model: str | None = None,
+    vector_store: QdrantVectorStore | None = None,
+    indexing_mode: Literal["no_llm", "llm"] | None = None,
+) -> list[list[EnrichedNodeData]]:
+    """Dispatches UAST node batch processing to either Zero-LLM AST pipeline or LLM summary pipeline.
+
+    Allows seamless, interchangeable plug-and-play switching between fast local Zero-LLM indexing
+    and full LLM summarization.
+
+    Args:
+        workspace_id (int): Target workspace ID.
+        branch_id (int): Target branch ID.
+        candidate_tuples (list[tuple[UASTNode, UASTNode, Path]]): Tuples of (root_node, target_node, file_path).
+        batch_size (int, optional): Number of nodes per batch. Defaults to 50.
+        max_nodes (int | None, optional): Optional limit on nodes to process. Defaults to None.
+        client (BaseInference | Any | None, optional): Inference client instance (for llm mode). Defaults to None.
+        model (str | None, optional): Model name (for llm mode). Defaults to None.
+        vector_store (QdrantVectorStore | None, optional): Shared QdrantVectorStore instance. Defaults to None.
+        indexing_mode (Literal["no_llm", "llm"] | None, optional): Mode override. Defaults to settings.INDEXING_MODE.
+
+    Returns:
+        list[list[EnrichedNodeData]]: Processed & embedded node batches.
+    """
+    selected_mode = (
+        indexing_mode if indexing_mode is not None else settings.INDEXING_MODE
+    )
+
+    if selected_mode == "no_llm":
+        logger.info("Dispatching indexing stage to Zero-LLM AST Pipeline...")
+        return process_uast_batch_no_llm(
+            workspace_id=workspace_id,
+            branch_id=branch_id,
+            candidate_tuples=candidate_tuples,
+            batch_size=max(batch_size, 128),
+            max_nodes=max_nodes,
+            vector_store=vector_store,
+        )
+
+    logger.info("Dispatching indexing stage to LLM Summary Pipeline...")
+    return process_uast_batch_llm_summaries(
+        workspace_id=workspace_id,
+        branch_id=branch_id,
+        candidate_tuples=candidate_tuples,
+        batch_size=batch_size,
+        max_nodes=max_nodes,
+        client=client,
+        model=model,
+        vector_store=vector_store,
+    )
+
+
 def run_embedding_pipeline(
     source_paths: list[Path],
     workspace_id: int = 1,
@@ -240,8 +266,9 @@ def run_embedding_pipeline(
     client: Any | None = None,
     model: str | None = None,
     vector_store: QdrantVectorStore | None = None,
+    indexing_mode: Literal["no_llm", "llm"] | None = None,
 ) -> list[list[EnrichedNodeData]]:
-    """Runs full pipeline across multiple files: Parse -> Extract -> Batch LLM Summaries -> Voyage Embed -> Qdrant Batch Upsert.
+    """Runs full pipeline across multiple files: Parse -> Extract -> Batch Embeddings -> Qdrant Batch Upsert.
 
     Args:
         source_paths (list[Path]): List of source code file paths to process.
@@ -252,6 +279,7 @@ def run_embedding_pipeline(
         client (BaseInference | Any | None, optional): Optional preloaded inference client instance.
         model (str | None, optional): Custom model name.
         vector_store (QdrantVectorStore | None, optional): Shared QdrantVectorStore instance.
+        indexing_mode (Literal["no_llm", "llm"] | None, optional): Mode override.
 
     Returns:
         list[list[EnrichedNodeData]]: Processed & embedded node batches.
@@ -267,7 +295,7 @@ def run_embedding_pipeline(
         for target_node in summarizable_nodes:
             candidate_tuples.append((root_node, target_node, file_path))
 
-    return process_uast_batch_llm_summaries(
+    return process_uast_batch_nodes(
         workspace_id=workspace_id,
         branch_id=branch_id,
         candidate_tuples=candidate_tuples,
@@ -276,6 +304,7 @@ def run_embedding_pipeline(
         client=client,
         model=model,
         vector_store=vector_store,
+        indexing_mode=indexing_mode,
     )
 
 
