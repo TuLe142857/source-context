@@ -176,6 +176,10 @@ Tools are like functions that this MCP server exposes to your coding agent. This
 - `search_in_workspace(query, workspace_id, top_k)` - Semantic search across all repositories and branches in a workspace.
 - `search_in_repo_and_branch(repository_id, branch_name, query, top_k)` - Semantic search scoped to a specific repository and branch.
 
+### API map (endpoints & calls between services)
+- `list_api_endpoints_in_project(project_id)` - List API endpoints (e.g. REST routes) served by a project, with their handler node and number of callers.
+- `list_api_calls_in_project(project_id)` - List outgoing API calls made by a project, with the endpoints they resolve to (possibly in other projects).
+
 > Note: development builds (versions containing `dev`) also register an internal `debug` tool for inspecting the
 > server's configuration. It is not available in stable releases.
 

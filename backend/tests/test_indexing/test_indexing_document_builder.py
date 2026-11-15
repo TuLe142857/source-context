@@ -16,14 +16,14 @@ from app.chunking import (
 from app.domain.source_file import (
     compute_source_content_hash,
 )
+from app.engine.parser.repository_contracts import (
+    SourceFileChange,
+    SourceFileFingerprint,
+)
 from app.indexing import (
     IndexDeleteReason,
     IndexingContractError,
     IndexingDocumentBuilder,
-)
-from app.parser.repository_contracts import (
-    SourceFileChange,
-    SourceFileFingerprint,
 )
 
 

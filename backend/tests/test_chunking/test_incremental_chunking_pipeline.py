@@ -7,8 +7,8 @@ from app.chunking import (
     RepositoryChunkingBatch,
     RepositoryChunkingService,
 )
-from app.parser.repository_contracts import SourceFileChange
-from app.parser.repository_service import RepositoryParserService
+from app.engine.parser import RepositoryParserService
+from app.engine.parser.repository_contracts import SourceFileChange
 from app.repository_manager.scanner import RepositoryScanner
 
 

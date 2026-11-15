@@ -101,3 +101,9 @@ clean: ## Xóa cache và temp files
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type d -name ".mypy_cache" -exec rm -rf {} +
 	find . -type d -name ".ruff_cache" -exec rm -rf {} +
+
+# ==============================================================================
+# Docker Sandbox Build Commands
+# ==============================================================================
+build-sandbox:
+	$(MAKE) -C docker/sandboxes build-sandbox

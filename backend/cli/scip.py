@@ -1,8 +1,8 @@
 import typer
 from pathlib import Path
 
-from app.scip import scip_pb2
-from app.scip.sandbox import get_scip_sandbox_registry
+from app.engine.scip import scip_pb2
+from app.engine.scip.sandbox import get_scip_sandbox_registry
 
 cli = typer.Typer(name="scip", help="SCIP Code Intelligence Protocol")
 

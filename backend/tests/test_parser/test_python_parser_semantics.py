@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 from textwrap import dedent
 
-from app.parser.languages import get_language_registry
-from app.parser.uast import (
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import (
     CallNode,
     FunctionNode,
     ImportNode,
@@ -330,6 +330,38 @@ def test_python_import_module_paths() -> None:
         "os",
         "app.services",
     }
+
+
+def test_python_import_names_and_aliases() -> None:
+    source = dedent(
+        """\
+        import os
+        import httpx as hx, os.path
+        from fastapi import APIRouter as R, Depends
+        from .deps import *
+        from datetime import datetime
+        """,
+    )
+
+    root, _ = parse_python(source)
+
+    imports = [
+        (node.module_path, node.imported_names, node.alias)
+        for node in find_nodes(
+            root,
+            ImportNode,
+        )
+        if isinstance(node, ImportNode)
+    ]
+
+    assert imports == [
+        ("os", [], {}),
+        ("httpx", [], {"httpx": "hx"}),
+        ("os.path", [], {}),
+        ("fastapi", ["APIRouter", "Depends"], {"APIRouter": "R"}),
+        (".deps", ["*"], {}),
+        ("datetime", ["datetime"], {}),
+    ]
 
 
 def test_augmented_assignment_is_not_a_second_definition() -> None:

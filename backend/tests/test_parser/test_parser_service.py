@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from app.parser import (
+from app.engine.parser import (
     ParseDiagnosticKind,
     ParseDiagnosticSeverity,
     ParseStatus,

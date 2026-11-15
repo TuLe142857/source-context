@@ -5,10 +5,10 @@ from textwrap import dedent
 
 from tree_sitter import Query
 
-from app.parser.languages.javascript.adapter import get_query
+from app.engine.parser.languages.javascript.adapter import get_query
 
-from app.parser.languages import get_language_registry
-from app.parser.uast import (
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import (
     CallNode,
     FunctionNode,
     ImportNode,
@@ -515,3 +515,25 @@ def test_javascript_byte_ranges_support_unicode_and_crlf() -> None:
     assert function_text.endswith(
         "}",
     )
+
+
+def test_javascript_require_bindings() -> None:
+    source = dedent(
+        """\
+        const axios = require("axios");
+        const { Router, json: parseJson } = require("express");
+        """,
+    )
+
+    root, _ = parse_javascript(source)
+
+    imports = [
+        (node.module_path, node.imported_names, node.alias)
+        for node in find_nodes(root, ImportNode)
+        if isinstance(node, ImportNode)
+    ]
+
+    assert imports == [
+        ("axios", [], {"axios": "axios"}),
+        ("express", ["Router", "json"], {"json": "parseJson"}),
+    ]

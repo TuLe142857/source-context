@@ -56,6 +56,10 @@ packages = ["app", "cli"]
 [project.scripts]
 cli="cli:run"
 
+[tool.ruff]
+# sample projects read as source code by tests (e.g. tests/test_api_map/fixtures), never imported
+extend-exclude = ["tests/**/fixtures"]
+
 [tool.ruff.lint.isort]
 known-third-party = [
     "tree-sitter-*",

@@ -1,6 +1,6 @@
 # Tree-sitter
 > [!NOTE]
-> See [types.py](../app/parser/uast/types.py)
+> See [types.py](../app/engine/parser/uast/types.py)
 # Language Config and Language Registry
 
 # Convert CST to UAST

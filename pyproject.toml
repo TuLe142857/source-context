@@ -136,6 +136,7 @@ exclude = [
     "^frontend/",
     "^backend/data/",
     "^workspace-repositories/",
+    "^backend/tests/.*/fixtures/",
 ]
 
 

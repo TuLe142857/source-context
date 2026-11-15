@@ -3,12 +3,12 @@
 import pytest
 from tree_sitter import Language, Parser
 
-from app.parser import (
+from app.engine.parser import (
     LanguageRegistry,
     UnsupportedLanguageError,
 )
-from app.parser.languages import get_language_registry
-from app.parser.uast import UASTConverter
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import UASTConverter
 
 
 @pytest.fixture(scope="module")
