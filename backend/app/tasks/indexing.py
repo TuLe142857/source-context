@@ -637,7 +637,7 @@ async def execute_branch_indexing_pipeline(
         job.progress_pct = 20
         await db.commit()
 
-        from app.graph.init_db import ensure_neo4j_schema
+        from app.engine.graph.init_db import ensure_neo4j_schema
 
         await asyncio.to_thread(ensure_neo4j_schema)
 
