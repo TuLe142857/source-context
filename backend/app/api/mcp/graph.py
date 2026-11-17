@@ -15,8 +15,8 @@ from app.core import (
     ResponseSuccessSchema,
     build_error_docs,
 )
-from app.graph.model import FileNodeModel, UASTNodeModel
-from app.graph.service import GraphService, GraphServiceDep
+from app.engine.graph.model import FileNodeModel, UASTNodeModel
+from app.engine.graph.service import GraphService, GraphServiceDep
 from app.model.branch import Branch
 from app.model.project import Project
 from app.retrieval.retriever import CodeRetriever

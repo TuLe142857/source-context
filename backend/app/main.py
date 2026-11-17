@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await driver.verify_connectivity()
             logger.info("Neo4j connect successfully.")
 
-        from app.graph.init_db import ensure_neo4j_schema
+        from app.engine.graph.init_db import ensure_neo4j_schema
 
         await run_in_threadpool(ensure_neo4j_schema)
     except Neo4jError as exc:

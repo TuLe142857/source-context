@@ -17,7 +17,7 @@ from app.embedding.utils import (
     extract_source_code,
 )
 from app.embedding.voyage_embedder import batch_embed_nodes_template
-from app.parser.uast.node import TypeDefinitionNode, UASTNode
+from app.engine.parser.uast.node import TypeDefinitionNode, UASTNode
 
 logger = logging.getLogger(__name__)
 

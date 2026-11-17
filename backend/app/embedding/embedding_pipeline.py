@@ -23,8 +23,8 @@ from app.embedding.utils import (
 from app.embedding.voyage_embedder import (
     batch_embed_nodes_template,
 )
-from app.parser.languages import get_language_registry
-from app.parser.uast import UASTNode
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import UASTNode
 
 # Setup logger for pipeline execution
 logger = logging.getLogger(__name__)
