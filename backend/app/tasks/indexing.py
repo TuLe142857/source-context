@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.postgres import database
-from app.embedding.embedding_pipeline import process_uast_batch_llm_summaries
+from app.embedding.embedding_pipeline import process_uast_batch_nodes
 from app.embedding.utils import extract_summarizable_nodes
 from app.enums import BranchIndexingStatus, IndexingJobStatus
 from app.engine.api_map import build_api_map_for_project, link_api_map
@@ -534,12 +534,25 @@ async def build_vector_embeddings_stage(
         return {"status": "vector_embedded", "qdrant_points": 0}
 
     embedded_batches = await asyncio.to_thread(
-        process_uast_batch_llm_summaries,
+        process_uast_batch_nodes,
         workspace_id=workspace_id,
         branch_id=branch_id,
         candidate_tuples=candidate_tuples,
-        batch_size=50,
     )
+
+    flattened_items = [
+        item
+        for batch in embedded_batches
+        for item in batch
+        if getattr(item, "summary", None)
+    ]
+    if flattened_items:
+        logger.info(
+            "Updating %d node summaries in Neo4j for project_id=%d",
+            len(flattened_items),
+            project_id,
+        )
+        await asyncio.to_thread(_update_neo4j_node_summaries, flattened_items)
 
     total_points = sum(len(b) for b in embedded_batches)
     logger.info(
@@ -548,6 +561,39 @@ async def build_vector_embeddings_stage(
         project_id,
     )
     return {"status": "vector_embedded", "qdrant_points": total_points}
+
+
+def _update_neo4j_node_summaries(items: list[Any], batch_size: int = 1000) -> None:
+    """Updates the summary property of UAST nodes in Neo4j in batches.
+
+    Args:
+        items (list[Any]): List of EnrichedNodeData items with summaries.
+        batch_size (int, optional): Number of items per Cypher query. Defaults to 1000.
+    """
+    from neomodel import db
+
+    batch_payload = [
+        {"node_id": item.node_id, "summary": item.summary}
+        for item in items
+        if getattr(item, "summary", None)
+    ]
+    if not batch_payload:
+        return
+
+    query = """
+    UNWIND $batch AS item
+    MATCH (n:Node {uid: item.node_id})
+    SET n.summary = item.summary
+    """
+    total = len(batch_payload)
+    for i in range(0, total, batch_size):
+        chunk = batch_payload[i : i + batch_size]
+        db.cypher_query(query, {"batch": chunk})
+        logger.info(
+            "Updated %d/%d node summaries in Neo4j",
+            min(i + batch_size, total),
+            total,
+        )
 
 
 def sanitize_error_message(msg: str) -> str:
@@ -590,6 +636,10 @@ async def execute_branch_indexing_pipeline(
         job.status = IndexingJobStatus.PROCESSING
         job.progress_pct = 20
         await db.commit()
+
+        from app.engine.graph.init_db import ensure_neo4j_schema
+
+        await asyncio.to_thread(ensure_neo4j_schema)
 
         branch_res = await db.execute(select(Branch).where(Branch.id == branch_id))
         branch = branch_res.scalar_one_or_none()

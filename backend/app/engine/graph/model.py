@@ -27,6 +27,7 @@ from app.engine.parser.uast import (
     TypeReferenceNode,
     AttributeAccessNode,
 )
+from app.embedding.utils import extract_node_signature
 from app.core.config import settings
 
 from typing import Self, Any
@@ -129,6 +130,8 @@ class UASTNodeModel(StructuredNode):
     end_column: int = IntegerProperty()  # type: ignore[assignment]
 
     docstring: str | None = StringProperty()  # type: ignore[assignment]
+    signature: str | None = StringProperty()  # type: ignore[assignment]
+    summary: str | None = StringProperty()  # type: ignore[assignment]
 
     metadata: dict | None = JSONProperty()  # type: ignore[assignment]
 
@@ -152,7 +155,19 @@ class UASTNodeModel(StructuredNode):
     """API calls made at this node, in practice a ``Call`` node."""
 
     @classmethod
-    def extract_kwargs(cls, uast_node: UASTNode) -> dict:
+    def extract_kwargs(cls, uast_node: UASTNode) -> dict[str, Any]:
+        """Extracts node attributes from a UASTNode into a keyword dictionary for model creation.
+
+        Args:
+            uast_node (UASTNode): The source UAST node.
+
+        Returns:
+            dict[str, Any]: Dictionary of node properties for Neo4j persistence.
+        """
+        signature: str | None = None
+        if isinstance(uast_node, (FunctionNode, TypeDefinitionNode)):
+            signature = extract_node_signature(uast_node)
+
         return {
             "uid": uast_node.id,
             "node_type": uast_node.node_type,
@@ -164,6 +179,8 @@ class UASTNodeModel(StructuredNode):
             "end_row": uast_node.end_point[0],
             "end_column": uast_node.end_point[1],
             "docstring": uast_node.docstring,
+            "signature": signature,
+            "summary": None,
             "metadata": uast_node.metadata,
         }
 

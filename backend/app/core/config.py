@@ -263,6 +263,30 @@ class Settings(BaseSettings):
             return val
         return "openai"
 
+    # Indexing Mode Selection ("no_llm" or "llm")
+    INDEXING_MODE: Literal["no_llm", "llm"] = Field(
+        default="no_llm",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_INDEXING_MODE", "INDEXING_MODE"),
+    )
+
+    @field_validator("INDEXING_MODE", mode="before")
+    @classmethod
+    def validate_indexing_mode(cls, v: Any) -> str:
+        """Normalizes and validates indexing mode selection ('no_llm' or 'llm').
+
+        Args:
+            v (Any): Raw input value for INDEXING_MODE.
+
+        Returns:
+            str: Validated indexing mode ('no_llm' or 'llm').
+        """
+        if not v or (isinstance(v, str) and not v.strip()):
+            return "no_llm"
+        val = str(v).strip().lower()
+        if val in ("llm", "openai", "local_slm"):
+            return "llm"
+        return "no_llm"
+
     # OpenAI Settings
     OPENAI_API_KEY: SecretStr = Field(
         default=SecretStr(""),

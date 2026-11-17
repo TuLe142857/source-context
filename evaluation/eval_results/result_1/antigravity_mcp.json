@@ -1,0 +1,1760 @@
+[
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q1_structure",
+    "dimension": "D1_Structure",
+    "question_text": "List all classes and top-level functions defined in backend/app/utils.py.",
+    "metrics": {
+      "conversation_id": "e911bfc1-90af-4a45-a88e-9eb475f69293",
+      "status": "SUCCESS",
+      "response": "Based on the code structure analysis of `backend/app/utils.py`, here are all defined classes and top-level functions in order of appearance:\n\n---\n\n### **Classes**\n\n1. **`EmailData`** (lines 20–22)\n   ```python\n   class EmailData:\n       html_content: str\n       subject: str\n   ```\n\n---\n\n### **Top-Level Functions**\n\n1. **`render_email_template(*, template_name: str, context: dict[str, Any]) -> str`** (lines 25–31)\n   Renders a Jinja email template given a template filename and context dictionary.\n\n2. **`send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None`** (lines 34–57)\n   Sends an email via SMTP using configuration from application settings.\n\n3. **`generate_test_email(email_to: str) -> EmailData`** (lines 60–67)\n   Renders and returns an `EmailData` instance for a test email.\n\n4. **`generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData`** (lines 70–84)\n   Generates a password recovery email containing the reset link and expiration period.\n\n5. **`generate_new_account_email(email_to: str, username: str, password: str) -> EmailData`** (lines 87–102)\n   Generates a welcome email for newly created accounts with initial credentials.\n\n6. **`generate_password_reset_token(email: str) -> str`** (lines 105–115)\n   Creates an encoded JWT token for password reset purposes with an expiration delta.\n\n7. **`verify_password_reset_token(token: str) -> str | None`** (lines 118–125)\n   Decodes and validates a password reset JWT, returning the subject (`email`) or `None` if invalid.\n",
+      "cli_duration_seconds": 82.734343718,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 119334,
+        "output_tokens": 4163,
+        "thinking_tokens": 2030,
+        "cache_read_tokens": 296155,
+        "total_tokens": 123497
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.019786283,
+          "parameters": {
+            "CommandLine": "ls -la /home/huuhieu/.gemini/antigravity-cli/mcp/source-context"
+          },
+          "output_length_chars": 1658
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.008572995,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_file_structure.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 5,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.009136627,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/instructions.md"
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 7,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.008878057,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/list_files_in_project.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 8,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.008994518,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/search_in_repo_and_branch.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 10,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.055918515,
+          "parameters": {
+            "Arguments": {
+              "project_id": "1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_files_in_project"
+          },
+          "output_length_chars": 3656
+        },
+        {
+          "step_index": 12,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.085619589,
+          "parameters": {
+            "Arguments": {
+              "file_id": "6dd775e7-a3a1-4db8-8b59-166b2ed1087d"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 1006
+        },
+        {
+          "step_index": 14,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.058761246,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_node_info.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 15,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.058257735,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_node_content.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 17,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.037645521,
+          "parameters": {
+            "Arguments": {
+              "node_id": "1bd81f16-014a-4c98-bbe3-043e1e1c2afb"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 241
+        },
+        {
+          "step_index": 19,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.104947622,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c88a9f9c-7a44-4fb7-9991-d86fc3a1f0e1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 253
+        },
+        {
+          "step_index": 21,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.050672814,
+          "parameters": {
+            "Arguments": {
+              "node_id": "1bd81f16-014a-4c98-bbe3-043e1e1c2afb"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 55
+        },
+        {
+          "step_index": 23,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.092392679,
+          "parameters": {
+            "Arguments": {
+              "node_id": "f6144968-06a1-411a-a06e-3f8b380d44a1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 243
+        },
+        {
+          "step_index": 25,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.087394483,
+          "parameters": {
+            "Arguments": {
+              "node_id": "0a4d32bc-cb2b-4dc3-9d8b-a26ab21463d5"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 253
+        },
+        {
+          "step_index": 27,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.049152252,
+          "parameters": {
+            "Arguments": {
+              "node_id": "479c64c4-f6c1-4539-9b0e-9e0d026ddafa"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 263
+        },
+        {
+          "step_index": 29,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.039416938,
+          "parameters": {
+            "Arguments": {
+              "node_id": "dc015c5f-211f-450c-a106-3eb728d3c94c"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 261
+        },
+        {
+          "step_index": 31,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.071668354,
+          "parameters": {
+            "Arguments": {
+              "node_id": "87c1b329-e03b-4d65-915e-3f7f9cdfe644"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 265
+        },
+        {
+          "step_index": 33,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.082558365,
+          "parameters": {
+            "Arguments": {
+              "node_id": "a9b788b0-8466-4154-9ea3-545048b9e823"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 263
+        },
+        {
+          "step_index": 35,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.069109255,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c88a9f9c-7a44-4fb7-9991-d86fc3a1f0e1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 302
+        },
+        {
+          "step_index": 37,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.053237413,
+          "parameters": {
+            "Arguments": {
+              "node_id": "f6144968-06a1-411a-a06e-3f8b380d44a1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 892
+        },
+        {
+          "step_index": 39,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.061859108,
+          "parameters": {
+            "Arguments": {
+              "node_id": "0a4d32bc-cb2b-4dc3-9d8b-a26ab21463d5"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 368
+        },
+        {
+          "step_index": 41,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.085424511,
+          "parameters": {
+            "Arguments": {
+              "node_id": "479c64c4-f6c1-4539-9b0e-9e0d026ddafa"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 658
+        },
+        {
+          "step_index": 43,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.078403139,
+          "parameters": {
+            "Arguments": {
+              "node_id": "dc015c5f-211f-450c-a106-3eb728d3c94c"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 580
+        },
+        {
+          "step_index": 45,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.064043414,
+          "parameters": {
+            "Arguments": {
+              "node_id": "87c1b329-e03b-4d65-915e-3f7f9cdfe644"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 380
+        },
+        {
+          "step_index": 47,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.057352071,
+          "parameters": {
+            "Arguments": {
+              "node_id": "a9b788b0-8466-4154-9ea3-545048b9e823"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 276
+        }
+      ],
+      "tool_call_count": 25,
+      "mcp_tool_call_count": 18,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 86.235
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q2_usages",
+    "dimension": "D2_Usages",
+    "question_text": "Find all route handlers, dependencies, or modules across backend/app/ that call or reference get_current_user (defined in backend/app/api/deps.py).",
+    "metrics": {
+      "conversation_id": "345cda68-3b0e-4610-8f82-feac40c8ddc6",
+      "status": "SUCCESS",
+      "response": "Across `backend/app/`, `get_current_user` is defined in `backend/app/api/deps.py` and referenced directly in dependency type annotations and transitively across route handlers.\n\nIn this architecture, FastAPI injects `get_current_user` primarily via the annotated dependency type:\n```python\nCurrentUser = Annotated[User, Depends(get_current_user)]\n```\nand transitively via the superuser guard dependency:\n```python\ndef get_current_active_superuser(current_user: CurrentUser) -> User:\n    ...\n```\n\n---\n\n### 1. Dependencies and Type Definitions (`backend/app/api/deps.py`)\n\n* **`CurrentUser`**:\n  * Directly wraps `Depends(get_current_user)`.\n* **`get_current_active_superuser`**:\n  * Injects `current_user: CurrentUser`, which evaluates `get_current_user`.\n\n---\n\n### 2. Route Handlers Directly Referencing `CurrentUser` (`Depends(get_current_user)`)\n\n#### **`backend/app/api/routes/users.py`**\n* `read_user_me` (`GET /users/me`) — parameter: `current_user: CurrentUser`\n* `update_user_me` (`PATCH /users/me`) — parameter: `current_user: CurrentUser`\n* `update_password_me` (`PATCH /users/me/password`) — parameter: `current_user: CurrentUser`\n* `delete_user_me` (`DELETE /users/me`) — parameter: `current_user: CurrentUser`\n* `read_user_by_id` (`GET /users/{user_id}`) — parameter: `current_user: CurrentUser`\n* `delete_user` (`DELETE /users/{user_id}`) — parameter: `current_user: CurrentUser`\n\n#### **`backend/app/api/routes/items.py`**\n* `read_items` (`GET /items/`) — parameter: `current_user: CurrentUser`\n* `read_item` (`GET /items/{id}`) — parameter: `current_user: CurrentUser`\n* `create_item` (`POST /items/`) — parameter: `current_user: CurrentUser`\n* `update_item` (`PUT /items/{id}`) — parameter: `current_user: CurrentUser`\n* `delete_item` (`DELETE /items/{id}`) — parameter: `current_user: CurrentUser`\n\n#### **`backend/app/api/routes/login.py`**\n* `test_token` (`POST /login/test-token`) — parameter: `current_user: CurrentUser`\n\n---\n\n### 3. Route Handlers Transitively Referencing via `get_current_active_superuser`\n\nThese handlers enforce admin/superuser checks, which call `CurrentUser` and in turn `get_current_user`:\n\n#### **`backend/app/api/routes/users.py`**\n* `read_users` (`GET /users/`) — `dependencies=[Depends(get_current_active_superuser)]`\n* `create_user` (`POST /users/`) — `dependencies=[Depends(get_current_active_superuser)]`\n* `update_user` (`PATCH /users/{user_id}`) — `dependencies=[Depends(get_current_active_superuser)]`\n* `delete_user` (`DELETE /users/{user_id}`) — `dependencies=[Depends(get_current_active_superuser)]`\n\n#### **`backend/app/api/routes/login.py`**\n* `recover_password_html_content` (`POST /password-recovery-html-content/{email}`) — `dependencies=[Depends(get_current_active_superuser)]`\n\n#### **`backend/app/api/routes/utils.py`**\n* `test_email` (`POST /utils/test-email/`) — `dependencies=[Depends(get_current_active_superuser)]`\n\n---\n\n### Summary of Modules\n\n| Module | Imported Dependencies | Direct Handlers | Transitive Handlers |\n| :--- | :--- | :--- | :--- |\n| `backend/app/api/deps.py` | Definition (`get_current_user`, `CurrentUser`, `get_current_active_superuser`) | 2 dependencies | — |\n| `backend/app/api/routes/users.py` | `CurrentUser`, `get_current_active_superuser` | 6 handlers | 4 handlers |\n| `backend/app/api/routes/items.py` | `CurrentUser` | 5 handlers | 0 handlers |\n| `backend/app/api/routes/login.py` | `CurrentUser`, `get_current_active_superuser` | 1 handler | 1 handler |\n| `backend/app/api/routes/utils.py` | `get_current_active_superuser` | 0 handlers | 1 handler |\n",
+      "cli_duration_seconds": 158.721454937,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 199066,
+        "output_tokens": 10465,
+        "thinking_tokens": 7178,
+        "cache_read_tokens": 605445,
+        "total_tokens": 209531
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.043114956,
+          "parameters": {
+            "CommandLine": "ls -la /home/huuhieu/.gemini/antigravity-cli/mcp/source-context"
+          },
+          "output_length_chars": 1658
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.011327763,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/instructions.md"
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 6,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.024749972,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_file_structure.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 8,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.006376652,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/find_node_usages.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 10,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.045344374,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/list_files_in_project.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 12,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.058699536,
+          "parameters": {
+            "Arguments": {
+              "project_id": "1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_files_in_project"
+          },
+          "output_length_chars": 3656
+        },
+        {
+          "step_index": 14,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.048282422,
+          "parameters": {
+            "Arguments": {
+              "file_id": "0f34b930-0ee8-4f20-9125-b22b4c22ecd3"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 364
+        },
+        {
+          "step_index": 16,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.092895389,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c9a8dd7e-2e12-4574-b5c5-aa60443285f4"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 0
+        },
+        {
+          "step_index": 18,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.005417898,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/search_in_repo_and_branch.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 22,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.057073781,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c9a8dd7e-2e12-4574-b5c5-aa60443285f4"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 249
+        },
+        {
+          "step_index": 24,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.06087534,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c9a8dd7e-2e12-4574-b5c5-aa60443285f4"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 667
+        },
+        {
+          "step_index": 26,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.084130949,
+          "parameters": {
+            "Arguments": {
+              "file_id": "0f34b930-0ee8-4f20-9125-b22b4c22ecd3"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 1711
+        },
+        {
+          "step_index": 28,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.343307829,
+          "parameters": {
+            "Arguments": {
+              "branch_name": "master",
+              "query": "get_current_user",
+              "repository_id": 1,
+              "top_k": 5
+            },
+            "ServerName": "source-context",
+            "ToolName": "search_in_repo_and_branch"
+          },
+          "output_length_chars": 0
+        },
+        {
+          "step_index": 30,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.010657678,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/345cda68-3b0e-4610-8f82-feac40c8ddc6/.system_generated/steps/28/output.txt"
+          },
+          "output_length_chars": 22
+        },
+        {
+          "step_index": 32,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.113304444,
+          "parameters": {
+            "Arguments": {
+              "file_id": "a28a678e-8326-4444-935e-838a63163e85"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 1178
+        },
+        {
+          "step_index": 34,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.07445302,
+          "parameters": {
+            "Arguments": {
+              "file_id": "edae60b2-01b7-499f-84b2-64f7cc48b2b8"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 576
+        },
+        {
+          "step_index": 36,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.101725423,
+          "parameters": {
+            "Arguments": {
+              "file_id": "9c7cdbe8-c9ed-4d59-be20-1d0e41c32c79"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 611
+        },
+        {
+          "step_index": 38,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.088111643,
+          "parameters": {
+            "Arguments": {
+              "file_id": "fcaf2a67-ba57-4b82-a027-e4c5d73e582a"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 234
+        },
+        {
+          "step_index": 40,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.065818968,
+          "parameters": {
+            "Arguments": {
+              "file_id": "e88a2bef-91b7-40a4-b26f-4c0f577b6314"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 231
+        },
+        {
+          "step_index": 42,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.051763779,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/find_node_callees.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 44,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.088916865,
+          "parameters": {
+            "Arguments": {
+              "node_id": "f65510e9-d50f-446f-a019-75a6b76056b8"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_callees"
+          },
+          "output_length_chars": 531
+        },
+        {
+          "step_index": 46,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.058810926,
+          "parameters": {
+            "Arguments": {
+              "node_id": "050c4da6-f69f-43d6-8a76-7a5bd242b354"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 2313
+        },
+        {
+          "step_index": 48,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.071202865,
+          "parameters": {
+            "Arguments": {
+              "node_id": "f65510e9-d50f-446f-a019-75a6b76056b8"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 0
+        },
+        {
+          "step_index": 50,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.064297091,
+          "parameters": {
+            "Arguments": {
+              "file_id": "a28a678e-8326-4444-935e-838a63163e85"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 6918
+        },
+        {
+          "step_index": 52,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.079828352,
+          "parameters": {
+            "Arguments": {
+              "file_id": "edae60b2-01b7-499f-84b2-64f7cc48b2b8"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 3446
+        },
+        {
+          "step_index": 54,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.044123376,
+          "parameters": {
+            "Arguments": {
+              "file_id": "9c7cdbe8-c9ed-4d59-be20-1d0e41c32c79"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 4088
+        },
+        {
+          "step_index": 56,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.051042939,
+          "parameters": {
+            "Arguments": {
+              "file_id": "e88a2bef-91b7-40a4-b26f-4c0f577b6314"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 783
+        },
+        {
+          "step_index": 58,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.045367673,
+          "parameters": {
+            "Arguments": {
+              "file_id": "fcaf2a67-ba57-4b82-a027-e4c5d73e582a"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 777
+        },
+        {
+          "step_index": 60,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.111922383,
+          "parameters": {
+            "Arguments": {
+              "file_id": "1aeb51db-2223-403b-9057-df2168f1d04f"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 407
+        },
+        {
+          "step_index": 62,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.056844831,
+          "parameters": {
+            "Arguments": {
+              "file_id": "7d926fb8-a5a8-42f4-9da5-e10dc27b1630"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 958
+        },
+        {
+          "step_index": 64,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.093125801,
+          "parameters": {
+            "Arguments": {
+              "file_id": "883d3e5c-b625-475d-9e92-66b2fb417fbe"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 1209
+        }
+      ],
+      "tool_call_count": 31,
+      "mcp_tool_call_count": 23,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 167.414
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q3_callees",
+    "dimension": "D3_Callees",
+    "question_text": "What internal functions, CRUD helpers, or security utilities inside backend/app/ does login_access_token (in backend/app/api/routes/login.py) call?",
+    "metrics": {
+      "conversation_id": "520b6438-9208-40c8-8989-53cd5edf3d05",
+      "status": "SUCCESS",
+      "response": "Inside `backend/app/api/routes/login.py`, the `login_access_token` endpoint directly calls the following internal functions and utilities inside `backend/app/`:\n\n### 1. Direct Calls\n\n* **CRUD Helper**:\n  * **`crud.authenticate(session=session, email=form_data.username, password=form_data.password)`**\n    * **Location**: `backend/app/crud.py`\n    * **Role**: Authenticates the user by email and password, returning the matching `User` instance or `None`.\n\n* **Security Utility**:\n  * **`security.create_access_token(user.id, expires_delta=access_token_expires)`**\n    * **Location**: `backend/app/core/security.py`\n    * **Role**: Generates and signs an encoded JWT access token with expiration for the given user ID subject (`sub`).\n\n---\n\n### 2. Internal Dependencies & Types Referenced\n\n* **`SessionDep`** (`backend/app/api/deps.py`): Injected database session dependency (`Annotated[Session, Depends(get_db)]`).\n* **`settings.ACCESS_TOKEN_EXPIRE_MINUTES`** (`backend/app/core/config.py`): Configuration setting determining the token lifetime.\n* **`Token`** (`backend/app/models.py`): Response schema returned by the endpoint (`Token(access_token=...)`).\n\n---\n\n### 3. Transitive / Downstream Calls (via `crud.authenticate`)\n\nFor completeness, `crud.authenticate` in turn calls:\n* **`crud.get_user_by_email`** (`backend/app/crud.py`): Queries the database for the user record.\n* **`security.verify_password`** (`backend/app/core/security.py`): Verifies the plaintext password against the stored password hash (and runs against `DUMMY_HASH` if the user is not found to prevent timing attacks).\n",
+      "cli_duration_seconds": 51.130067805,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 136069,
+        "output_tokens": 2741,
+        "thinking_tokens": 1547,
+        "cache_read_tokens": 64223,
+        "total_tokens": 138810
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.064310908,
+          "parameters": {
+            "CommandLine": "ls -la /home/huuhieu/.gemini/antigravity-cli/mcp/source-context"
+          },
+          "output_length_chars": 1658
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.036176505,
+          "parameters": {
+            "EndLine": 100,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/instructions.md",
+            "StartLine": 1
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 6,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.023670911,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/list_files_in_project.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 8,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.079674493,
+          "parameters": {
+            "Arguments": {
+              "project_id": "1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_files_in_project"
+          },
+          "output_length_chars": 3656
+        },
+        {
+          "step_index": 10,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.24967552,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_file_structure.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 12,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.133139863,
+          "parameters": {
+            "Arguments": {
+              "file_id": "9c7cdbe8-c9ed-4d59-be20-1d0e41c32c79"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 611
+        },
+        {
+          "step_index": 14,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.005492484,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/find_node_callees.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 16,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.258232912,
+          "parameters": {
+            "Arguments": {
+              "node_id": "9dda7db1-2b96-4b77-8892-a2e4dd93f2af"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_callees"
+          },
+          "output_length_chars": 1797
+        },
+        {
+          "step_index": 18,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.02485841,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_node_content.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 20,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.06861443,
+          "parameters": {
+            "Arguments": {
+              "node_id": "9dda7db1-2b96-4b77-8892-a2e4dd93f2af"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 747
+        },
+        {
+          "step_index": 22,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.066630791,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c672788b-ace1-4a2d-8fc6-35ac122e280f"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 729
+        },
+        {
+          "step_index": 24,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.051136145,
+          "parameters": {
+            "Arguments": {
+              "node_id": "0e5452ca-cb3b-4687-9a99-a6cb5254f8f6"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 282
+        }
+      ],
+      "tool_call_count": 12,
+      "mcp_tool_call_count": 6,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 54.184
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q4_retrieval",
+    "dimension": "D4_Retrieval",
+    "question_text": "Retrieve the full source code of the authenticate function in backend/app/crud.py.",
+    "metrics": {
+      "conversation_id": "f5d9baf0-dc5b-4049-a7e9-19e5f2ea7459",
+      "status": "SUCCESS",
+      "response": "The full source code of the `authenticate` function in `backend/app/crud.py` (lines 45–60) is:\n\n```python\ndef authenticate(*, session: Session, email: str, password: str) -> User | None:\n    db_user = get_user_by_email(session=session, email=email)\n    if not db_user:\n        # Prevent timing attacks by running password verification even when user doesn't exist\n        # This ensures the response time is similar whether or not the email exists\n        verify_password(password, DUMMY_HASH)\n        return None\n    verified, updated_password_hash = verify_password(password, db_user.hashed_password)\n    if not verified:\n        return None\n    if updated_password_hash:\n        db_user.hashed_password = updated_password_hash\n        session.add(db_user)\n        session.commit()\n        session.refresh(db_user)\n    return db_user\n```\n\n### Context & Graph Inspection Summary\n- **Node ID**: `c672788b-ace1-4a2d-8fc6-35ac122e280f`\n- **File**: `app/crud.py` (`32662396-4018-4f81-82c4-f0515f8a2dc6`)\n- **Callees**:\n  - `get_user_by_email` (`app/crud.py`)\n  - `verify_password` (`app/core/security.py`)\n  - `hashed_password` (`app/models.py`)\n- **Usages**:\n  - `app/api/routes/login.py` (authentication endpoint)\n  - `tests/crud/test_user.py` (unit tests)\n",
+      "cli_duration_seconds": 60.703614424,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 142043,
+        "output_tokens": 2899,
+        "thinking_tokens": 1658,
+        "cache_read_tokens": 63285,
+        "total_tokens": 144942
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.056670066,
+          "parameters": {
+            "CommandLine": "ls -la /home/huuhieu/.gemini/antigravity-cli/mcp/source-context"
+          },
+          "output_length_chars": 1658
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.006690683,
+          "parameters": {
+            "EndLine": 100,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/instructions.md",
+            "StartLine": 1
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 6,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.046376748,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/list_files_in_project.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 8,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.033216843,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_file_structure.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 10,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.02987798,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_node_content.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 12,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.029886097,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/find_node_usages.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 14,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.042160058,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/find_node_callees.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 16,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.091033888,
+          "parameters": {
+            "Arguments": {
+              "project_id": "1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_files_in_project"
+          },
+          "output_length_chars": 3656
+        },
+        {
+          "step_index": 18,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.106700603,
+          "parameters": {
+            "Arguments": {
+              "file_id": "32662396-4018-4f81-82c4-f0515f8a2dc6"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 586
+        },
+        {
+          "step_index": 20,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.071613534,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c672788b-ace1-4a2d-8fc6-35ac122e280f"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 246
+        },
+        {
+          "step_index": 22,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.04753671,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c672788b-ace1-4a2d-8fc6-35ac122e280f"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 1399
+        },
+        {
+          "step_index": 24,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.288674317,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c672788b-ace1-4a2d-8fc6-35ac122e280f"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_callees"
+          },
+          "output_length_chars": 911
+        },
+        {
+          "step_index": 26,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.077475703,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c672788b-ace1-4a2d-8fc6-35ac122e280f"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 729
+        }
+      ],
+      "tool_call_count": 13,
+      "mcp_tool_call_count": 6,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 67.068
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q5_unused",
+    "dimension": "D5_DeadCode",
+    "question_text": "Identify any top-level functions in backend/app/crud.py that are not called or referenced anywhere inside backend/app/ (excluding tests).",
+    "metrics": {
+      "conversation_id": "4a9f060a-c564-41d2-9295-b6ff8d4da5f1",
+      "status": "SUCCESS",
+      "response": "Based on the AST structure and call-graph analysis of `backend/app/crud.py` using `source_context_mcp`, here are the findings:\n\n### Top-Level Functions in `backend/app/crud.py`\n\n| Function | Usages inside `backend/app/` | External / Test Usages | Status |\n| :--- | :--- | :--- | :--- |\n| **`create_user`** | Called in `app/api/routes/users.py` and `app/core/db.py` | `tests/crud/test_user.py`, `tests/utils/user.py`, `tests/api/routes/test_users.py`, `tests/api/routes/test_login.py` | Referenced |\n| **`update_user`** | Called in `app/api/routes/users.py` and `app/api/routes/login.py` | `tests/crud/test_user.py`, `tests/utils/user.py` | Referenced |\n| **`get_user_by_email`** | Called in `app/crud.py` (`authenticate`), `app/api/routes/users.py`, `app/api/routes/login.py` | `tests/utils/user.py`, `tests/api/routes/test_users.py` | Referenced |\n| **`authenticate`** | Called in `app/api/routes/login.py` | `tests/crud/test_user.py` | Referenced |\n| **`create_item`** | **None** | `tests/utils/item.py` (`create_random_item`) | **Unused inside `backend/app/`** |\n\n---\n\n### Unreferenced Function\n\n- **`create_item`**:\n  ```python\n  def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -> Item:\n      db_item = Item.model_validate(item_in, update={\"owner_id\": owner_id})\n      session.add(db_item)\n      session.commit()\n      session.refresh(db_item)\n      return db_item\n  ```\n  Inside `backend/app/api/routes/items.py`, the endpoint `create_item` implements the item creation inline directly on the session rather than calling `crud.create_item`. As a result, `crud.create_item` is only called within test helpers (`tests/utils/item.py`) and is never called or referenced anywhere inside `backend/app/`.\n",
+      "cli_duration_seconds": 111.172409391,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 157993,
+        "output_tokens": 6038,
+        "thinking_tokens": 3967,
+        "cache_read_tokens": 355397,
+        "total_tokens": 164031
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.019323985,
+          "parameters": {
+            "CommandLine": "ls -la /home/huuhieu/.gemini/antigravity-cli/mcp/source-context"
+          },
+          "output_length_chars": 1658
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.008606576,
+          "parameters": {
+            "EndLine": 100,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/instructions.md",
+            "StartLine": 1
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 6,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.014729249,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/list_files_in_project.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 8,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.008088369,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_file_structure.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 10,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.028125076,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/find_unused_nodes_in_file.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 12,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.031272709,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/find_node_usages.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 14,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.244715458,
+          "parameters": {
+            "Arguments": {
+              "project_id": "1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_files_in_project"
+          },
+          "output_length_chars": 3656
+        },
+        {
+          "step_index": 16,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.089347191,
+          "parameters": {
+            "Arguments": {
+              "file_id": "32662396-4018-4f81-82c4-f0515f8a2dc6"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 586
+        },
+        {
+          "step_index": 18,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.090858925,
+          "parameters": {
+            "Arguments": {
+              "file_id": "32662396-4018-4f81-82c4-f0515f8a2dc6"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_unused_nodes_in_file"
+          },
+          "output_length_chars": 0
+        },
+        {
+          "step_index": 20,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.286670862,
+          "parameters": {
+            "Arguments": {
+              "node_id": "187fe5dc-1ddc-4b64-90f9-979ab6d46c35"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 1391
+        },
+        {
+          "step_index": 22,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.205128874,
+          "parameters": {
+            "Arguments": {
+              "node_id": "aa5e30b9-c9ed-4dd8-8299-3c6e4ed3a3df"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 347
+        },
+        {
+          "step_index": 24,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.064828681,
+          "parameters": {
+            "Arguments": {
+              "node_id": "0ee2f3db-41bc-414b-9e45-66f276de4477"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 8867
+        },
+        {
+          "step_index": 26,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.047748473,
+          "parameters": {
+            "Arguments": {
+              "node_id": "582c0365-aab6-4c54-bc39-1e8bf9fe5d54"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 4493
+        },
+        {
+          "step_index": 28,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.061243075,
+          "parameters": {
+            "Arguments": {
+              "node_id": "c672788b-ace1-4a2d-8fc6-35ac122e280f"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 1399
+        },
+        {
+          "step_index": 30,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.346026951,
+          "parameters": {
+            "Arguments": {
+              "file_id": "edae60b2-01b7-499f-84b2-64f7cc48b2b8"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 576
+        },
+        {
+          "step_index": 32,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.074336245,
+          "parameters": {
+            "Arguments": {
+              "node_id": "da03cbc9-30a1-4757-92d8-978ee3813270"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 301
+        },
+        {
+          "step_index": 34,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.084771123,
+          "parameters": {
+            "Arguments": {
+              "node_id": "aa5e30b9-c9ed-4dd8-8299-3c6e4ed3a3df"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 255
+        },
+        {
+          "step_index": 36,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.031655456,
+          "parameters": {
+            "Arguments": {
+              "file_id": "32662396-4018-4f81-82c4-f0515f8a2dc6"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 2463
+        },
+        {
+          "step_index": 38,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.078987605,
+          "parameters": {
+            "Arguments": {
+              "file_id": "4807caef-5753-4790-95e3-e7f5cbf9870d"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 538
+        },
+        {
+          "step_index": 40,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.098975813,
+          "parameters": {
+            "Arguments": {
+              "file_id": "edae60b2-01b7-499f-84b2-64f7cc48b2b8"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_content"
+          },
+          "output_length_chars": 3446
+        },
+        {
+          "step_index": 42,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.009630252,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/search_in_repo_and_branch.json",
+            "StartLine": 1
+          },
+          "output_length_chars": 18
+        }
+      ],
+      "tool_call_count": 21,
+      "mcp_tool_call_count": 14,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 114.733
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q6_semantic",
+    "dimension": "D6_Semantic",
+    "question_text": "Find the functions responsible for generating and verifying password-reset JWT tokens across backend/app/.",
+    "metrics": {
+      "conversation_id": "bef01983-3040-427d-9346-c538961fe0d5",
+      "status": "SUCCESS",
+      "response": "Across `backend/app/`, the functions responsible for generating and verifying password-reset JWT tokens are located in **`app/utils.py`**.\n\n---\n\n### 1. Token Generation: `generate_password_reset_token`\n\n* **File**: `backend/app/utils.py` (Lines 105–115)\n* **Signature**:\n  ```python\n  def generate_password_reset_token(email: str) -> str\n  ```\n* **Source Code**:\n  ```python\n  def generate_password_reset_token(email: str) -> str:\n      delta = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)\n      now = datetime.now(UTC)\n      expires = now + delta\n      exp = expires.timestamp()\n      encoded_jwt = jwt.encode(\n          {\"exp\": exp, \"nbf\": now, \"sub\": email},\n          settings.SECRET_KEY,\n          algorithm=security.ALGORITHM,\n      )\n      return encoded_jwt\n  ```\n* **Callees / Dependencies**:\n  * `settings.SECRET_KEY` (`backend/app/core/config.py`)\n  * `settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS` (`backend/app/core/config.py`)\n  * `security.ALGORITHM` (`backend/app/core/security.py`)\n* **Usages in `backend/app/`**:\n  * `recover_password` in `backend/app/api/routes/login.py` (triggers token generation when sending recovery email)\n  * `recover_password_html_content` in `backend/app/api/routes/login.py`\n\n---\n\n### 2. Token Verification: `verify_password_reset_token`\n\n* **File**: `backend/app/utils.py` (Lines 118–125)\n* **Signature**:\n  ```python\n  def verify_password_reset_token(token: str) -> str | None\n  ```\n* **Source Code**:\n  ```python\n  def verify_password_reset_token(token: str) -> str | None:\n      try:\n          decoded_token = jwt.decode(\n              token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]\n          )\n          return str(decoded_token[\"sub\"])\n      except InvalidTokenError:\n          return None\n  ```\n* **Callees / Dependencies**:\n  * `settings.SECRET_KEY` (`backend/app/core/config.py`)\n  * `security.ALGORITHM` (`backend/app/core/security.py`)\n* **Usages in `backend/app/`**:\n  * `reset_password` in `backend/app/api/routes/login.py` (validates `body.token` and retrieves the user's email before updating the password)\n",
+      "cli_duration_seconds": 97.109964481,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 122275,
+        "output_tokens": 4785,
+        "thinking_tokens": 2769,
+        "cache_read_tokens": 420855,
+        "total_tokens": 127060
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.033827694,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/search_in_repo_and_branch.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 4,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.075511191,
+          "parameters": {
+            "CommandLine": "ls -la /home/huuhieu/.gemini/antigravity-cli/mcp/source-context/"
+          },
+          "output_length_chars": 1658
+        },
+        {
+          "step_index": 6,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.037231114,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/instructions.md"
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 8,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.371364472,
+          "parameters": {
+            "Arguments": {
+              "branch_name": "master",
+              "query": "password reset token",
+              "repository_id": 1,
+              "top_k": 10
+            },
+            "ServerName": "source-context",
+            "ToolName": "search_in_repo_and_branch"
+          },
+          "output_length_chars": 0
+        },
+        {
+          "step_index": 10,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.027430124,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/bef01983-3040-427d-9346-c538961fe0d5/.system_generated/steps/8/output.txt"
+          },
+          "output_length_chars": 22
+        },
+        {
+          "step_index": 12,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.037483177,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_node_info.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 14,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.007794569,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/get_node_content.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 16,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.072989136,
+          "parameters": {
+            "Arguments": {
+              "node_id": "87c1b329-e03b-4d65-915e-3f7f9cdfe644"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 265
+        },
+        {
+          "step_index": 18,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.073532908,
+          "parameters": {
+            "Arguments": {
+              "node_id": "87c1b329-e03b-4d65-915e-3f7f9cdfe644"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 380
+        },
+        {
+          "step_index": 20,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.044042235,
+          "parameters": {
+            "Arguments": {
+              "node_id": "a9b788b0-8466-4154-9ea3-545048b9e823"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_info"
+          },
+          "output_length_chars": 263
+        },
+        {
+          "step_index": 22,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.064871778,
+          "parameters": {
+            "Arguments": {
+              "node_id": "a9b788b0-8466-4154-9ea3-545048b9e823"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 276
+        },
+        {
+          "step_index": 24,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.00667148,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/list_files_in_project.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 26,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.056498287,
+          "parameters": {
+            "Arguments": {
+              "project_id": "1"
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_files_in_project"
+          },
+          "output_length_chars": 3656
+        },
+        {
+          "step_index": 28,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.026546523,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/mcp/source-context/find_node_usages.json"
+          },
+          "output_length_chars": 18
+        },
+        {
+          "step_index": 30,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.295853841,
+          "parameters": {
+            "Arguments": {
+              "node_id": "87c1b329-e03b-4d65-915e-3f7f9cdfe644"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 557
+        },
+        {
+          "step_index": 32,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.062812874,
+          "parameters": {
+            "Arguments": {
+              "node_id": "a9b788b0-8466-4154-9ea3-545048b9e823"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_usages"
+          },
+          "output_length_chars": 183
+        },
+        {
+          "step_index": 34,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.19553076,
+          "parameters": {
+            "Arguments": {
+              "node_id": "87c1b329-e03b-4d65-915e-3f7f9cdfe644"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_callees"
+          },
+          "output_length_chars": 549
+        },
+        {
+          "step_index": 36,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.141890295,
+          "parameters": {
+            "Arguments": {
+              "node_id": "a9b788b0-8466-4154-9ea3-545048b9e823"
+            },
+            "ServerName": "source-context",
+            "ToolName": "find_node_callees"
+          },
+          "output_length_chars": 352
+        },
+        {
+          "step_index": 38,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.1299281,
+          "parameters": {
+            "Arguments": {
+              "file_id": "9c7cdbe8-c9ed-4d59-be20-1d0e41c32c79"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_file_structure"
+          },
+          "output_length_chars": 611
+        },
+        {
+          "step_index": 40,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.046846039,
+          "parameters": {
+            "Arguments": {
+              "node_id": "df4d2a96-a67d-43a9-8cbb-06ca1a786e16"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 770
+        },
+        {
+          "step_index": 42,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.088580256,
+          "parameters": {
+            "Arguments": {
+              "node_id": "3dd18ed2-02f5-4d11-afd2-9b1a966d8b45"
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_node_content"
+          },
+          "output_length_chars": 810
+        }
+      ],
+      "tool_call_count": 21,
+      "mcp_tool_call_count": 13,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 100.142
+    }
+  }
+]
