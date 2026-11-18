@@ -4,6 +4,7 @@ services:
     build:
       context: ./frontend
       target: dev
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${SOURCE_CONTEXT_FRONTEND_HOST_PORT:-5173}:5173"
     volumes:
