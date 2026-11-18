@@ -1,3 +1,8 @@
+# docker compose \
+#   -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.observability.yml \
+#   --env-file .env.prod \
+#   --profiles infra
+# 
 services:
   tunnel:
     image: cloudflare/cloudflared:latest@sha256:e39ee8da81ad5e05d77f38d2f51c60ca51bf2a8450ac3abab50c17fdb91d91bf
@@ -5,53 +10,46 @@ services:
     command: tunnel run
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Variable is not set or empty}
-
+    depends_on:
+      - backend
+      - celery-worker
+  
   backend:
     image: ghcr.io/tule142857/source-context/backend:latest
 
   celery-worker:
     image: ghcr.io/tule142857/source-context/backend:latest
 
+  # ================================================================================================
+  #           INFRASTRUCTURE
+  # ================================================================================================
   postgres:
     image: postgres:17@sha256:a426e44bac0b759c95894d68e1a0ac03ecc20b619f498a91aae373bf06d8508d
-    volumes:
-      - postgres_data_prod:/var/lib/postgresql/data
+    profiles: [infra, postgres]
 
   neo4j:
     image: neo4j:community@sha256:2aefe0454ba8f38cd08081a2ab1908a2aca6e9d9024bd97c6e4eef6c79855c57
-    volumes:
-      - neo4j_data_prod:/data
+    profiles: [infra, neo4j]
 
   qdrant:
     image: qdrant/qdrant:latest@sha256:057ee3a8da769fe7310dd3537b4dc7583bf87a95ce8ac43c0af5a46bc580d1fc
-    volumes:
-      - qdrant_data_prod:/qdrant/storage
+    profiles: [infra, qdrant]
 
   redis:
     image: redis:8.6@sha256:aefcda4d4388a70e628ad5ebbf162ae65509b20ea3dd6eeac7dcbbb675d94dba
-    volumes:
-      - redis_data_prod:/data
+    profiles: [infra, redis]
 
   rustfs:
     image: rustfs/rustfs:latest
-    volumes:
-      - rustfs_data_prod:/data
+    profiles: [infra, rustfs]
 
-  alloy:
-    image: grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33
+  # alloy:
+  #   # image: grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33
+  #   profiles: [obs]
 
-  loki:
-    image: grafana/loki:3.7@sha256:efd47c67f9bac88ca29bcf8cb997d9ab29d1848bd0aff579282295542a745952
-    volumes:
-      - loki_data_prod:/loki
-  grafana:
-    image: grafana/grafana:latest@sha256:ab5cb380e3ff3172d6c8bd2e7cfd31cce977d2881b260e1f5bc089bf0b759b43
+  # loki:
+  #   # image: grafana/loki:3.7@sha256:efd47c67f9bac88ca29bcf8cb997d9ab29d1848bd0aff579282295542a745952
+  #   profiles: [obs]
 
-
-volumes:
-  postgres_data_prod:
-  neo4j_data_prod:
-  qdrant_data_prod:
-  redis_data_prod:
-  rustfs_data_prod:
-  loki_data_prod:
+  # grafana:
+  #   image: grafana/grafana:latest@sha256:ab5cb380e3ff3172d6c8bd2e7cfd31cce977d2881b260e1f5bc089bf0b759b43
