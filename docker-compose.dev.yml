@@ -4,8 +4,9 @@ services:
     build:
       context: ./frontend
       target: dev
+    restart: unless-stopped
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_FRONTEND_PORT:-5173}:5173"
+      - "127.0.0.1:${SOURCE_CONTEXT_FRONTEND_HOST_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -17,12 +18,11 @@ services:
       context: .
       target: dev
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${SOURCE_CONTEXT_BACKEND_HOST_PORT:-8000}:8000"
     volumes:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
-#      - workspace_repos:/app/workspace-repositories
 
   celery-worker:
     image: source-context/backend:dev
@@ -35,36 +35,14 @@ services:
       - ./backend:/app/backend
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
-#      - workspace_repos:/app/workspace-repositories
-
-  postgres:
-    volumes:
-      - postgres_data_dev:/var/lib/postgresql/data
-
-  neo4j:
-    volumes:
-      - neo4j_data_dev:/data
-
-  qdrant:
-    volumes:
-      - qdrant_data_dev:/qdrant/storage
-
-  redis:
-    volumes:
-      - redis_data_dev:/data
-
-  rustfs:
-    volumes:
-      - rustfs_data_dev:/data
 
 
-  # ==============================================
-  # ADDITIONAL CONTAINERS FOR DEVELOPMENT ONLY
-  # ==============================================
-
-  redis_insight:
+  # ================================================================================================
+  #         ADDITIONAL CONTAINERS FOR DEVELOPMENT ONLY
+  # ================================================================================================
+  # Redis WebUI
+  redis-insight:
     image: redis/redisinsight:latest
-# To test in local dev, enable tunnel profile
     restart: unless-stopped
     environment:
       RI_REDIS_HOST: redis
@@ -73,9 +51,9 @@ services:
       RI_REDIS_PASSWORD: ${SOURCE_CONTEXT_REDIS_PASSWORD:?SOURCE_CONTEXT_REDIS_PASSWORD is required}
       RI_REDIS_DB: 0
     volumes:
-      - redis_insight_data_dev:/data
+      - redis-insight-data:/data
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_REDIS_INSIGHT_PORT:-5540}:5540"
+      - "127.0.0.1:${SOURCE_CONTEXT_REDIS_INSIGHT_HOST_PORT:-5540}:5540"
     depends_on:
       redis:
         condition: service_healthy
@@ -86,31 +64,13 @@ services:
       retries: 5
       start_period: 15s
 
+  # Fake SMTP Server
   mailhog:
     image: mailhog/mailhog:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_MAILHOG_SMTP_PORT:-1025}:1025"
-      - "127.0.0.1:${SOURCE_CONTEXT_MAILHOG_HTTP_PORT:-8025}:8025"
-
-  # ==============================================
-  # OBSERVABILITY IS DISABLE BY DEFAULT
-  # ==============================================
-  alloy:
-    profiles: [ logging ]
-  loki:
-    profiles: [ logging ]
-    volumes:
-      - loki_data_dev:/loki
-  grafana:
-    profiles: [ logging ]
+      - "127.0.0.1:${SOURCE_CONTEXT_MAILHOG_SMTP_HOST_PORT:-1025}:1025"
+      - "127.0.0.1:${SOURCE_CONTEXT_MAILHOG_HTTP_HOST_PORT:-8025}:8025"
 
 volumes:
-  postgres_data_dev:
-  neo4j_data_dev:
-  qdrant_data_dev:
-  redis_data_dev:
-  rustfs_data_dev:
-  redis_insight_data_dev:
-
-  loki_data_dev:
+  redis-insight-data:
