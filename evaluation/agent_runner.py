@@ -203,10 +203,10 @@ def main():
 
     for condition in cfg["conditions"]:
         cond_name = condition["name"]
-        # if cond_name == "antigravity_default":
+        if cond_name == "antigravity_default":
 
-        #     print("ko chay default nua")
-        #     continue
+            print("ko chay default nua")
+            continue
         use_mcp = bool(condition.get("use_mcp", False))
         # Xuất ra file .json thay vì .jsonl để dễ đọc trực tiếp
         result_file = out_dir / f"{cond_name}.json"

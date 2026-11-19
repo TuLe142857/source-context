@@ -2,11 +2,12 @@ import json
 import subprocess
 import time
 from pathlib import Path
+
 import yaml
 
 
 def load_yaml(path: str) -> dict:
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -48,17 +49,21 @@ def parse_agy_output(raw_stdout: str, output_format: str) -> dict:
             ev_type = event.get("type", "")
             # Bắt các event gọi tool (tùy schema CLI có thể là tool_use, tool_call, hoặc message chứa content)
             if ev_type in ("tool_use", "tool_call", "function_call"):
-                tool_calls.append({
-                    "name": event.get("name") or event.get("tool_name"),
-                    "input": event.get("input") or event.get("arguments"),
-                })
+                tool_calls.append(
+                    {
+                        "name": event.get("name") or event.get("tool_name"),
+                        "input": event.get("input") or event.get("arguments"),
+                    }
+                )
             elif ev_type == "assistant" and isinstance(event.get("message"), dict):
                 for block in event["message"].get("content", []):
                     if isinstance(block, dict) and block.get("type") == "tool_use":
-                        tool_calls.append({
-                            "name": block.get("name"),
-                            "input": block.get("input"),
-                        })
+                        tool_calls.append(
+                            {
+                                "name": block.get("name"),
+                                "input": block.get("input"),
+                            }
+                        )
             elif ev_type == "result" or "usage" in event:
                 final_payload = event
     else:
@@ -84,8 +89,10 @@ def parse_agy_output(raw_stdout: str, output_format: str) -> dict:
 def execute_question(agy_bin: str, prompt: str, repo_path: str, mcp_config: str, out_fmt: str, timeout: int) -> dict:
     command = [
         agy_bin,
-        "-p", prompt,
-        "--output-format", out_fmt,
+        "-p",
+        prompt,
+        "--output-format",
+        out_fmt,
         "--dangerously-skip-permissions",
     ]
     # Mở comment dòng dưới nếu agy của bạn nhận cờ --mcp-config (kiểm tra bằng `agy --help`)

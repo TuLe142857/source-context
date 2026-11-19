@@ -460,7 +460,6 @@ class ApiNodeModel(StructuredNode):
     file_node_uid: str | None = StringProperty()  # type: ignore[assignment]
     """File where the endpoint is declared or the call is made."""
 
-
     metadata: dict | None = JSONProperty()  # type: ignore[assignment]
     """Protocol or framework specific extras that no query filters on."""
 

@@ -10,6 +10,12 @@
                 "get_repository_overview": {
                     "eager": true
                 },
+                "search_code_snippets": {
+                    "eager": true
+                },
+                "search_symbols_metadata": {
+                    "eager": true
+                },
                 "search_in_repo_and_branch": {
                     "eager": true
                 },

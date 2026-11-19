@@ -582,3 +582,21 @@ def test_typescript_decorators_are_kept_on_classes_and_methods() -> None:
         "Get",
         "UseGuards",
     }
+
+
+def test_typescript_typed_arrow_function_variable() -> None:
+    source = dedent(
+        """\
+        type HandlerType = (id: string) => Promise<string>;
+        const loadUser: HandlerType = async (id: string): Promise<string> => {
+            return id;
+        };
+        """,
+    )
+
+    root, _ = parse_typescript(source)
+
+    fn = find_single_node(root, FunctionNode, name="loadUser")
+    assert isinstance(fn, FunctionNode)
+    assert fn.is_async is True
+    assert fn.return_type == "Promise<string>"
