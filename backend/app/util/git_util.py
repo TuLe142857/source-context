@@ -102,6 +102,59 @@ def get_latest_commit_hash(
     return None
 
 
+def fetch_remote_branches_via_git(
+    repo_url: str,
+    installation_id: int | None = None,
+    token: str | None = None,
+) -> list[str]:
+    """Gets all remote branch names for a repository using git ls-remote.
+
+    Args:
+        repo_url (str): Remote Git repository URL.
+        installation_id (int | None, optional): GitHub App installation ID. Defaults to None.
+        token (str | None, optional): GitHub access token. Defaults to None.
+
+    Returns:
+        list[str]: List of branch names.
+    """
+    target_url = repo_url
+    if token:
+        try:
+            from app.repository_manager_v2 import RepoManagerV2
+
+            target_url = RepoManagerV2().build_authenticated_clone_url(repo_url, token)
+        except Exception:
+            target_url = repo_url
+    elif installation_id:
+        try:
+            from app.repository_manager_v2 import RepoManagerV2
+
+            manager = RepoManagerV2()
+            inst_token = manager.get_installation_token(installation_id)
+            target_url = manager.build_authenticated_clone_url(repo_url, inst_token)
+        except Exception:
+            target_url = repo_url
+
+    try:
+        proc = subprocess.run(
+            ["git", "ls-remote", "--heads", target_url],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            branches: list[str] = []
+            for line in proc.stdout.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 2 and parts[1].startswith("refs/heads/"):
+                    branches.append(parts[1].removeprefix("refs/heads/"))
+            return branches
+    except Exception as exc:
+        logger.warning("git ls-remote failed for %s: %s", repo_url, exc)
+
+    return []
+
+
 def get_repo_name(repo_url: str) -> str:
     """Extract repository name from a Git repository URL.
 

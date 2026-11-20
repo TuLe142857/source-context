@@ -155,16 +155,27 @@ class SCIPSandboxRegistry:
 def scip_typescript_command(project_path: str, output_path: str) -> str:
     """scip-typescript, for JavaScript and TypeScript projects alike.
 
-    ``--infer-tsconfig`` writes a ``tsconfig.json`` (with ``allowJs``) when the project has none,
-    but the project volume is mounted read-only: the project is indexed from a writable copy.
-    Document paths stay relative to the project root, as SCIP expects. Without
-    ``--infer-tsconfig``, a JavaScript project without ``tsconfig.json`` indexes no file.
+    If a tsconfig.json or jsconfig.json exists, index directly in place so that
+    relative `extends` paths (e.g. monorepo configs like `../../.configs/tsconfig.base.json`)
+    resolve correctly against parent folders.
+    If no config exists, copy to a writable working directory so `--infer-tsconfig`
+    can generate a tsconfig.json on the read-only volume.
     """
 
     work = "/tmp/scip-project"
+    quoted_proj = shlex.quote(project_path)
+    quoted_out = shlex.quote(output_path)
+    quoted_work = shlex.quote(work)
+    quoted_tsconfig = shlex.quote(f"{project_path}/tsconfig.json")
+    quoted_jsconfig = shlex.quote(f"{project_path}/jsconfig.json")
+
     script = (
-        f"cp -a {shlex.quote(project_path)} {work} && cd {work} && "
-        f"scip-typescript index --infer-tsconfig --output {shlex.quote(output_path)}"
+        f"if [ -f {quoted_tsconfig} ] || [ -f {quoted_jsconfig} ]; then "
+        f"cd {quoted_proj} && scip-typescript index --output {quoted_out}; "
+        f"else "
+        f"cp -a {quoted_proj} {quoted_work} && cd {quoted_work} && "
+        f"scip-typescript index --infer-tsconfig --output {quoted_out}; "
+        f"fi"
     )
     return f"sh -c {shlex.quote(script)}"
 

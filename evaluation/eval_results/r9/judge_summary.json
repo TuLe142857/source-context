@@ -1,0 +1,592 @@
+[
+  {
+    "condition": "antigravity_mcp",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q1_blast_radius",
+    "dimension": "D1_Impact",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 100,
+      "total_facts": 5,
+      "passed_facts": 5,
+      "evaluated_facts": [
+        {
+          "id": "fact_caller_authenticate",
+          "description": "Identifies caller `authenticate` in `backend/app/crud.py`.",
+          "passed": true,
+          "weight": 20,
+          "evidence": "Identifies `authenticate` in `crud.py` with the signature `def authenticate(session: Session, email: str, password: str) -> User | None`."
+        },
+        {
+          "id": "fact_caller_user_creation",
+          "description": "Identifies callers `create_user` and `register_user` in `backend/app/api/routes/users.py`.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`create_user` and `register_user` are listed with their locations and signatures in `users.py`."
+        },
+        {
+          "id": "fact_caller_user_update",
+          "description": "Identifies callers `update_user_me` and `update_user` in `backend/app/api/routes/users.py`.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`update_user_me` and `update_user` are mentioned with their locations and signatures in `users.py`."
+        },
+        {
+          "id": "fact_caller_password_recovery",
+          "description": "Identifies callers `recover_password` and `recover_password_html_content` in `backend/app/api/routes/login.py`.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "`recover_password` and `recover_password_html_content` are identified with their locations and signatures in `login.py`."
+        },
+        {
+          "id": "fact_caller_password_reset",
+          "description": "Identifies caller `reset_password` in `backend/app/api/routes/login.py`.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "`reset_password` is mentioned with its location and signature in `login.py`."
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate response accurately identifies all required callers and their locations without any hallucinations."
+    },
+    "tool_call_count": 2,
+    "total_tokens": 30703,
+    "wall_clock_seconds": 37.639
+  },
+  {
+    "condition": "antigravity_mcp",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q2_security_callers",
+    "dimension": "D2_Usages",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 100,
+      "total_facts": 4,
+      "passed_facts": 4,
+      "evaluated_facts": [
+        {
+          "id": "fact_crud_create_user",
+          "description": "Identifies caller `create_user` in `backend/app/crud.py` hashing the initial password for a new user.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`create_user` in [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L9-L16) hashes incoming plain password when instantiating `User`."
+        },
+        {
+          "id": "fact_crud_update_user",
+          "description": "Identifies caller `update_user` in `backend/app/crud.py` hashing updated passwords during user updates.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`update_user` in [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L19-L30) hashes new password if provided during a user update."
+        },
+        {
+          "id": "fact_routes_update_password_me",
+          "description": "Identifies caller `update_password_me` in `backend/app/api/routes/users.py` hashing the new password when a user updates their own password.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`update_password_me` in [users.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L103-L120) hashes new password when the authenticated user updates their own password."
+        },
+        {
+          "id": "fact_routes_private_create_user",
+          "description": "Identifies caller `create_user` in `backend/app/api/routes/private.py` hashing passwords for private endpoint user creation.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`create_user` in [private.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/private.py#L23-L37) hashes the password when provisioning a user via the private route."
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate response accurately identifies all routines that invoke `get_password_hash` without any hallucinations."
+    },
+    "tool_call_count": 2,
+    "total_tokens": 20386,
+    "wall_clock_seconds": 26.362
+  },
+  {
+    "condition": "antigravity_mcp",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q3_core_dependencies",
+    "dimension": "D3_Callees",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 75,
+      "total_facts": 4,
+      "passed_facts": 3,
+      "evaluated_facts": [
+        {
+          "id": "fact_callee_crud_user_lookup",
+          "description": "Identifies direct call to `crud.get_user_by_email` to verify whether the target user exists in the database.",
+          "passed": false,
+          "weight": 25,
+          "evidence": "The candidate response mentions `get_user_by_email` but incorrectly attributes it to `app/crud.py` instead of `crud.get_user_by_email`."
+        },
+        {
+          "id": "fact_callee_generate_token",
+          "description": "Identifies direct call to `generate_password_reset_token` to generate a signed JWT password reset token.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`generate_password_reset_token` is correctly identified and described as generating a signed security token."
+        },
+        {
+          "id": "fact_callee_generate_email_template",
+          "description": "Identifies direct call to `generate_reset_password_email` to render the password recovery email template with the reset link.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`generate_reset_password_email` is correctly identified and described as preparing the email payload."
+        },
+        {
+          "id": "fact_callee_send_email",
+          "description": "Identifies direct call to `send_email` to dispatch the generated password recovery email via SMTP.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`send_email` is correctly identified and described as dispatching the rendered password recovery email."
+        }
+      ],
+      "hallucination_detected": true,
+      "hallucination_details": "The candidate response incorrectly states the file path for `get_user_by_email`, which should be `backend/app/api/routes/login.py` instead of `app/crud.py`.",
+      "justification": "The candidate response accurately identifies three out of four functions invoked by `recover_password`, but it contains a hallucination regarding the file path for `get_user_by_email`, resulting in a deduction."
+    },
+    "tool_call_count": 2,
+    "total_tokens": 19954,
+    "wall_clock_seconds": 21.836
+  },
+  {
+    "condition": "antigravity_mcp",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q4_semantic_search",
+    "dimension": "D4_Semantic",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 100,
+      "total_facts": 3,
+      "passed_facts": 3,
+      "evaluated_facts": [
+        {
+          "id": "fact_target_symbol",
+          "description": "Identifies the target function `authenticate` and constant `DUMMY_HASH` in `backend/app/crud.py`.",
+          "passed": true,
+          "weight": 35,
+          "evidence": "The component responsible for mitigating timing attacks during authentication is the **`authenticate`** function and its associated **`DUMMY_HASH`** in [app/crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L41-L51)."
+        },
+        {
+          "id": "fact_implementation_logic",
+          "description": "Explains that when `db_user` is not found (`None`), the function executes `verify_password(password, DUMMY_HASH)` against a precomputed Argon2 dummy hash to ensure constant response time and prevent user enumeration timing attacks.",
+          "passed": true,
+          "weight": 35,
+          "evidence": "When `get_user_by_email` returns `None`, `authenticate` still invokes `verify_password(password, DUMMY_HASH)` using a precomputed valid Argon2 hash."
+        },
+        {
+          "id": "fact_caller_context",
+          "description": "Identifies the calling endpoint `login_access_token` (`POST /login/access-token`) in `backend/app/api/routes/login.py` that utilizes `crud.authenticate`.",
+          "passed": true,
+          "weight": 30,
+          "evidence": "Route Handler: `login_access_token` in [app/api/routes/login.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L23-L41)"
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate response accurately identifies the relevant function, explains its mechanism for mitigating timing attacks, and correctly identifies the endpoint that utilizes it."
+    },
+    "tool_call_count": 12,
+    "total_tokens": 46387,
+    "wall_clock_seconds": 60.744
+  },
+  {
+    "condition": "antigravity_mcp",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q5_dead_code",
+    "dimension": "D5_DeadCode",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 60,
+      "total_facts": 2,
+      "passed_facts": 1,
+      "evaluated_facts": [
+        {
+          "id": "fact_unused_detected",
+          "description": "Correctly identifies `create_item` in `backend/app/crud.py` as having zero incoming references or calls across the entire application codebase (excluding tests).",
+          "passed": true,
+          "weight": 60,
+          "evidence": "The candidate states that `create_item` has **0 references** in the application code."
+        },
+        {
+          "id": "fact_active_symbols_differentiated",
+          "description": "Correctly distinguishes that all other CRUD functions in the same module (`create_user`, `update_user`, `get_user_by_email`, and `authenticate`) are actively imported and invoked across `backend/app/core/db.py`, `backend/app/api/routes/users.py`, and `backend/app/api/routes/login.py`.",
+          "passed": false,
+          "weight": 40,
+          "evidence": "The candidate does not mention the active usage of other CRUD functions, focusing only on `create_item`."
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate correctly identified that `create_item` is unused, but failed to address the active usage of other CRUD functions, resulting in a partial score."
+    },
+    "tool_call_count": 11,
+    "total_tokens": 53604,
+    "wall_clock_seconds": 51.252
+  },
+  {
+    "condition": "antigravity_mcp",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q6_module_outline",
+    "dimension": "D6_Structure",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 100,
+      "total_facts": 7,
+      "passed_facts": 7,
+      "evaluated_facts": [
+        {
+          "id": "fact_render_email_template",
+          "description": "Summarizes `render_email_template(*, template_name: str, context: dict[str, Any]) -> str` for rendering Jinja2 HTML email templates.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def render_email_template(*, template_name: str, context: dict[str, Any]) -> str"
+        },
+        {
+          "id": "fact_send_email",
+          "description": "Summarizes `send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None` for sending emails via configured SMTP settings.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None"
+        },
+        {
+          "id": "fact_generate_test_email",
+          "description": "Summarizes `generate_test_email(email_to: str) -> EmailData` for creating test email content and subject.",
+          "passed": true,
+          "weight": 10,
+          "evidence": "Signature: def generate_test_email(email_to: str) -> EmailData"
+        },
+        {
+          "id": "fact_generate_reset_password_email",
+          "description": "Summarizes `generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData` for creating password recovery emails with reset links.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData"
+        },
+        {
+          "id": "fact_generate_new_account_email",
+          "description": "Summarizes `generate_new_account_email(email_to: str, username: str, password: str) -> EmailData` for creating welcome emails containing login credentials.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def generate_new_account_email(email_to: str, username: str, password: str) -> EmailData"
+        },
+        {
+          "id": "fact_generate_password_reset_token",
+          "description": "Summarizes `generate_password_reset_token(email: str) -> str` for generating timed JWT password recovery tokens.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def generate_password_reset_token(email: str) -> str"
+        },
+        {
+          "id": "fact_verify_password_reset_token",
+          "description": "Summarizes `verify_password_reset_token(token: str) -> str | None` for validating JWT recovery tokens and extracting the user email.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def verify_password_reset_token(token: str) -> str | None"
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate response accurately summarizes all top-level functions, including their signatures, return types, and purposes, with no hallucinations detected."
+    },
+    "tool_call_count": 9,
+    "total_tokens": 35836,
+    "wall_clock_seconds": 66.496
+  },
+  {
+    "condition": "antigravity_default",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q1_blast_radius",
+    "dimension": "D1_Impact",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 100,
+      "total_facts": 5,
+      "passed_facts": 5,
+      "evaluated_facts": [
+        {
+          "id": "fact_caller_authenticate",
+          "description": "Identifies caller `authenticate` in `backend/app/crud.py`.",
+          "passed": true,
+          "weight": 20,
+          "evidence": "Function: `authenticate`... Location: [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L45-L55)"
+        },
+        {
+          "id": "fact_caller_user_creation",
+          "description": "Identifies callers `create_user` and `register_user` in `backend/app/api/routes/users.py`.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "Endpoint: `POST /api/v1/users/` (`create_user`)... Location: [users.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L54-L79)"
+        },
+        {
+          "id": "fact_caller_user_update",
+          "description": "Identifies callers `update_user_me` and `update_user` in `backend/app/api/routes/users.py`.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "Endpoint: `PATCH /api/v1/users/me` (`update_user_me`)... Location: [users.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L81-L101)"
+        },
+        {
+          "id": "fact_caller_password_recovery",
+          "description": "Identifies callers `recover_password` and `recover_password_html_content` in `backend/app/api/routes/login.py`.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Endpoint: `POST /api/v1/password-recovery/{email}` (`recover_password`)... Location: [login.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L53-L75)"
+        },
+        {
+          "id": "fact_caller_password_reset",
+          "description": "Identifies caller `reset_password` in `backend/app/api/routes/login.py`.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Endpoint: `POST /api/v1/reset-password/` (`reset_password`)... Location: [login.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L77-L98)"
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate response accurately identifies all relevant callers and their locations without any hallucinations."
+    },
+    "tool_call_count": 10,
+    "total_tokens": 37392,
+    "wall_clock_seconds": 57.78
+  },
+  {
+    "condition": "antigravity_default",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q2_security_callers",
+    "dimension": "D2_Usages",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 75,
+      "total_facts": 4,
+      "passed_facts": 4,
+      "evaluated_facts": [
+        {
+          "id": "fact_crud_create_user",
+          "description": "Identifies caller `create_user` in `backend/app/crud.py` hashing the initial password for a new user.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`create_user` in [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L10-L17) hashes the incoming password when creating a new `User` record."
+        },
+        {
+          "id": "fact_crud_update_user",
+          "description": "Identifies caller `update_user` in `backend/app/crud.py` hashing updated passwords during user updates.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`update_user` in [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L20-L31) hashes the updated password if present in `user_in`."
+        },
+        {
+          "id": "fact_routes_update_password_me",
+          "description": "Identifies caller `update_password_me` in `backend/app/api/routes/users.py` hashing the new password when a user updates their own password.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`update_password_me` in [users.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L103-L121) hashes the current user's new password upon password change."
+        },
+        {
+          "id": "fact_routes_private_create_user",
+          "description": "Identifies caller `create_user` in `backend/app/api/routes/private.py` hashing passwords for private endpoint user creation.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "`create_user` in [private.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/private.py#L23-L37) hashes the password directly when creating a user via the private endpoint."
+        }
+      ],
+      "hallucination_detected": true,
+      "hallucination_details": "The candidate response mentions several functions and files that are not part of the provided target files, such as `init_db`, `register_user`, and `update_user_me`, which are not listed in the target files.",
+      "justification": "The candidate accurately identified all required invocations of `get_password_hash` in the specified files but included additional functions and files that do not exist in the provided context, resulting in a deduction for hallucinations."
+    },
+    "tool_call_count": 8,
+    "total_tokens": 29953,
+    "wall_clock_seconds": 37.013
+  },
+  {
+    "condition": "antigravity_default",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q3_core_dependencies",
+    "dimension": "D3_Callees",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 100,
+      "total_facts": 4,
+      "passed_facts": 4,
+      "evaluated_facts": [
+        {
+          "id": "fact_callee_crud_user_lookup",
+          "description": "Identifies direct call to `crud.get_user_by_email` to verify whether the target user exists in the database.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "The response states that `crud.get_user_by_email(session=session, email=email)` is invoked to retrieve the user record matching the given email address."
+        },
+        {
+          "id": "fact_callee_generate_token",
+          "description": "Identifies direct call to `generate_password_reset_token` to generate a signed JWT password reset token.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "The response mentions `generate_password_reset_token(email=email)` generates a signed JSON Web Token (JWT) for password reset."
+        },
+        {
+          "id": "fact_callee_generate_email_template",
+          "description": "Identifies direct call to `generate_reset_password_email` to render the password recovery email template with the reset link.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "The response includes `generate_reset_password_email(email_to=user.email, email=email, token=password_reset_token)` which formats the reset URL link and renders the email template."
+        },
+        {
+          "id": "fact_callee_send_email",
+          "description": "Identifies direct call to `send_email` to dispatch the generated password recovery email via SMTP.",
+          "passed": true,
+          "weight": 25,
+          "evidence": "The response states `send_email(email_to=user.email, subject=email_data.subject, html_content=email_data.html_content)` is used to dispatch the recovery email."
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate response accurately identifies all required internal functions invoked by `recover_password` without any hallucinations."
+    },
+    "tool_call_count": 5,
+    "total_tokens": 25596,
+    "wall_clock_seconds": 31.891
+  },
+  {
+    "condition": "antigravity_default",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q4_semantic_search",
+    "dimension": "D4_Semantic",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 100,
+      "total_facts": 3,
+      "passed_facts": 3,
+      "evaluated_facts": [
+        {
+          "id": "fact_target_symbol",
+          "description": "Identifies the target function `authenticate` and constant `DUMMY_HASH` in `backend/app/crud.py`.",
+          "passed": true,
+          "weight": 35,
+          "evidence": "The component responsible for mitigating timing attacks is the `authenticate` function and the `DUMMY_HASH` constant located in [app/crud.py]."
+        },
+        {
+          "id": "fact_implementation_logic",
+          "description": "Explains that when `db_user` is not found (`None`), the function executes `verify_password(password, DUMMY_HASH)` against a precomputed Argon2 dummy hash to ensure constant response time and prevent user enumeration timing attacks.",
+          "passed": true,
+          "weight": 35,
+          "evidence": "When `get_user_by_email` returns `None` (`db_user` is not found), `authenticate()` does not immediately exit. Instead, it calls `verify_password(password, DUMMY_HASH)`."
+        },
+        {
+          "id": "fact_caller_context",
+          "description": "Identifies the calling endpoint `login_access_token` (`POST /login/access-token`) in `backend/app/api/routes/login.py` that utilizes `crud.authenticate`.",
+          "passed": true,
+          "weight": 30,
+          "evidence": "The mechanism is used by the OAuth2 login endpoint: Endpoint: `POST /api/v1/login/access-token`, Handler: `login_access_token` in [app/api/routes/login.py]."
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate response accurately identifies the relevant function, explains its mechanism for mitigating timing attacks, and correctly identifies the endpoint that utilizes it."
+    },
+    "tool_call_count": 8,
+    "total_tokens": 35576,
+    "wall_clock_seconds": 74.297
+  },
+  {
+    "condition": "antigravity_default",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q5_dead_code",
+    "dimension": "D5_DeadCode",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 40,
+      "total_facts": 2,
+      "passed_facts": 1,
+      "evaluated_facts": [
+        {
+          "id": "fact_unused_detected",
+          "description": "Correctly identifies `create_item` in `backend/app/crud.py` as having zero incoming references or calls across the entire application codebase (excluding tests).",
+          "passed": false,
+          "weight": 60,
+          "evidence": "The candidate states that `crud.create_item` is only referenced in test utilities, which implies it is not used in the application, but does not explicitly confirm that it has zero references across the entire application."
+        },
+        {
+          "id": "fact_active_symbols_differentiated",
+          "description": "Correctly distinguishes that all other CRUD functions in the same module (`create_user`, `update_user`, `get_user_by_email`, and `authenticate`) are actively imported and invoked across `backend/app/core/db.py`, `backend/app/api/routes/users.py`, and `backend/app/api/routes/login.py`.",
+          "passed": true,
+          "weight": 40,
+          "evidence": "The candidate mentions that all other functions in `app/crud.py` are used by the application routes and database initialization logic."
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate correctly identifies the active CRUD functions but fails to explicitly confirm that `create_item` has zero references in the application, leading to a partial score."
+    },
+    "tool_call_count": 6,
+    "total_tokens": 33758,
+    "wall_clock_seconds": 45.922
+  },
+  {
+    "condition": "antigravity_default",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q6_module_outline",
+    "dimension": "D6_Structure",
+    "judge": {
+      "judge_model": "gpt-4o-mini",
+      "accuracy_score": 100,
+      "total_facts": 7,
+      "passed_facts": 7,
+      "evaluated_facts": [
+        {
+          "id": "fact_render_email_template",
+          "description": "Summarizes `render_email_template(*, template_name: str, context: dict[str, Any]) -> str` for rendering Jinja2 HTML email templates.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def render_email_template(*, template_name: str, context: dict[str, Any]) -> str"
+        },
+        {
+          "id": "fact_send_email",
+          "description": "Summarizes `send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None` for sending emails via configured SMTP settings.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None"
+        },
+        {
+          "id": "fact_generate_test_email",
+          "description": "Summarizes `generate_test_email(email_to: str) -> EmailData` for creating test email content and subject.",
+          "passed": true,
+          "weight": 10,
+          "evidence": "Signature: def generate_test_email(email_to: str) -> EmailData"
+        },
+        {
+          "id": "fact_generate_reset_password_email",
+          "description": "Summarizes `generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData` for creating password recovery emails with reset links.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData"
+        },
+        {
+          "id": "fact_generate_new_account_email",
+          "description": "Summarizes `generate_new_account_email(email_to: str, username: str, password: str) -> EmailData` for creating welcome emails containing login credentials.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def generate_new_account_email(email_to: str, username: str, password: str) -> EmailData"
+        },
+        {
+          "id": "fact_generate_password_reset_token",
+          "description": "Summarizes `generate_password_reset_token(email: str) -> str` for generating timed JWT password recovery tokens.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def generate_password_reset_token(email: str) -> str"
+        },
+        {
+          "id": "fact_verify_password_reset_token",
+          "description": "Summarizes `verify_password_reset_token(token: str) -> str | None` for validating JWT recovery tokens and extracting the user email.",
+          "passed": true,
+          "weight": 15,
+          "evidence": "Signature: def verify_password_reset_token(token: str) -> str | None"
+        }
+      ],
+      "hallucination_detected": false,
+      "hallucination_details": null,
+      "justification": "The candidate response accurately summarizes all top-level functions, their signatures, return types, and purposes without any hallucinations."
+    },
+    "tool_call_count": 3,
+    "total_tokens": 27302,
+    "wall_clock_seconds": 39.691
+  }
+]

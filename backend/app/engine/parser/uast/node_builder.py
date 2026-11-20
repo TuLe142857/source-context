@@ -184,6 +184,8 @@ class UASTNodeBuilder:
         return self._node_id
 
     def set_name(self, name: str | None) -> "UASTNodeBuilder":
+        if name is not None and len(name) > 500:
+            name = name[:500]
         self.name = name
         return self
 

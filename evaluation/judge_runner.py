@@ -15,7 +15,7 @@ from typing import Any
 
 import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import APIConnectionError, APIError, OpenAI, RateLimitError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -27,16 +27,32 @@ def load_env_credentials() -> tuple[str | None, str | None, str]:
     Returns:
         tuple[str | None, str | None, str]: (api_key, base_url, model_name)
     """
-    load_dotenv(".env.dev")
-    load_dotenv(".env")
+    eval_dir = Path(__file__).resolve().parent
+    project_root = eval_dir.parent
 
-    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("SOURCE_CONTEXT_OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_API_BASE_URL") or os.getenv("SOURCE_CONTEXT_OPENAI_API_BASE_URL")
-    model = (
-        os.getenv("OPENAI_MODEL")
-        or os.getenv("SOURCE_CONTEXT_OPENAI_MODEL")
-        or "gpt-4o-mini"
-    )
+    # Try loading from project root or current working dir
+    for candidate in [
+        project_root / ".env.dev",
+        project_root / ".env",
+        Path(".env.dev"),
+        Path(".env"),
+    ]:
+        if candidate.exists():
+            load_dotenv(candidate)
+
+    api_key = os.getenv("SOURCE_CONTEXT_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    raw_base_url = os.getenv("SOURCE_CONTEXT_OPENAI_API_BASE_URL") or os.getenv("OPENAI_API_BASE_URL")
+
+    # Default to official OpenAI API endpoint
+    base_url = raw_base_url or "https://api.openai.com/v1"
+
+    # If base_url still points to previous test endpoints (ollama or github/azure models),
+    # reset to official OpenAI API endpoint
+    if any(endpoint in base_url for endpoint in ["ollama.com", "models.inference.ai.azure.com", "models.github.ai"]):
+        base_url = "https://api.openai.com/v1"
+
+    # Fixed judge model
+    model = "gpt-4o-mini"
 
     # Normalize placeholder keys
     if api_key == "changethis":
@@ -185,15 +201,77 @@ def run_judge_on_record(
     messages: Any = build_judge_prompt(question_text, gt, candidate_response)
 
     try:
-        response: Any = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            response_format={"type": "json_object"},
-            temperature=temperature,
-            seed=seed,
-        )
-        content = response.choices[0].message.content or "{}"
-        parsed = json.loads(content)
+        try:
+            response: Any = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=4096,
+                response_format={"type": "json_object"},
+            )
+        except Exception:
+            # Fallback without response_format if custom proxy does not support json_object mode
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=4096,
+            )
+
+        # Extract content safely whether response is ChatCompletion, dict, or raw string
+        if isinstance(response, str):
+            try:
+                raw_data = json.loads(response)
+                if isinstance(raw_data, dict) and "choices" in raw_data:
+                    content = raw_data["choices"][0]["message"].get("content", "") or ""
+                else:
+                    content = response
+            except (json.JSONDecodeError, ValueError):
+                content = response
+        elif isinstance(response, dict):
+            if "choices" in response:
+                content = response["choices"][0]["message"].get("content", "") or ""
+            else:
+                content = json.dumps(response)
+        elif hasattr(response, "choices") and response.choices:
+            content = getattr(response.choices[0].message, "content", "") or ""
+        else:
+            content = str(response)
+
+        # Strip markdown fences if present
+        content = content.strip()
+        if content.startswith("```"):
+            lines = content.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+
+        if not content:
+            logger.error(
+                "Judge returned empty content for %s | %s. Raw response was: %r",
+                repo_id,
+                q_id,
+                response,
+            )
+            return None
+
+        try:
+            parsed = json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            start = content.find("{")
+            end = content.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                parsed = json.loads(content[start : end + 1])
+            else:
+                logger.error(
+                    "Failed to parse JSON from judge content for %s | %s. Content was: %r",
+                    repo_id,
+                    q_id,
+                    content[:500],
+                )
+                raise
 
         passed_count = sum(1 for f in parsed.get("evaluated_facts", []) if f.get("passed"))
         total_facts = len(parsed.get("evaluated_facts", []))
@@ -208,8 +286,11 @@ def run_judge_on_record(
             "hallucination_details": parsed.get("hallucination_details"),
             "justification": parsed.get("justification", ""),
         }
+    except (APIError, APIConnectionError, RateLimitError) as exc:
+        logger.error("OpenAI API error calling judge LLM for %s | %s: %s", repo_id, q_id, exc)
+        return None
     except Exception as exc:
-        logger.error("Error calling judge LLM for %s | %s: %s", repo_id, q_id, exc)
+        logger.error("Unexpected error calling judge LLM for %s | %s: %s", repo_id, q_id, exc)
         return None
 
 
@@ -238,9 +319,23 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    eval_dir = Path(__file__).resolve().parent
+
+    # Resolve config path flexibly (supports running from repo root or evaluation/ dir)
     config_path = Path(args.config)
     if not config_path.exists():
-        logger.error("Config file not found: %s", config_path)
+        candidates = [
+            eval_dir / args.config,
+            eval_dir / Path(args.config).name,
+            Path("benchmark_config.yaml"),
+        ]
+        for c in candidates:
+            if c.exists():
+                config_path = c
+                break
+
+    if not config_path.exists():
+        logger.error("Config file not found: %s", args.config)
         return
 
     with open(config_path, encoding="utf-8") as f:
@@ -262,13 +357,13 @@ def main() -> None:
 
     api_key = args.api_key or env_key
     base_url = args.base_url or judge_cfg.get("base_url") or env_base_url
-    model = args.model or judge_cfg.get("model") or env_model or "gpt-4o-mini"
+    model = args.model or "gpt-4o-mini"
     temperature = float(judge_cfg.get("temperature", 0.0))
     seed = int(judge_cfg.get("seed", 42))
 
     if not api_key:
         logger.error(
-            "No OpenAI API key found! Please set OPENAI_API_KEY in your environment, "
+            "No API key found! Please set SOURCE_CONTEXT_OPENAI_API_KEY in your environment, "
             ".env.dev, or pass --api-key <YOUR_KEY>."
         )
         return
@@ -276,6 +371,7 @@ def main() -> None:
     client = OpenAI(
         api_key=api_key,
         base_url=base_url if base_url and "api.openai.com" not in base_url else None,
+        timeout=60.0,
     )
 
     logger.info(
@@ -288,6 +384,17 @@ def main() -> None:
 
     # 3. Process candidate result JSON files in input-dir
     input_dir = Path(args.input_dir)
+    if not input_dir.exists():
+        candidates = [
+            eval_dir / args.input_dir,
+            eval_dir / Path(args.input_dir).name,
+            Path("eval_results"),
+        ]
+        for c in candidates:
+            if c.exists():
+                input_dir = c
+                break
+
     target_files = [
         input_dir / "antigravity_mcp.json",
         input_dir / "antigravity_default.json",

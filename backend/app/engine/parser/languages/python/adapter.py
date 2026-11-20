@@ -505,9 +505,13 @@ class PythonCallCaptureHandler(
 
             return builder
 
-        builder.set_name(
-            context.get_text(function_node),
-        )
+        if function_node.type == "lambda":
+            builder.set_name("<lambda>")
+            return builder
+
+        name_text = context.get_text(function_node)
+        if name_text is not None:
+            builder.set_name(name_text[:256] if len(name_text) > 256 else name_text)
 
         return builder
 

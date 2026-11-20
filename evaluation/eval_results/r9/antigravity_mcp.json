@@ -1,0 +1,860 @@
+[
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q1_blast_radius",
+    "dimension": "D1_Impact",
+    "question_text": "If the database CRUD utility `get_user_by_email` changes its signature or return type, which endpoints, services, and caller functions across the codebase will be directly affected? List the affected callers and their locations.",
+    "metrics": {
+      "conversation_id": "5ce23a8a-916e-4922-927f-353651d94dda",
+      "status": "SUCCESS",
+      "response": "Based on the AST and graph impact analysis for `get_user_by_email` (`def get_user_by_email(session: Session, email: str) -> User | None` defined in [`crud.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L33-L36)), if its signature or return type changes, the following endpoints, services, helper functions, and test callers will be directly affected:\n\n---\n\n### 1. Internal Services & Core CRUD Functions\n* **`authenticate`**\n  * **Location**: [`crud.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L44-L59) (call site at [L45](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L45))\n  * **Signature**: `def authenticate(session: Session, email: str, password: str) -> User | None`\n\n---\n\n### 2. API Endpoints & Route Handlers\n\n#### **User Management Endpoints** ([`users.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py))\n* **`create_user`**\n  * **Location**: [`users.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L56-L77) (call site at [L60](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L60))\n  * **Signature**: `def create_user(session: SessionDep, user_in: UserCreate) -> Any`\n* **`update_user_me`**\n  * **Location**: [`users.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L81-L99) (call site at [L89](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L89))\n  * **Signature**: `def update_user_me(session: SessionDep, user_in: UserUpdateMe, current_user: CurrentUser) -> Any`\n* **`register_user`**\n  * **Location**: [`users.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L146-L158) (call site at [L150](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L150))\n  * **Signature**: `def register_user(session: SessionDep, user_in: UserRegister) -> Any`\n* **`update_user`**\n  * **Location**: [`users.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L186-L210) (call site at [L203](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L203))\n  * **Signature**: `def update_user(session: SessionDep, user_id: uuid.UUID, user_in: UserUpdate) -> Any`\n\n#### **Authentication & Recovery Endpoints** ([`login.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py))\n* **`recover_password`**\n  * **Location**: [`login.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L53-L73) (call site at [L57](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L57))\n  * **Signature**: `def recover_password(email: str, session: SessionDep) -> Message`\n* **`reset_password`**\n  * **Location**: [`login.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L77-L96) (call site at [L84](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L84))\n  * **Signature**: `def reset_password(session: SessionDep, body: NewPassword) -> Message`\n* **`recover_password_html_content`**\n  * **Location**: [`login.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L104-L122) (call site at [L108](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L108))\n  * **Signature**: `def recover_password_html_content(email: str, session: SessionDep) -> Any`\n\n---\n\n### 3. Test Utilities & Test Suites\n\n#### **Test Helpers** ([`user.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/utils/user.py))\n* **`authentication_token_from_email`**\n  * **Location**: [`user.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/utils/user.py#L29-L48) (call site at [L38](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/utils/user.py#L38))\n  * **Signature**: `def authentication_token_from_email(client: TestClient, email: str, db: Session) -> str`\n\n#### **Route Integration Tests** ([`test_users.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py))\n* **`test_create_user_new_email`**: Call site at [L54](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L54) (within `test_create_user_new_email` at [L36-L56](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L36-L56))\n* **`test_get_existing_user_as_superuser`**: Call site at [L73](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L73) (within `test_get_existing_user_as_superuser` at [L59-L75](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L59-L75))\n* **`test_get_existing_user_current_user`**: Call site at [L111](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L111) (within `test_get_existing_user_current_user` at [L89-L113](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L89-L113))\n* **`test_delete_user_current_super_user_error`**: Call site at [L495](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L495) (within `test_delete_user_current_super_user_error` at [L492-L504](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py#L492-L504))\n\n---\n\n### Summary of Impacted Files\n1. [`crud.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py)\n2. [`users.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py)\n3. [`login.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py)\n4. [`user.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/utils/user.py)\n5. [`test_users.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_users.py)\n",
+      "cli_duration_seconds": 34.312106888,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 26373,
+        "output_tokens": 4330,
+        "thinking_tokens": 1731,
+        "cache_read_tokens": 31503,
+        "total_tokens": 30703
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 1.548603613,
+          "parameters": {
+            "repository_id": 8,
+            "symbol": "get_user_by_email",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.050776684,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/5ce23a8a-916e-4922-927f-353651d94dda/.system_generated/steps/2/output.txt"
+          },
+          "output_length_chars": 22
+        }
+      ],
+      "tool_call_count": 2,
+      "mcp_tool_call_count": 1,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 37.639,
+      "judge": {
+        "judge_model": "gpt-4o-mini",
+        "accuracy_score": 100,
+        "total_facts": 5,
+        "passed_facts": 5,
+        "evaluated_facts": [
+          {
+            "id": "fact_caller_authenticate",
+            "description": "Identifies caller `authenticate` in `backend/app/crud.py`.",
+            "passed": true,
+            "weight": 20,
+            "evidence": "Identifies `authenticate` in `crud.py` with the signature `def authenticate(session: Session, email: str, password: str) -> User | None`."
+          },
+          {
+            "id": "fact_caller_user_creation",
+            "description": "Identifies callers `create_user` and `register_user` in `backend/app/api/routes/users.py`.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`create_user` and `register_user` are listed with their locations and signatures in `users.py`."
+          },
+          {
+            "id": "fact_caller_user_update",
+            "description": "Identifies callers `update_user_me` and `update_user` in `backend/app/api/routes/users.py`.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`update_user_me` and `update_user` are mentioned with their locations and signatures in `users.py`."
+          },
+          {
+            "id": "fact_caller_password_recovery",
+            "description": "Identifies callers `recover_password` and `recover_password_html_content` in `backend/app/api/routes/login.py`.",
+            "passed": true,
+            "weight": 15,
+            "evidence": "`recover_password` and `recover_password_html_content` are identified with their locations and signatures in `login.py`."
+          },
+          {
+            "id": "fact_caller_password_reset",
+            "description": "Identifies caller `reset_password` in `backend/app/api/routes/login.py`.",
+            "passed": true,
+            "weight": 15,
+            "evidence": "`reset_password` is mentioned with its location and signature in `login.py`."
+          }
+        ],
+        "hallucination_detected": false,
+        "hallucination_details": null,
+        "justification": "The candidate response accurately identifies all required callers and their locations without any hallucinations."
+      }
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q2_security_callers",
+    "dimension": "D2_Usages",
+    "question_text": "Which routines, handlers, and services across the application invoke the `get_password_hash` helper?",
+    "metrics": {
+      "conversation_id": "a1f1e5ad-9b77-45bb-b99c-9ad661aabc6b",
+      "status": "SUCCESS",
+      "response": "Based on the AST and graph analysis from the codebase, `get_password_hash` (defined in [security.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/core/security.py#L34-L35)) is invoked across the application by the following routines, route handlers, and services:\n\n### 1. CRUD & Services\n* **`create_user`** in [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L9-L16)\n  * **Signature:** `def create_user(session: Session, user_create: UserCreate) -> User`\n  * **Call line:** Line 11 (hashes incoming plain password when instantiating `User`).\n* **`update_user`** in [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L19-L30)\n  * **Signature:** `def update_user(session: Session, db_user: User, user_in: UserUpdate) -> Any`\n  * **Call line:** Line 24 (hashes new password if provided during a user update).\n\n---\n\n### 2. API Route Handlers\n* **`update_password_me`** in [users.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L103-L120)\n  * **Signature:** `def update_password_me(session: SessionDep, body: UpdatePassword, current_user: CurrentUser) -> Any`\n  * **Call line:** Line 116 (hashes new password when the authenticated user updates their own password).\n* **`create_user`** in [private.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/private.py#L23-L37)\n  * **Signature:** `def create_user(user_in: PrivateUserCreate, session: SessionDep) -> Any`\n  * **Call line:** Line 31 (hashes the password when provisioning a user via the private route).\n\n---\n\n### 3. Test Suites\n* **`test_login_with_argon2_password_keeps_hash`** in [test_login.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/tests/api/routes/test_login.py#L164-L190)\n  * **Signature:** `def test_login_with_argon2_password_keeps_hash(client: TestClient, db: Session) -> None`\n  * **Call line:** Line 170 (hashes a fixture password to simulate and test argon2 login behavior).\n",
+      "cli_duration_seconds": 18.294104733,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 18532,
+        "output_tokens": 1854,
+        "thinking_tokens": 1048,
+        "cache_read_tokens": 29113,
+        "total_tokens": 20386
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.151654932,
+          "parameters": {
+            "repository_id": 8,
+            "symbol": "get_password_hash",
+            "workspace_id": 1
+          },
+          "output_length_chars": 4455
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.094819852,
+          "parameters": {
+            "repository_id": 8,
+            "symbol": "get_password_hash",
+            "workspace_id": 1
+          },
+          "output_length_chars": 5735
+        }
+      ],
+      "tool_call_count": 2,
+      "mcp_tool_call_count": 2,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 26.362,
+      "judge": {
+        "judge_model": "gpt-4o-mini",
+        "accuracy_score": 100,
+        "total_facts": 4,
+        "passed_facts": 4,
+        "evaluated_facts": [
+          {
+            "id": "fact_crud_create_user",
+            "description": "Identifies caller `create_user` in `backend/app/crud.py` hashing the initial password for a new user.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`create_user` in [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L9-L16) hashes incoming plain password when instantiating `User`."
+          },
+          {
+            "id": "fact_crud_update_user",
+            "description": "Identifies caller `update_user` in `backend/app/crud.py` hashing updated passwords during user updates.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`update_user` in [crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L19-L30) hashes new password if provided during a user update."
+          },
+          {
+            "id": "fact_routes_update_password_me",
+            "description": "Identifies caller `update_password_me` in `backend/app/api/routes/users.py` hashing the new password when a user updates their own password.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`update_password_me` in [users.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/users.py#L103-L120) hashes new password when the authenticated user updates their own password."
+          },
+          {
+            "id": "fact_routes_private_create_user",
+            "description": "Identifies caller `create_user` in `backend/app/api/routes/private.py` hashing passwords for private endpoint user creation.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`create_user` in [private.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/private.py#L23-L37) hashes the password when provisioning a user via the private route."
+          }
+        ],
+        "hallucination_detected": false,
+        "hallucination_details": null,
+        "justification": "The candidate response accurately identifies all routines that invoke `get_password_hash` without any hallucinations."
+      }
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q3_core_dependencies",
+    "dimension": "D3_Callees",
+    "question_text": "What internal helper functions, security utilities, and subsystem routines are directly invoked by `recover_password` during password recovery?",
+    "metrics": {
+      "conversation_id": "27624d01-09f3-4fcf-8c26-2a1f1e1c9530",
+      "status": "SUCCESS",
+      "response": "Based on the code structure and call-graph analysis of `recover_password` (in [`app/api/routes/login.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L53-L73)), the following internal helper functions, security utilities, and subsystem routines are directly invoked during password recovery:\n\n---\n\n### 1. Database & User Lookup Helper\n* **`get_user_by_email`** ([`app/crud.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L33-L36))\n  * **Signature:** `get_user_by_email(session: Session, email: str) -> User | None`\n  * **Invocation (Line 57):** Directly queries the database via the injected session dependency to check if a user exists with the provided recovery email address.\n\n---\n\n### 2. Security Utilities & Token Generation\n* **`generate_password_reset_token`** ([`app/utils.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/utils.py#L104-L114))\n  * **Signature:** `generate_password_reset_token(email: str) -> str`\n  * **Invocation (Line 62):** Generates a time-limited, signed security token (JWT) encoding the target user's email address for password reset authorization.\n\n---\n\n### 3. Template & Subsystem Communication Routines\n* **`generate_reset_password_email`** ([`app/utils.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/utils.py#L69-L83))\n  * **Signature:** `generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData`\n  * **Invocation (Line 63):** Prepares the email payload (subject line, recipient, and HTML template rendered with the reset link containing the token).\n\n* **`send_email`** ([`app/utils.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/utils.py#L33-L56))\n  * **Signature:** `send_email(email_to: str, subject: str = \"\", html_content: str = \"\") -> None`\n  * **Invocation (Line 66):** Subsystem routine that dispatches the rendered password recovery email via SMTP / email client.\n\n---\n\n### 4. Supporting Schemas & Dependencies Directly Involved\n* **`SessionDep`** ([`app/api/deps.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/deps.py#L25)): Dependency injection for the database session (`Session`).\n* **`Message`** ([`app/models.py`](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/models.py#L108-L109)): Response schema model instantiated (Line 71) to return the password recovery confirmation message (`Message(message=\"Password recovery email sent\")`).\n",
+      "cli_duration_seconds": 18.770345766,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 18276,
+        "output_tokens": 1678,
+        "thinking_tokens": 782,
+        "cache_read_tokens": 28992,
+        "total_tokens": 19954
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_find_node_callees",
+          "mcp_tool": null,
+          "duration_seconds": 0.090495355,
+          "parameters": {
+            "repository_id": 8,
+            "symbol": "recover_password",
+            "workspace_id": 1
+          },
+          "output_length_chars": 4011
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.086706449,
+          "parameters": {
+            "repository_id": 8,
+            "symbol": "recover_password",
+            "workspace_id": 1
+          },
+          "output_length_chars": 5097
+        }
+      ],
+      "tool_call_count": 2,
+      "mcp_tool_call_count": 2,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 21.836,
+      "judge": {
+        "judge_model": "gpt-4o-mini",
+        "accuracy_score": 75,
+        "total_facts": 4,
+        "passed_facts": 3,
+        "evaluated_facts": [
+          {
+            "id": "fact_callee_crud_user_lookup",
+            "description": "Identifies direct call to `crud.get_user_by_email` to verify whether the target user exists in the database.",
+            "passed": false,
+            "weight": 25,
+            "evidence": "The candidate response mentions `get_user_by_email` but incorrectly attributes it to `app/crud.py` instead of `crud.get_user_by_email`."
+          },
+          {
+            "id": "fact_callee_generate_token",
+            "description": "Identifies direct call to `generate_password_reset_token` to generate a signed JWT password reset token.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`generate_password_reset_token` is correctly identified and described as generating a signed security token."
+          },
+          {
+            "id": "fact_callee_generate_email_template",
+            "description": "Identifies direct call to `generate_reset_password_email` to render the password recovery email template with the reset link.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`generate_reset_password_email` is correctly identified and described as preparing the email payload."
+          },
+          {
+            "id": "fact_callee_send_email",
+            "description": "Identifies direct call to `send_email` to dispatch the generated password recovery email via SMTP.",
+            "passed": true,
+            "weight": 25,
+            "evidence": "`send_email` is correctly identified and described as dispatching the rendered password recovery email."
+          }
+        ],
+        "hallucination_detected": true,
+        "hallucination_details": "The candidate response incorrectly states the file path for `get_user_by_email`, which should be `backend/app/api/routes/login.py` instead of `app/crud.py`.",
+        "justification": "The candidate response accurately identifies three out of four functions invoked by `recover_password`, but it contains a hallucination regarding the file path for `get_user_by_email`, resulting in a deduction."
+      }
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q4_semantic_search",
+    "dimension": "D4_Semantic",
+    "question_text": "Find the component responsible for mitigating timing attacks during user authentication when a requested email does not exist in the database, and explain how its mechanism works and which endpoint utilizes it.",
+    "metrics": {
+      "conversation_id": "7d559c1c-7fa6-4db4-a464-a5b9f8fe2d5d",
+      "status": "SUCCESS",
+      "response": "The component responsible for mitigating timing attacks during authentication is the **`authenticate`** function and its associated **`DUMMY_HASH`** in [app/crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L41-L51).\n\n---\n\n### 1. Responsible Component\n\n* **File:** [app/crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L41-L51)\n* **Function:** `authenticate(*, session: Session, email: str, password: str) -> User | None`\n* **Constant:** `DUMMY_HASH`\n  ```python\n  # Dummy hash to use for timing attack prevention when user is not found\n  # This is an Argon2 hash of a random password, used to ensure constant-time comparison\n  DUMMY_HASH = \"$argon2id$v=19$m=65536,t=3,p=4$MjQyZWE1MzBjYjJlZTI0Yw$YTU4NGM5ZTZmYjE2NzZlZjY0ZWY3ZGRkY2U2OWFjNjk\"\n  ```\n\n---\n\n### 2. How the Mechanism Works\n\n1. **The Timing Attack Problem:**\n   Cryptographic password hashing algorithms (such as Argon2id or Bcrypt) are intentionally computationally intensive and slow to prevent brute-force attacks. Without mitigation, if a user lookup by email yields no record and the server returns immediately, the response time is negligible (only the database query latency). In contrast, when an email exists, the server spends tens or hundreds of milliseconds verifying the password. An attacker can measure this latency difference to enumerate registered email addresses.\n\n2. **The Mitigation Mechanism:**\n   In [app/crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L44-L51):\n   ```python\n   def authenticate(*, session: Session, email: str, password: str) -> User | None:\n       db_user = get_user_by_email(session=session, email=email)\n       if not db_user:\n           # Prevent timing attacks by running password verification even when user doesn't exist\n           # This ensures the response time is similar whether or not the email exists\n           verify_password(password, DUMMY_HASH)\n           return None\n       verified, updated_password_hash = verify_password(password, db_user.hashed_password)\n       if not verified:\n           return None\n       ...\n   ```\n   When `get_user_by_email` returns `None`, `authenticate` still invokes `verify_password(password, DUMMY_HASH)` using a precomputed valid Argon2 hash. This ensures that the expensive hashing computation is executed regardless of whether the user exists, equalizing the response time and eliminating the side-channel timing discrepancy.\n\n---\n\n### 3. Endpoint That Utilizes It\n\n* **Route Handler:** `login_access_token` in [app/api/routes/login.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L23-L41)\n* **HTTP Method & Path:** `POST /api/v1/login/access-token` (mounted via `api_router` under `settings.API_V1_STR` in [app/main.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/main.py#L32))\n* **Usage:**\n  ```python\n  @router.post(\"/login/access-token\")\n  def login_access_token(\n      session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]\n  ) -> Token:\n      user = crud.authenticate(\n          session=session, email=form_data.username, password=form_data.password\n      )\n      if not user:\n          raise HTTPException(status_code=400, detail=\"Incorrect email or password\")\n      ...\n  ```\n",
+      "cli_duration_seconds": 57.686043871,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 42282,
+        "output_tokens": 4105,
+        "thinking_tokens": 2045,
+        "cache_read_tokens": 181046,
+        "total_tokens": 46387
+      },
+      "tool_calls": [
+        {
+          "step_index": 12,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.758719962,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 8
+          },
+          "output_length_chars": 2737
+        },
+        {
+          "step_index": 13,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.835122884,
+          "parameters": {
+            "file": "app/api/routes/login.py",
+            "repository_id": 8
+          },
+          "output_length_chars": 2556
+        },
+        {
+          "step_index": 14,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.66098061,
+          "parameters": {
+            "file": "app/core/security.py",
+            "repository_id": 8
+          },
+          "output_length_chars": 1713
+        },
+        {
+          "step_index": 17,
+          "tool_name": "mcp_source-context_get_node_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.19507345,
+          "parameters": {
+            "node_id": "c17967a5-7db9-41b3-b140-630794c2d843"
+          },
+          "output_length_chars": 807
+        },
+        {
+          "step_index": 18,
+          "tool_name": "mcp_source-context_get_node_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.174652455,
+          "parameters": {
+            "node_id": "6afa0ef4-e588-4166-ae2f-92dbef2bbf9b"
+          },
+          "output_length_chars": 825
+        },
+        {
+          "step_index": 20,
+          "tool_name": "mcp_source-context_get_node_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.214488686,
+          "parameters": {
+            "node_id": "5fc8953c-3edd-427e-a148-0693e3df0de0"
+          },
+          "output_length_chars": 250
+        },
+        {
+          "step_index": 21,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.168118638,
+          "parameters": {
+            "file": "app/core/security.py",
+            "line_end": 20,
+            "line_start": 1,
+            "repository_id": 8
+          },
+          "output_length_chars": 985
+        },
+        {
+          "step_index": 23,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.071378541,
+          "parameters": {
+            "file": "app/crud.py",
+            "line_end": 45,
+            "line_start": 30,
+            "repository_id": 8
+          },
+          "output_length_chars": 2541
+        },
+        {
+          "step_index": 25,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.054140773,
+          "parameters": {
+            "file": "app/api/routes/login.py",
+            "line_end": 30,
+            "line_start": 1,
+            "repository_id": 8
+          },
+          "output_length_chars": 4166
+        },
+        {
+          "step_index": 28,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.087112801,
+          "parameters": {
+            "file": "app/api/main.py",
+            "repository_id": 8
+          },
+          "output_length_chars": 242
+        },
+        {
+          "step_index": 30,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.058051823,
+          "parameters": {
+            "file": "app/api/main.py",
+            "repository_id": 8
+          },
+          "output_length_chars": 485
+        },
+        {
+          "step_index": 33,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.063827566,
+          "parameters": {
+            "file": "app/main.py",
+            "line_end": 40,
+            "line_start": 1,
+            "repository_id": 8
+          },
+          "output_length_chars": 1036
+        }
+      ],
+      "tool_call_count": 12,
+      "mcp_tool_call_count": 12,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 60.744,
+      "judge": {
+        "judge_model": "gpt-4o-mini",
+        "accuracy_score": 100,
+        "total_facts": 3,
+        "passed_facts": 3,
+        "evaluated_facts": [
+          {
+            "id": "fact_target_symbol",
+            "description": "Identifies the target function `authenticate` and constant `DUMMY_HASH` in `backend/app/crud.py`.",
+            "passed": true,
+            "weight": 35,
+            "evidence": "The component responsible for mitigating timing attacks during authentication is the **`authenticate`** function and its associated **`DUMMY_HASH`** in [app/crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L41-L51)."
+          },
+          {
+            "id": "fact_implementation_logic",
+            "description": "Explains that when `db_user` is not found (`None`), the function executes `verify_password(password, DUMMY_HASH)` against a precomputed Argon2 dummy hash to ensure constant response time and prevent user enumeration timing attacks.",
+            "passed": true,
+            "weight": 35,
+            "evidence": "When `get_user_by_email` returns `None`, `authenticate` still invokes `verify_password(password, DUMMY_HASH)` using a precomputed valid Argon2 hash."
+          },
+          {
+            "id": "fact_caller_context",
+            "description": "Identifies the calling endpoint `login_access_token` (`POST /login/access-token`) in `backend/app/api/routes/login.py` that utilizes `crud.authenticate`.",
+            "passed": true,
+            "weight": 30,
+            "evidence": "Route Handler: `login_access_token` in [app/api/routes/login.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/login.py#L23-L41)"
+          }
+        ],
+        "hallucination_detected": false,
+        "hallucination_details": null,
+        "justification": "The candidate response accurately identifies the relevant function, explains its mechanism for mitigating timing attacks, and correctly identifies the endpoint that utilizes it."
+      }
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q5_dead_code",
+    "dimension": "D5_DeadCode",
+    "question_text": "In the database CRUD layer, identify any top-level entity creation, conversion, or retrieval function that is never invoked or referenced anywhere across the application (excluding test files).",
+    "metrics": {
+      "conversation_id": "48369e2f-3e63-4c2f-bf4c-e9285adb3336",
+      "status": "SUCCESS",
+      "response": "In the database CRUD layer ([app/crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L62-L67)), the entity creation function never invoked or referenced anywhere across the application (excluding test files) is:\n\n### **`create_item`**\n\n- **File**: [app/crud.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/crud.py#L62-L67)\n- **Signature**:\n  ```python\n  def create_item(session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -> Item:\n  ```\n- **Analysis & Usages**:\n  - **Application code (`app/`)**: **0 references**. The items route handler (`create_item` in [app/api/routes/items.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/api/routes/items.py#L61-L71)) instantiates and saves `Item` directly via `Item.model_validate(...)` and `session.add(...)` rather than delegating to `crud.create_item`.\n  - **Test code**: Referenced only once as a test helper in `tests/utils/item.py` within `create_random_item`.\n",
+      "cli_duration_seconds": 47.839169885,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 50753,
+        "output_tokens": 2851,
+        "thinking_tokens": 1488,
+        "cache_read_tokens": 251347,
+        "total_tokens": 53604
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.186079248,
+          "parameters": {
+            "file": "app/crud.py",
+            "repository_id": 8,
+            "workspace_id": 1
+          },
+          "output_length_chars": 2737
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_find_unused_nodes_in_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.272980367,
+          "parameters": {
+            "file_id": "1794a85a-bd8a-4fd9-8b5e-ea0ee05836f5"
+          },
+          "output_length_chars": 77
+        },
+        {
+          "step_index": 7,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 2.549702284,
+          "parameters": {
+            "file": "app/crud.py",
+            "node_id": "00811327-d905-4ec3-994b-b5be6666f0e8",
+            "repository_id": 8,
+            "symbol": "create_user",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10239
+        },
+        {
+          "step_index": 8,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 2.140153301,
+          "parameters": {
+            "file": "app/crud.py",
+            "node_id": "fa4a2d7b-4a31-4eee-a3ab-9f03e7025d6d",
+            "repository_id": 8,
+            "symbol": "update_user",
+            "workspace_id": 1
+          },
+          "output_length_chars": 2816
+        },
+        {
+          "step_index": 9,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 1.5021105609999998,
+          "parameters": {
+            "file": "app/crud.py",
+            "node_id": "47a430c2-9e1c-46af-8434-d5edb3b0b24b",
+            "repository_id": 8,
+            "symbol": "get_user_by_email",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 10,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.887969569,
+          "parameters": {
+            "file": "app/crud.py",
+            "node_id": "7898795e-8133-42a8-9879-907b8b55b738",
+            "repository_id": 8,
+            "symbol": "create_item",
+            "workspace_id": 1
+          },
+          "output_length_chars": 563
+        },
+        {
+          "step_index": 11,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.337653871,
+          "parameters": {
+            "file": "app/crud.py",
+            "node_id": "c17967a5-7db9-41b3-b140-630794c2d843",
+            "repository_id": 8,
+            "symbol": "authenticate",
+            "workspace_id": 1
+          },
+          "output_length_chars": 3733
+        },
+        {
+          "step_index": 13,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.146324342,
+          "parameters": {
+            "file": "app/api/routes/items.py",
+            "repository_id": 8,
+            "workspace_id": 1
+          },
+          "output_length_chars": 2498
+        },
+        {
+          "step_index": 15,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.087467705,
+          "parameters": {
+            "file": "app/crud.py",
+            "node_id": "7898795e-8133-42a8-9879-907b8b55b738",
+            "repository_id": 8,
+            "symbol": "create_item",
+            "workspace_id": 1
+          },
+          "output_length_chars": 2176
+        },
+        {
+          "step_index": 23,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.075904841,
+          "parameters": {
+            "Arguments": {
+              "branch_name": "master",
+              "repository_id": 8,
+              "workspace_id": 1
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_projects"
+          },
+          "output_length_chars": 101
+        },
+        {
+          "step_index": 28,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.132559871,
+          "parameters": {
+            "Arguments": {
+              "project_id": "8"
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_files_in_project"
+          },
+          "output_length_chars": 3656
+        }
+      ],
+      "tool_call_count": 11,
+      "mcp_tool_call_count": 11,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 51.252,
+      "judge": {
+        "judge_model": "gpt-4o-mini",
+        "accuracy_score": 60,
+        "total_facts": 2,
+        "passed_facts": 1,
+        "evaluated_facts": [
+          {
+            "id": "fact_unused_detected",
+            "description": "Correctly identifies `create_item` in `backend/app/crud.py` as having zero incoming references or calls across the entire application codebase (excluding tests).",
+            "passed": true,
+            "weight": 60,
+            "evidence": "The candidate states that `create_item` has **0 references** in the application code."
+          },
+          {
+            "id": "fact_active_symbols_differentiated",
+            "description": "Correctly distinguishes that all other CRUD functions in the same module (`create_user`, `update_user`, `get_user_by_email`, and `authenticate`) are actively imported and invoked across `backend/app/core/db.py`, `backend/app/api/routes/users.py`, and `backend/app/api/routes/login.py`.",
+            "passed": false,
+            "weight": 40,
+            "evidence": "The candidate does not mention the active usage of other CRUD functions, focusing only on `create_item`."
+          }
+        ],
+        "hallucination_detected": false,
+        "hallucination_details": null,
+        "justification": "The candidate correctly identified that `create_item` is unused, but failed to address the active usage of other CRUD functions, resulting in a partial score."
+      }
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-template",
+    "question_id": "Q6_module_outline",
+    "dimension": "D6_Structure",
+    "question_text": "Inspect the email dispatch and notification template module and summarize all top-level functions defined in it, including their exact parameter signatures, return types, and purpose.",
+    "metrics": {
+      "conversation_id": "4f4ed98a-ba26-41ac-8597-6818ed647693",
+      "status": "SUCCESS",
+      "response": "The email dispatch and notification template functionality is implemented in [app/utils.py](file:///home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend/app/utils.py). \n\nThis module also defines the helper data class:\n- `EmailData`: Contains `html_content: str` and `subject: str`.\n\n---\n\n### Top-Level Functions\n\n#### 1. `render_email_template`\n* **Signature:**\n  ```python\n  def render_email_template(*, template_name: str, context: dict[str, Any]) -> str\n  ```\n* **Return Type:** `str`\n* **Purpose:** Loads a template file by name from the adjacent `email-templates/` directory, renders it using Jinja2 (`jinja2.Template`) with the provided keyword context dictionary, and returns the resulting HTML string.\n\n---\n\n#### 2. `send_email`\n* **Signature:**\n  ```python\n  def send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None\n  ```\n* **Return Type:** `None`\n* **Purpose:** Validates that email dispatch is configured in application settings and sends an HTML email to `email_to` via SMTP (supporting TLS/SSL and credentials) using the `emails` library. Logs the delivery result.\n\n---\n\n#### 3. `generate_test_email`\n* **Signature:**\n  ```python\n  def generate_test_email(email_to: str) -> EmailData\n  ```\n* **Return Type:** `EmailData`\n* **Purpose:** Prepares a test notification by rendering the `test_email.html` template with the project name and recipient email. Returns an `EmailData` object with the subject `\"<PROJECT_NAME> - Test email\"` and rendered HTML.\n\n---\n\n#### 4. `generate_reset_password_email`\n* **Signature:**\n  ```python\n  def generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData\n  ```\n* **Return Type:** `EmailData`\n* **Purpose:** Builds the password recovery URL with the reset token and renders `reset_password.html` containing the reset link, valid expiration hours, and user information. Returns an `EmailData` object.\n\n---\n\n#### 5. `generate_new_account_email`\n* **Signature:**\n  ```python\n  def generate_new_account_email(email_to: str, username: str, password: str) -> EmailData\n  ```\n* **Return Type:** `EmailData`\n* **Purpose:** Generates a welcome email for newly created accounts by rendering `new_account.html` with username, password, recipient email, and frontend login link. Returns an `EmailData` object.\n\n---\n\n#### 6. `generate_password_reset_token`\n* **Signature:**\n  ```python\n  def generate_password_reset_token(email: str) -> str\n  ```\n* **Return Type:** `str`\n* **Purpose:** Generates a signed JWT token for password reset flows containing the subject (`email`), issue timestamp (`nbf`), and expiration (`exp`) derived from `EMAIL_RESET_TOKEN_EXPIRE_HOURS`.\n\n---\n\n#### 7. `verify_password_reset_token`\n* **Signature:**\n  ```python\n  def verify_password_reset_token(token: str) -> str | None\n  ```\n* **Return Type:** `str | None`\n* **Purpose:** Decodes and verifies the authenticity and expiration of a password reset JWT token using the configured secret key. Returns the subject email if valid, or `None` if the token is invalid or expired.\n",
+      "cli_duration_seconds": 63.651523479,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 31576,
+        "output_tokens": 4260,
+        "thinking_tokens": 2769,
+        "cache_read_tokens": 109001,
+        "total_tokens": 35836
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_search_in_repo_and_branch",
+          "mcp_tool": null,
+          "duration_seconds": 0.625115338,
+          "parameters": {
+            "branch_name": "master",
+            "query": "send email notification template",
+            "repository_id": 8
+          },
+          "output_length_chars": 3714
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_get_node_info",
+          "mcp_tool": null,
+          "duration_seconds": 0.088622842,
+          "parameters": {
+            "node_id": "d290107a-312b-41a8-8956-234c37b3ae5d"
+          },
+          "output_length_chars": 592
+        },
+        {
+          "step_index": 7,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.168592746,
+          "parameters": {
+            "file_id": "8c78b416-31e2-4b67-a9f7-055aa40ca3a4",
+            "repository_id": 8
+          },
+          "output_length_chars": 4182
+        },
+        {
+          "step_index": 9,
+          "tool_name": "mcp_source-context_get_node_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.887372854,
+          "parameters": {
+            "node_id": "cab43a3e-125f-4d14-a7bc-e08b5fbfa705"
+          },
+          "output_length_chars": 736
+        },
+        {
+          "step_index": 10,
+          "tool_name": "mcp_source-context_get_node_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.569885221,
+          "parameters": {
+            "node_id": "683355b5-b456-443a-968e-583d7c6ff150"
+          },
+          "output_length_chars": 458
+        },
+        {
+          "step_index": 11,
+          "tool_name": "mcp_source-context_get_node_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.213925786,
+          "parameters": {
+            "node_id": "cd558f0b-579b-4d7d-a108-22a234b3c239"
+          },
+          "output_length_chars": 354
+        },
+        {
+          "step_index": 13,
+          "tool_name": "mcp_source-context_get_node_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.068697104,
+          "parameters": {
+            "node_id": "607b3f22-7c00-4d4c-82b2-3d2ae95c7e18"
+          },
+          "output_length_chars": 133
+        },
+        {
+          "step_index": 15,
+          "tool_name": "mcp_source-context_get_node_info",
+          "mcp_tool": null,
+          "duration_seconds": 0.057437859,
+          "parameters": {
+            "node_id": "60c57145-4c48-4f09-b424-404704cb6bc7"
+          },
+          "output_length_chars": 468
+        },
+        {
+          "step_index": 18,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.085222468,
+          "parameters": {
+            "file_id": "6d7bf469-94ed-4150-95f5-ac8b50ae072d",
+            "repository_id": 8
+          },
+          "output_length_chars": 1061
+        }
+      ],
+      "tool_call_count": 9,
+      "mcp_tool_call_count": 9,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 66.496,
+      "judge": {
+        "judge_model": "gpt-4o-mini",
+        "accuracy_score": 100,
+        "total_facts": 7,
+        "passed_facts": 7,
+        "evaluated_facts": [
+          {
+            "id": "fact_render_email_template",
+            "description": "Summarizes `render_email_template(*, template_name: str, context: dict[str, Any]) -> str` for rendering Jinja2 HTML email templates.",
+            "passed": true,
+            "weight": 15,
+            "evidence": "Signature: def render_email_template(*, template_name: str, context: dict[str, Any]) -> str"
+          },
+          {
+            "id": "fact_send_email",
+            "description": "Summarizes `send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None` for sending emails via configured SMTP settings.",
+            "passed": true,
+            "weight": 15,
+            "evidence": "Signature: def send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None"
+          },
+          {
+            "id": "fact_generate_test_email",
+            "description": "Summarizes `generate_test_email(email_to: str) -> EmailData` for creating test email content and subject.",
+            "passed": true,
+            "weight": 10,
+            "evidence": "Signature: def generate_test_email(email_to: str) -> EmailData"
+          },
+          {
+            "id": "fact_generate_reset_password_email",
+            "description": "Summarizes `generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData` for creating password recovery emails with reset links.",
+            "passed": true,
+            "weight": 15,
+            "evidence": "Signature: def generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData"
+          },
+          {
+            "id": "fact_generate_new_account_email",
+            "description": "Summarizes `generate_new_account_email(email_to: str, username: str, password: str) -> EmailData` for creating welcome emails containing login credentials.",
+            "passed": true,
+            "weight": 15,
+            "evidence": "Signature: def generate_new_account_email(email_to: str, username: str, password: str) -> EmailData"
+          },
+          {
+            "id": "fact_generate_password_reset_token",
+            "description": "Summarizes `generate_password_reset_token(email: str) -> str` for generating timed JWT password recovery tokens.",
+            "passed": true,
+            "weight": 15,
+            "evidence": "Signature: def generate_password_reset_token(email: str) -> str"
+          },
+          {
+            "id": "fact_verify_password_reset_token",
+            "description": "Summarizes `verify_password_reset_token(token: str) -> str | None` for validating JWT recovery tokens and extracting the user email.",
+            "passed": true,
+            "weight": 15,
+            "evidence": "Signature: def verify_password_reset_token(token: str) -> str | None"
+          }
+        ],
+        "hallucination_detected": false,
+        "hallucination_details": null,
+        "justification": "The candidate response accurately summarizes all top-level functions, including their signatures, return types, and purposes, with no hallucinations detected."
+      }
+    }
+  }
+]
