@@ -7,16 +7,12 @@ from app.engine.graph.service import GraphServiceDep
 from app.core import APIResponse, ResponseSuccessSchema, build_error_docs, ErrorCode
 from app.api.dependencies import CurrentAgent
 
-from app.api.dependencies import CodeRetrieverDep, CurrentAgent, DBSession
+from app.api.dependencies import CodeRetrieverDep, DBSession
 from app.core import (
-    APIResponse,
     AppException,
-    ErrorCode,
-    ResponseSuccessSchema,
-    build_error_docs,
 )
 from app.engine.graph.model import FileNodeModel, UASTNodeModel
-from app.engine.graph.service import GraphService, GraphServiceDep
+from app.engine.graph.service import GraphService
 from app.model.branch import Branch
 from app.model.project import Project
 from app.retrieval.retriever import CodeRetriever

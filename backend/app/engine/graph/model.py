@@ -168,10 +168,14 @@ class UASTNodeModel(StructuredNode):
         if isinstance(uast_node, (FunctionNode, TypeDefinitionNode)):
             signature = extract_node_signature(uast_node)
 
+        name = uast_node.name
+        if name is not None and len(name) > 500:
+            name = name[:500]
+
         return {
             "uid": uast_node.id,
             "node_type": uast_node.node_type,
-            "name": uast_node.name,
+            "name": name,
             "start_byte": uast_node.start_byte,
             "end_byte": uast_node.end_byte,
             "start_row": uast_node.start_point[0],
@@ -194,6 +198,11 @@ class UASTNodeModel(StructuredNode):
             Instance of This class
         """
         return cls(**cls.extract_kwargs(uast_node))
+
+    def pre_save(self) -> None:
+        """Sanitize properties before persistence to guard Neo4j index limits."""
+        if self.name is not None and len(self.name) > 500:
+            self.name = self.name[:500]
 
 
 class DefinitionNodeModel(UASTNodeModel):
@@ -459,7 +468,6 @@ class ApiNodeModel(StructuredNode):
 
     file_node_uid: str | None = StringProperty()  # type: ignore[assignment]
     """File where the endpoint is declared or the call is made."""
-
 
     metadata: dict | None = JSONProperty()  # type: ignore[assignment]
     """Protocol or framework specific extras that no query filters on."""

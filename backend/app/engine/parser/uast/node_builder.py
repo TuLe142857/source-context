@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import uuid
 from typing import Any
 
@@ -112,6 +113,11 @@ class UASTNodeFactory:
             raise ValueError("Invalid UASTNode config")
 
         merged_kwargs: dict[str, Any] = default_kwargs | kwargs
+        if dataclasses.is_dataclass(node_class):
+            valid_fields = {f.name for f in dataclasses.fields(node_class)}
+            merged_kwargs = {
+                k: v for k, v in merged_kwargs.items() if k in valid_fields
+            }
         return node_class(**merged_kwargs)
 
 
@@ -178,6 +184,8 @@ class UASTNodeBuilder:
         return self._node_id
 
     def set_name(self, name: str | None) -> "UASTNodeBuilder":
+        if name is not None and len(name) > 500:
+            name = name[:500]
         self.name = name
         return self
 

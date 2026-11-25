@@ -907,17 +907,6 @@ class TypeScriptVariableCaptureHandler(
             context,
         )
 
-        type_text = _get_type_text(
-            ts_child,
-            context,
-        )
-
-        if type_text is not None:
-            builder.set(
-                "data_type",
-                type_text,
-            )
-
         value_node = _get_value_node(
             ts_child,
         )
@@ -932,6 +921,17 @@ class TypeScriptVariableCaptureHandler(
                 context,
             )
         else:
+            type_text = _get_type_text(
+                ts_child,
+                context,
+            )
+
+            if type_text is not None:
+                builder.set(
+                    "data_type",
+                    type_text,
+                )
+
             value_text = _get_node_text(
                 context,
                 value_node,

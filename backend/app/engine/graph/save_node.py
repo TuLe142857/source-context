@@ -93,6 +93,8 @@ def _build_node_tree(node: UASTNode, file_node_uid: str) -> UASTNodeModel:
     model_cls = get_model_cls_for_uast_node(node)
     node_model: UASTNodeModel = model_cls.from_uast(node)
     node_model.file_node_uid = file_node_uid
+    if node_model.name is not None and len(node_model.name) > 500:
+        node_model.name = node_model.name[:500]
     node_model.save()
 
     for child in node.children:

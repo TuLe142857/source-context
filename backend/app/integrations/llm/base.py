@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class BaseLLMClient(ABC):
     def __init__(self, model: str):
         self._model = model

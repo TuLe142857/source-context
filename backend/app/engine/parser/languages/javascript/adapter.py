@@ -752,6 +752,13 @@ class JavaScriptCallCaptureHandler(
         callable_node: Node,
         context: BuildContext,
     ) -> None:
+        while callable_node.type == "parenthesized_expression":
+            named = callable_node.named_children
+            if named:
+                callable_node = named[0]
+            else:
+                break
+
         if callable_node.type == "member_expression":
             subject_node = callable_node.child_by_field_name(
                 "object",
@@ -788,15 +795,30 @@ class JavaScriptCallCaptureHandler(
                 )
 
             if index_node is not None:
-                builder.set_name(
-                    context.get_text(index_node),
-                )
+                index_text = context.get_text(index_node)
+                if index_text is not None:
+                    builder.set_name(
+                        index_text[:256] if len(index_text) > 256 else index_text
+                    )
 
             return
 
-        builder.set_name(
-            context.get_text(callable_node),
-        )
+        if callable_node.type in {
+            "function_expression",
+            "function",
+            "generator_function",
+            "arrow_function",
+        }:
+            fn_name_node = callable_node.child_by_field_name("name")
+            if fn_name_node is not None:
+                builder.set_name(context.get_text(fn_name_node))
+            else:
+                builder.set_name("<anonymous>")
+            return
+
+        name_text = context.get_text(callable_node)
+        if name_text is not None:
+            builder.set_name(name_text[:256] if len(name_text) > 256 else name_text)
 
 
 class JavaScriptAttributeCaptureHandler(
@@ -845,9 +867,9 @@ class JavaScriptAttributeCaptureHandler(
             )
 
         if name_node is not None:
-            builder.set_name(
-                context.get_text(name_node),
-            )
+            name_text = context.get_text(name_node)
+            if name_text is not None:
+                builder.set_name(name_text[:256] if len(name_text) > 256 else name_text)
 
         return builder
 

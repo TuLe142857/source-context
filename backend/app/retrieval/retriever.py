@@ -28,7 +28,7 @@ class QueryResult:
     docstring: str | None
     identifiers: list[str]
     formatted_embed_text: str | None
-    payload: dict[str, Any]
+    payload: dict[str, Any] | None = None
     branch_id: int | None = None
     workspace_id: int | None = None
 
@@ -135,7 +135,7 @@ class CodeRetriever:
         for hit in hits:
             payload = hit.payload or {}
             res = QueryResult(
-                node_id=payload.get("node_id"),
+                node_id=str(payload.get("node_id", "")),
                 score=float(hit.score),
                 name=payload.get("name", "unnamed"),
                 kind=payload.get("kind", "unknown"),
@@ -145,7 +145,7 @@ class CodeRetriever:
                 docstring=payload.get("docstring"),
                 identifiers=payload.get("identifiers", []),
                 formatted_embed_text=payload.get("formatted_embed_text"),
-                payload=payload,
+                payload=None,
                 branch_id=payload.get("branch_id"),
                 workspace_id=payload.get("workspace_id"),
             )

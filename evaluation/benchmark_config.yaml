@@ -3,8 +3,12 @@ settings:
   model: "Gemini 3.8 Flash (Medium)"
   mcp_server_name: "source-context-mcp"
   output_dir: "./eval_results"
-  timeout_seconds: 300                                    
+  timeout_seconds: 300
   output_format: "stream-json"
+  judge:
+    model: "gpt-4o-mini"
+    temperature: 0.0
+    seed: 42
 
 conditions:
   - name: "antigravity_default"
@@ -13,11 +17,304 @@ conditions:
 
   - name: "antigravity_mcp"
     use_mcp: true
-    system_hint: "Use source-context MCP tools to answer the question directly. Trust Graph, AST, and Vector search results directly — do NOT make redundant read_file or get_file_content calls to re-verify code that MCP tools already provided."
+    system_hint: >-
+      Use source-context MCP tools to answer the question directly:
+      1. For semantic / concept / behavior searches (e.g. identifying mechanisms, security algorithms, or validation rules by description), ALWAYS start with `search_code_snippets`.
+      2. For blast radius, callers, and dependencies, use `analyze_impact`, `find_node_usages`, or `find_node_callees`.
+      3. For module outline or symbol signatures, `get_file_structure` already provides complete signatures, docstrings, and summaries — do NOT make subsequent redundant calls to `get_node_content` or `get_file_content`.
+      4. For dead / unused code, `find_unused_nodes_in_file` directly identifies unused symbols; trust its output without redundant re-checks.
 
 repositories:
+  - id: "full-stack-fastapi-template"
+    path: "/home/huuhieu/projects/eval_repo_set/full-stack-fastapi-template/backend"
+    mcp_context:
+      workspace_id: 1
+      project_id: 8
+      repository_id: 8
+      branch: "master"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the database CRUD utility `get_user_by_email` changes its signature or return type, which endpoints, services, and caller functions across the codebase will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["get_user_by_email"]
+          target_files:
+            - "backend/app/crud.py"
+            - "backend/app/api/routes/users.py"
+            - "backend/app/api/routes/login.py"
+          atomic_facts:
+            - id: "fact_caller_authenticate"
+              weight: 20
+              description: "Identifies caller `authenticate` in `backend/app/crud.py`."
+            - id: "fact_caller_user_creation"
+              weight: 25
+              description: "Identifies callers `create_user` and `register_user` in `backend/app/api/routes/users.py`."
+            - id: "fact_caller_user_update"
+              weight: 25
+              description: "Identifies callers `update_user_me` and `update_user` in `backend/app/api/routes/users.py`."
+            - id: "fact_caller_password_recovery"
+              weight: 15
+              description: "Identifies callers `recover_password` and `recover_password_html_content` in `backend/app/api/routes/login.py`."
+            - id: "fact_caller_password_reset"
+              weight: 15
+              description: "Identifies caller `reset_password` in `backend/app/api/routes/login.py`."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which routines, handlers, and services across the application invoke the `get_password_hash` helper?"
+        ground_truth:
+          target_symbols: ["get_password_hash"]
+          target_files:
+            - "backend/app/core/security.py"
+            - "backend/app/crud.py"
+            - "backend/app/api/routes/users.py"
+            - "backend/app/api/routes/private.py"
+          atomic_facts:
+            - id: "fact_crud_create_user"
+              weight: 25
+              description: "Identifies caller `create_user` in `backend/app/crud.py` hashing the initial password for a new user."
+            - id: "fact_crud_update_user"
+              weight: 25
+              description: "Identifies caller `update_user` in `backend/app/crud.py` hashing updated passwords during user updates."
+            - id: "fact_routes_update_password_me"
+              weight: 25
+              description: "Identifies caller `update_password_me` in `backend/app/api/routes/users.py` hashing the new password when a user updates their own password."
+            - id: "fact_routes_private_create_user"
+              weight: 25
+              description: "Identifies caller `create_user` in `backend/app/api/routes/private.py` hashing passwords for private endpoint user creation."
+
+      - q_id: "Q3_core_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions, security utilities, and subsystem routines are directly invoked by `recover_password` during password recovery?"
+        ground_truth:
+          target_symbols:
+            - "recover_password"
+            - "get_user_by_email"
+            - "generate_password_reset_token"
+            - "generate_reset_password_email"
+            - "send_email"
+          target_files:
+            - "backend/app/api/routes/login.py"
+            - "backend/app/crud.py"
+            - "backend/app/utils.py"
+          atomic_facts:
+            - id: "fact_callee_crud_user_lookup"
+              weight: 25
+              description: "Identifies direct call to `crud.get_user_by_email` (defined in `backend/app/crud.py`) to verify whether the target user exists in the database."
+            - id: "fact_callee_generate_token"
+              weight: 25
+              description: "Identifies direct call to `generate_password_reset_token` (defined in `backend/app/utils.py`) to generate a signed JWT password reset token."
+            - id: "fact_callee_generate_email_template"
+              weight: 25
+              description: "Identifies direct call to `generate_reset_password_email` (defined in `backend/app/utils.py`) to render the password recovery email template with the reset link."
+            - id: "fact_callee_send_email"
+              weight: 25
+              description: "Identifies direct call to `send_email` (defined in `backend/app/utils.py`) to dispatch the generated password recovery email via SMTP."
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the component responsible for mitigating timing attacks during user authentication when a requested email does not exist in the database, and explain how its mechanism works and which endpoint utilizes it."
+        ground_truth:
+          target_symbols:
+            - "authenticate"
+            - "DUMMY_HASH"
+          target_files:
+            - "backend/app/crud.py"
+            - "backend/app/api/routes/login.py"
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 35
+              description: "Identifies the target function `authenticate` and constant `DUMMY_HASH` in `backend/app/crud.py`."
+            - id: "fact_implementation_logic"
+              weight: 35
+              description: "Explains that when `db_user` is not found (`None`), the function executes `verify_password(password, DUMMY_HASH)` against a precomputed Argon2 dummy hash to ensure constant response time and prevent user enumeration timing attacks."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies the calling endpoint `login_access_token` (`POST /login/access-token`) in `backend/app/api/routes/login.py` that utilizes `crud.authenticate`."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the database CRUD layer, identify any top-level entity creation, conversion, or retrieval function that is never invoked or referenced anywhere across the application (excluding test files), and confirm whether the other CRUD functions in that module remain actively utilized."
+        ground_truth:
+          target_symbols: ["create_item"]
+          target_files:
+            - "backend/app/crud.py"
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies `create_item` in `backend/app/crud.py` as having zero incoming references or calls across the entire application codebase (excluding tests)."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly distinguishes that all other CRUD functions in the same module (`create_user`, `update_user`, `get_user_by_email`, and `authenticate`) are actively imported and invoked across `backend/app/core/db.py`, `backend/app/api/routes/users.py`, and `backend/app/api/routes/login.py`."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect the email dispatch and notification template module and summarize all top-level functions defined in it, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_symbols:
+            - "render_email_template"
+            - "send_email"
+            - "generate_test_email"
+            - "generate_reset_password_email"
+            - "generate_new_account_email"
+            - "generate_password_reset_token"
+            - "verify_password_reset_token"
+          target_files:
+            - "backend/app/utils.py"
+          atomic_facts:
+            - id: "fact_render_email_template"
+              weight: 15
+              description: "Summarizes `render_email_template(*, template_name: str, context: dict[str, Any]) -> str` for rendering Jinja2 HTML email templates."
+            - id: "fact_send_email"
+              weight: 15
+              description: "Summarizes `send_email(*, email_to: str, subject: str = \"\", html_content: str = \"\") -> None` for sending emails via configured SMTP settings."
+            - id: "fact_generate_test_email"
+              weight: 10
+              description: "Summarizes `generate_test_email(email_to: str) -> EmailData` for creating test email content and subject."
+            - id: "fact_generate_reset_password_email"
+              weight: 15
+              description: "Summarizes `generate_reset_password_email(email_to: str, email: str, token: str) -> EmailData` for creating password recovery emails with reset links."
+            - id: "fact_generate_new_account_email"
+              weight: 15
+              description: "Summarizes `generate_new_account_email(email_to: str, username: str, password: str) -> EmailData` for creating welcome emails containing login credentials."
+            - id: "fact_generate_password_reset_token"
+              weight: 15
+              description: "Summarizes `generate_password_reset_token(email: str) -> str` for generating timed JWT password recovery tokens."
+            - id: "fact_verify_password_reset_token"
+              weight: 15
+              description: "Summarizes `verify_password_reset_token(token: str) -> str | None` for validating JWT recovery tokens and extracting the user email."
+  - id: "cli"
+    path: "/home/huuhieu/projects/eval_repo_set/cli"
+    mcp_context:
+      workspace_id: 1
+      project_id: 9
+      repository_id: 9
+      branch: "master"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the request and response headers data structure `HTTPHeadersDict` changes its initialization signature or core dict manipulation interface, which components, adapters, and caller functions across the codebase will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["HTTPHeadersDict"]
+          target_files:
+            - "httpie/cli/dicts.py"
+            - "httpie/adapters.py"
+            - "httpie/sessions.py"
+            - "httpie/cli/requestitems.py"
+            - "httpie/client.py"
+            - "httpie/output/writer.py"
+          atomic_facts:
+            - id: "fact_caller_adapters"
+              weight: 25
+              description: "Identifies caller `HTTPieHTTPAdapter.build_response` in `httpie/adapters.py` which wraps incoming response headers into an `HTTPHeadersDict` instance to preserve multiple headers with identical names."
+            - id: "fact_caller_sessions"
+              weight: 25
+              description: "Identifies callers in `httpie/sessions.py` including `Session.__init__`, `Session._compute_new_headers`, `Session.update_headers`, and the `Session.headers` property which use `HTTPHeadersDict` to store and merge session headers."
+            - id: "fact_caller_requestitems"
+              weight: 25
+              description: "Identifies caller `RequestItems.__init__` in `httpie/cli/requestitems.py` which initializes `self.headers` as an `HTTPHeadersDict` to collect parsed CLI header items."
+            - id: "fact_caller_client"
+              weight: 25
+              description: "Identifies callers in `httpie/client.py` including `finalize_headers`, `apply_missing_repeated_headers`, `make_default_headers`, and `make_request_kwargs` which construct, normalize, and pass `HTTPHeadersDict` instances for outgoing requests."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which routines, handlers, and services across the application invoke the `get_auth_plugin` helper?"
+        ground_truth:
+          target_symbols: ["get_auth_plugin"]
+          target_files:
+            - "httpie/plugins/manager.py"
+            - "httpie/sessions.py"
+            - "httpie/cli/argparser.py"
+          atomic_facts:
+            - id: "fact_usage_sessions"
+              weight: 50
+              description: "Identifies caller `Session.auth` property in `httpie/sessions.py` which calls `plugin_manager.get_auth_plugin(auth['type'])` to resolve and instantiate the authentication plugin for stored session credentials."
+            - id: "fact_usage_argparser"
+              weight: 50
+              description: "Identifies caller `HTTPieArgumentParser._process_auth` in `httpie/cli/argparser.py` which calls `plugin_manager.get_auth_plugin(self.args.auth_type)` to instantiate the configured authentication plugin based on parsed CLI arguments."
+
+      - q_id: "Q3_core_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions, security utilities, and subsystem routines are directly invoked by `collect_messages` during the HTTP request preparation, dispatch, and response collection pipeline?"
+        ground_truth:
+          target_symbols: ["collect_messages"]
+          target_files:
+            - "httpie/client.py"
+          atomic_facts:
+            - id: "fact_callee_session_handling"
+              weight: 25
+              description: "Identifies invocation of `get_httpie_session` to retrieve persistent session configuration, and session mutating methods `update_headers`, `remove_cookies`, and `save`."
+            - id: "fact_callee_args_builder"
+              weight: 25
+              description: "Identifies invocation of `make_request_kwargs`, `make_send_kwargs`, and `make_send_kwargs_mergeable_from_env` to assemble request headers, data parameters, and transport options."
+            - id: "fact_callee_build_session"
+              weight: 25
+              description: "Identifies invocation of `build_requests_session` to initialize the transport session with custom TLS adapters, SSL version mappings, and certificate verification."
+            - id: "fact_callee_transforms_and_cookies"
+              weight: 25
+              description: "Identifies invocations of pipeline helpers including `transform_headers`, `ensure_path_as_is`, `compress_request`, `max_headers` context manager, `dump_request`, and `get_expired_cookies`."
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the component responsible for overriding standard cookie security policy to permit cookies flagged with the 'Secure' attribute to be transmitted to localhost destinations over unencrypted HTTP, and explain how its detection algorithm works and which services configure or utilize this policy."
+        ground_truth:
+          target_symbols:
+            - "HTTPieCookiePolicy"
+            - "HTTPieCookiePolicy.return_ok_secure"
+            - "HTTPieCookiePolicy._is_local_host"
+          target_files:
+            - "httpie/cookies.py"
+            - "httpie/compat.py"
+            - "httpie/sessions.py"
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 40
+              description: "Correctly identifies the target class `HTTPieCookiePolicy` in `httpie/cookies.py` extending `http.cookiejar.DefaultCookiePolicy`."
+            - id: "fact_implementation_logic"
+              weight: 30
+              description: "Accurately explains the detection mechanism: `return_ok_secure` first delegates to `super().return_ok_secure(cookie, request)`, and if false, extracts the hostname using `cookiejar.request_host(request)` and checks via `_is_local_host` whether the host is exactly 'localhost' or ends with '.localhost' (mimicking Firefox/Chrome behavior)."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies that `HTTPieCookiePolicy` is utilized in `httpie/compat.py` by monkeypatching `cookiejar.DefaultCookiePolicy = HTTPieCookiePolicy` and in `httpie/sessions.py` where `Session` explicitly instantiates `RequestsCookieJar(policy=HTTPieCookiePolicy())`."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the general utilities and shared helpers component (without naming the file), identify any top-level entity conversion or formatting function that is never invoked or referenced anywhere across the application (excluding test files)."
+        ground_truth:
+          target_symbols: ["humanize_bytes"]
+          target_files:
+            - "httpie/utils.py"
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies `humanize_bytes` in `httpie/utils.py` as having zero incoming calls or references across the entire codebase."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly distinguishes that other top-level functions in `httpie/utils.py` (such as `load_json_preserve_order_and_dupe_keys`, `repr_dict`, `get_content_type`, `split_cookies`, `get_expired_cookies`, `parse_content_type_header`, `get_site_paths`, `split_iterable`, `unwrap_context`, `url_as_host`, `open_with_lockfile`, and `is_version_greater`) are actively referenced across other application components."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect the character encoding, decoding, and charset detection module (without naming the file) and summarize all top-level functions defined in it, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_symbols:
+            - "detect_encoding"
+            - "smart_decode"
+            - "smart_encode"
+          target_files:
+            - "httpie/encoding.py"
+          atomic_facts:
+            - id: "fact_symbol_detect_encoding"
+              weight: 35
+              description: "Summarizes `detect_encoding(content: ContentBytes) -> str` (where `ContentBytes = Union[bytearray, bytes]`) with purpose: detects charset encoding using `charset_normalizer.from_bytes`, defaulting to 'utf-8' if content length is less than or equal to `TOO_SMALL_SEQUENCE` to avoid random detection artifacts."
+            - id: "fact_symbol_smart_decode"
+              weight: 35
+              description: "Summarizes `smart_decode(content: ContentBytes, encoding: str) -> Tuple[str, str]` with purpose: decodes raw bytes using the specified encoding (or falls back to `detect_encoding(content)` if not provided) replacing decoding errors, returning a tuple of `(decoded_string, effective_encoding)`."
+            - id: "fact_symbol_smart_encode"
+              weight: 30
+              description: "Summarizes `smart_encode(content: str, encoding: str) -> bytes` with purpose: encodes unicode string into bytes using the given encoding while replacing unencodable characters with error replacement."
   - id: "django"
-    path: "/home/huuhieu/projects/django"
+    path: "/home/huuhieu/projects/eval_repo_set/django"
     mcp_context:
       workspace_id: 1
       project_id: 1
@@ -26,56 +323,924 @@ repositories:
     questions:
       - q_id: "Q1_blast_radius"
         dimension: "D1_Impact"
-        text: "If the active user model resolution helper get_user_model changes its signature or return type, which views, forms, authentication backends, and management commands across the codebase will be directly affected? List the affected caller functions and their containing files."
+        text: "If the URL resolution shortcut `resolve_url` changes its signature or return type, which endpoints, services, and caller functions across the codebase will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["resolve_url"]
+          target_files:
+            - "django/shortcuts.py"
+            - "django/contrib/auth/decorators.py"
+            - "django/contrib/auth/middleware.py"
+            - "django/contrib/auth/mixins.py"
+            - "django/contrib/auth/views.py"
+          atomic_facts:
+            - id: "fact_caller_redirect"
+              weight: 20
+              description: "Identifies caller redirect in django/shortcuts.py."
+            - id: "fact_caller_decorators"
+              weight: 20
+              description: "Identifies caller user_passes_test (and login_required wrapper) in django/contrib/auth/decorators.py."
+            - id: "fact_caller_middleware"
+              weight: 20
+              description: "Identifies caller LoginRequiredMiddleware.process_view in django/contrib/auth/middleware.py."
+            - id: "fact_caller_mixins"
+              weight: 20
+              description: "Identifies caller AccessMixin.handle_no_permission in django/contrib/auth/mixins.py."
+            - id: "fact_caller_views"
+              weight: 20
+              description: "Identifies callers in django/contrib/auth/views.py, including redirect_to_login, LoginView.get_default_redirect_url, LogoutView.get_default_redirect_url, and PasswordResetConfirmView.get_context_data."
 
       - q_id: "Q2_security_callers"
         dimension: "D2_Usages"
-        text: "Which security routines, middleware components, cryptographic signers, and authentication handlers across the application call the timing-safe string comparison helper constant_time_compare?"
+        text: "Which routines, handlers, and services across the application invoke the `constant_time_compare` helper?"
+        ground_truth:
+          target_symbols: ["constant_time_compare"]
+          target_files:
+            - "django/utils/crypto.py"
+            - "django/contrib/auth/__init__.py"
+            - "django/contrib/auth/hashers.py"
+            - "django/contrib/auth/tokens.py"
+            - "django/core/signing.py"
+            - "django/middleware/csrf.py"
+          atomic_facts:
+            - id: "fact_usage_auth_session"
+              weight: 20
+              description: "Identifies invocation in django/contrib/auth/__init__.py within get_user, auser, or login/alogin for session authentication hash verification."
+            - id: "fact_usage_hashers"
+              weight: 20
+              description: "Identifies invocation in django/contrib/auth/hashers.py within check_password (or BasePasswordHasher.safe_summary) for secure password comparison."
+            - id: "fact_usage_tokens"
+              weight: 20
+              description: "Identifies invocation in django/contrib/auth/tokens.py within PasswordResetTokenGenerator.check_token for password reset token verification."
+            - id: "fact_usage_signing"
+              weight: 20
+              description: "Identifies invocation in django/core/signing.py within Signer.unsign for constant-time cryptographic signature verification."
+            - id: "fact_usage_csrf"
+              weight: 20
+              description: "Identifies invocation in django/middleware/csrf.py within _compare_masked_tokens for comparing request CSRF token against the secret."
 
-      - q_id: "Q3_login_dependencies"
+      - q_id: "Q3_core_dependencies"
         dimension: "D3_Callees"
-        text: "What internal helper functions, security utilities, and signal dispatchers are directly invoked by the session establishment function login in the authentication module?"
+        text: "What internal helper functions, security utilities, and subsystem routines are directly invoked by `login` during user authentication and session initialization?"
+        ground_truth:
+          target_symbols: ["login"]
+          target_files:
+            - "django/contrib/auth/__init__.py"
+          atomic_facts:
+            - id: "fact_callee_session_hash_and_lifecycle"
+              weight: 25
+              description: "Identifies invocation of user.get_session_auth_hash() and session lifecycle management via request.session.flush() or request.session.cycle_key()."
+            - id: "fact_callee_constant_time"
+              weight: 25
+              description: "Identifies invocation of constant_time_compare() and internal helper _get_user_session_key() to verify session hash integrity."
+            - id: "fact_callee_backend_and_user_cache"
+              weight: 25
+              description: "Identifies invocation of internal helpers _get_backend_from_user() to resolve the authentication backend and _set_auth_user() to cache the authenticated user on the request."
+            - id: "fact_callee_csrf_and_signals"
+              weight: 25
+              description: "Identifies invocation of rotate_token() for CSRF token rotation and user_logged_in.send() for post-login signal dispatch."
 
       - q_id: "Q4_semantic_search"
         dimension: "D4_Semantic"
-        text: "Find the class responsible for generating and validating one-time password reset tokens using HMAC and timestamp encoding, and describe how its token validation mechanism determines whether a token has expired or is invalid."
+        text: "Find the component responsible for protecting CSRF tokens against compression side-channel attacks (such as BREACH) by scrambling the secret with a one-time pad mask, and explain how its mechanism works and which endpoint or service utilizes it."
+        ground_truth:
+          target_symbols:
+            - "_mask_cipher_secret"
+            - "_unmask_cipher_token"
+          target_files:
+            - "django/middleware/csrf.py"
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 40
+              description: "Correctly identifies _mask_cipher_secret (and _unmask_cipher_token) in django/middleware/csrf.py."
+            - id: "fact_implementation_logic"
+              weight: 30
+              description: "Accurately explains that a 32-character random mask is generated, characters of secret and mask are shifted via modular addition over CSRF_ALLOWED_CHARS, and the mask is prepended to form a 64-character token (reversed by modular subtraction during unmasking)."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies that get_token (and _compare_masked_tokens / CsrfViewMiddleware) utilizes this mechanism to generate masked tokens for HTML forms and verify incoming requests."
 
       - q_id: "Q5_dead_code"
         dimension: "D5_DeadCode"
-        text: "In the web shortcuts module (shortcuts.py), identify which asynchronous or synchronous helper functions have zero incoming calls or references anywhere else in the Django framework (excluding tests)."
+        text: "In the view shortcuts and HTTP helper routines (without naming the file), identify any top-level entity retrieval function that is never invoked or referenced anywhere across the application (excluding test files)."
+        ground_truth:
+          target_symbols:
+            - "get_list_or_404"
+            - "aget_list_or_404"
+          target_files:
+            - "django/shortcuts.py"
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies get_list_or_404 (or its async variant aget_list_or_404) as having zero incoming references or invocations across the Django application codebase."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly distinguishes that other functions in the same module (such as render, redirect, resolve_url, and get_object_or_404) are actively referenced and invoked across the framework."
 
       - q_id: "Q6_module_outline"
         dimension: "D6_Structure"
-        text: "Inspect shortcuts.py and summarize all top-level HTTP response, redirect, and model object retrieval helper functions defined in it, including their exact parameter signatures and docstrings."
-
-  - id: "full-stack-fastapi-template"
-    path: "/home/huuhieu/projects/full-stack-fastapi-template/backend"
+        text: "Inspect the date and time parsing utilities module (responsible for converting formatted strings into Python temporal objects) and summarize all top-level functions defined in it, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_files:
+            - "django/utils/dateparse.py"
+          atomic_facts:
+            - id: "fact_symbol_parse_date"
+              weight: 25
+              description: "Summarizes parse_date(value) which parses ISO/YYYY-MM-DD date strings and returns datetime.date (or None; raises ValueError if invalid date)."
+            - id: "fact_symbol_parse_time"
+              weight: 25
+              description: "Summarizes parse_time(value) which parses HH:MM[:SS[.uuuuuu]] time strings without timezone offset and returns datetime.time (or None; raises ValueError if invalid time)."
+            - id: "fact_symbol_parse_datetime"
+              weight: 25
+              description: "Summarizes parse_datetime(value) which parses ISO 8601 strings with optional timezone offset and returns datetime.datetime (or None; raises ValueError if invalid datetime)."
+            - id: "fact_symbol_parse_duration"
+              weight: 25
+              description: "Summarizes parse_duration(value) which parses Django duration format, ISO 8601 duration, or PostgreSQL interval strings and returns datetime.timedelta (or None)."
+  - id: "zod"
+    path: "/home/huuhieu/projects/eval_repo_set/zod"
     mcp_context:
-      workspace_id: 1
+      workspace_id: 2
       project_id: 2
       repository_id: 2
+      branch: "main"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the core schema AST traversal utility `visit` changes its signature or return type, which transformation functions and caller utilities across the classic and mini distribution layers will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["visit"]
+          target_files:
+            - "packages/zod/src/v4/classic/deep-partial.ts"
+            - "packages/zod/src/v4/classic/in-out.ts"
+            - "packages/zod/src/v4/mini/deep-partial.ts"
+            - "packages/zod/src/v4/mini/in-out.ts"
+          atomic_facts:
+            - id: "fact_caller_1"
+              weight: 25
+              description: "Identifies caller deepPartial in packages/zod/src/v4/classic/deep-partial.ts."
+            - id: "fact_caller_2"
+              weight: 25
+              description: "Identifies callers input and output in packages/zod/src/v4/classic/in-out.ts."
+            - id: "fact_caller_3"
+              weight: 25
+              description: "Identifies caller deepPartial in packages/zod/src/v4/mini/deep-partial.ts."
+            - id: "fact_caller_4"
+              weight: 25
+              description: "Identifies callers input and output in packages/zod/src/v4/mini/in-out.ts."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which validation routines, check constructors, and pattern builders across the application invoke the `escapeRegex` sanitization helper?"
+        ground_truth:
+          target_symbols: ["escapeRegex"]
+          target_files:
+            - "packages/zod/src/v4/core/util.ts"
+            - "packages/zod/src/v4/core/checks.ts"
+            - "packages/zod/src/v4/core/regexes.ts"
+            - "packages/zod/src/v4/core/schemas.ts"
+          atomic_facts:
+            - id: "fact_usage_1"
+              weight: 35
+              description: "Identifies string check constructors ($ZodCheckIncludes, $ZodCheckStartsWith, $ZodCheckEndsWith) in packages/zod/src/v4/core/checks.ts."
+            - id: "fact_usage_2"
+              weight: 35
+              description: "Identifies MAC address regex factory mac in packages/zod/src/v4/core/regexes.ts."
+            - id: "fact_usage_3"
+              weight: 30
+              description: "Identifies enum and template literal pattern builders in $ZodEnum and $ZodTemplateLiteral in packages/zod/src/v4/core/schemas.ts."
+
+      - q_id: "Q3_core_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions and schema processing routines are directly invoked by `toJSONSchema` during the JSON Schema generation workflow?"
+        ground_truth:
+          target_symbols: ["toJSONSchema"]
+          target_files:
+            - "packages/zod/src/v4/core/json-schema-processors.ts"
+            - "packages/zod/src/v4/core/to-json-schema.ts"
+          atomic_facts:
+            - id: "fact_callee_1"
+              weight: 25
+              description: "Identifies invocation of initializeContext to create and configure the conversion context."
+            - id: "fact_callee_2"
+              weight: 25
+              description: "Identifies invocation of processSchema to execute schema type processors."
+            - id: "fact_callee_3"
+              weight: 25
+              description: "Identifies invocation of extractDefs to extract reusable schema definitions into $defs or definitions."
+            - id: "fact_callee_4"
+              weight: 25
+              description: "Identifies invocation of finalize to resolve references, flatten inherited properties, and return the final schema payload."
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the component responsible for computing floating-point safe remainder calculations to avoid IEEE-754 precision loss during step and multiple-of validation (using scaled machine epsilon tolerance), and explain how its mechanism works and which validation check component utilizes it."
+        ground_truth:
+          target_symbols: ["floatSafeRemainder"]
+          target_files:
+            - "packages/zod/src/v4/core/util.ts"
+            - "packages/zod/src/v4/core/checks.ts"
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 40
+              description: "Correctly identifies target symbol floatSafeRemainder in packages/zod/src/v4/core/util.ts."
+            - id: "fact_implementation_logic"
+              weight: 30
+              description: "Accurately explains the underlying algorithm: computes ratio = val / step and roundedRatio = Math.round(ratio), evaluates tolerance = 4 * Number.EPSILON * Math.max(Math.abs(ratio), 1), and returns 0 if Math.abs(ratio - roundedRatio) < tolerance, otherwise returning ratio - roundedRatio."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies that this helper is invoked by $ZodCheckMultipleOf in packages/zod/src/v4/core/checks.ts for multiple_of validation."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the core general utility module, identify any top-level entity retrieval function that navigates a nested property path using array reduction but is never invoked or referenced anywhere across the application (excluding test files)."
+        ground_truth:
+          target_symbols: ["getElementAtPath"]
+          target_files:
+            - "packages/zod/src/v4/core/util.ts"
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies getElementAtPath as having zero incoming references or calls across the entire application."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly distinguishes that other utility functions in the same module (such as toPropertyKey, parsedType, shallowClone, and mergeDefs) are actively referenced."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect the classic ISO string format schema builders module (which defines schema builders for ISO standard temporal strings) and summarize all top-level functions defined in it, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_files:
+            - "packages/zod/src/v4/classic/iso.ts"
+          atomic_facts:
+            - id: "fact_symbol_1"
+              weight: 25
+              description: "Summarizes datetime(params?: string | core.$ZodISODateTimeParams): ZodISODateTime with purpose of creating an ISO 8601 date-time string validator."
+            - id: "fact_symbol_2"
+              weight: 25
+              description: "Summarizes date(params?: string | core.$ZodISODateParams): ZodISODate with purpose of creating an ISO 8601 date string validator."
+            - id: "fact_symbol_3"
+              weight: 25
+              description: "Summarizes time(params?: string | core.$ZodISOTimeParams): ZodISOTime with purpose of creating an ISO 8601 time string validator."
+            - id: "fact_symbol_4"
+              weight: 25
+              description: "Summarizes duration(params?: string | core.$ZodISODurationParams): ZodISODuration with purpose of creating an ISO 8601 duration string validator."
+  - id: "trpc"
+    path: "/home/huuhieu/projects/eval_repo_set/trpc"
+    mcp_context:
+      workspace_id: 2
+      project_id: 3
+      repository_id: 3
+      branch: "main"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the core HTTP request resolution handler `resolveResponse` changes its signature or return type, which endpoints, services, and caller functions across the codebase will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["resolveResponse"]
+          target_files:
+            - "packages/server/src/unstable-core-do-not-import/http/resolveResponse.ts"
+            - "packages/server/src/adapters/fetch/fetchRequestHandler.ts"
+            - "packages/server/src/adapters/node-http/nodeHTTPRequestHandler.ts"
+            - "packages/server/src/adapters/aws-lambda/index.ts"
+            - "packages/server/src/adapters/fastify/fastifyRequestHandler.ts"
+          atomic_facts:
+            - id: "fact_caller_1"
+              weight: 25
+              description: "Identifies caller fetchRequestHandler in packages/server/src/adapters/fetch/fetchRequestHandler.ts."
+            - id: "fact_caller_2"
+              weight: 25
+              description: "Identifies caller nodeHTTPRequestHandler in packages/server/src/adapters/node-http/nodeHTTPRequestHandler.ts."
+            - id: "fact_caller_3"
+              weight: 25
+              description: "Identifies callers awsLambdaRequestHandler and awsLambdaStreamingRequestHandler in packages/server/src/adapters/aws-lambda/index.ts."
+            - id: "fact_caller_4"
+              weight: 25
+              description: "Identifies caller fastifyRequestHandler in packages/server/src/adapters/fastify/fastifyRequestHandler.ts."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which routines, handlers, and services across the application invoke the `internal_exceptionHandler` helper?"
+        ground_truth:
+          target_symbols: ["internal_exceptionHandler"]
+          target_files:
+            - "packages/server/src/adapters/node-http/nodeHTTPRequestHandler.ts"
+            - "packages/server/src/adapters/next.ts"
+            - "packages/server/src/adapters/express.ts"
+            - "packages/server/src/adapters/standalone.ts"
+          atomic_facts:
+            - id: "fact_usage_1"
+              weight: 25
+              description: "Identifies caller createNextApiHandler in packages/server/src/adapters/next.ts."
+            - id: "fact_usage_2"
+              weight: 25
+              description: "Identifies caller createExpressMiddleware in packages/server/src/adapters/express.ts."
+            - id: "fact_usage_3"
+              weight: 25
+              description: "Identifies caller createHTTPHandler in packages/server/src/adapters/standalone.ts."
+            - id: "fact_usage_4"
+              weight: 25
+              description: "Identifies caller nodeHTTPRequestHandler in packages/server/src/adapters/node-http/nodeHTTPRequestHandler.ts."
+
+      - q_id: "Q3_core_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions, security utilities, and subsystem routines are directly invoked by `incomingMessageToRequest` during the conversion of a Node.js HTTP incoming message into a Fetch API Request?"
+        ground_truth:
+          target_symbols: ["incomingMessageToRequest"]
+          target_files:
+            - "packages/server/src/adapters/node-http/incomingMessageToRequest.ts"
+          atomic_facts:
+            - id: "fact_callee_1"
+              weight: 25
+              description: "Identifies invocation of createURL(req) to parse protocol and host and validate URL format, throwing a BAD_REQUEST TRPCError on invalid URL."
+            - id: "fact_callee_2"
+              weight: 25
+              description: "Identifies invocation of createHeaders(req.headers) to convert Node IncomingHttpHeaders to WHATWG Headers while stripping HTTP/2 pseudo-headers."
+            - id: "fact_callee_3"
+              weight: 25
+              description: "Identifies invocation of createBody(req, opts) to stream or parse request body payloads with maxBodySize validation, Buffer handling, and CLIENT_CLOSED_REQUEST disconnect handling."
+            - id: "fact_callee_4"
+              weight: 25
+              description: "Identifies instantiation of AbortController signal event listeners on request and response streams and construction of the standard WHATWG Request instance."
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the component responsible for keeping streaming responses alive during periods of inactivity by racing an asynchronous iterable against a recurring timer to emit heartbeat ping symbols, and explain how its mechanism works and which streaming producers utilize it."
+        ground_truth:
+          target_symbols:
+            - "withPing"
+            - "PING_SYM"
+          target_files:
+            - "packages/server/src/unstable-core-do-not-import/stream/utils/withPing.ts"
+            - "packages/server/src/unstable-core-do-not-import/stream/sse.ts"
+            - "packages/server/src/unstable-core-do-not-import/stream/jsonl.ts"
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 40
+              description: "Correctly identifies the withPing async generator and PING_SYM symbol in packages/server/src/unstable-core-do-not-import/stream/utils/withPing.ts."
+            - id: "fact_implementation_logic"
+              weight: 30
+              description: "Accurately explains that withPing uses iteratorResource to iterate over the source AsyncIterable and races iterator.next() against a disposable timerResource(pingIntervalMs) via Unpromise.race, yielding PING_SYM when the timer elapses and data values when received."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies that this heartbeat mechanism is utilized by sseStreamProducer in packages/server/src/unstable-core-do-not-import/stream/sse.ts and jsonlStreamProducer in packages/server/src/unstable-core-do-not-import/stream/jsonl.ts."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the HTTP status code mapping and error resolution module, identify any top-level conversion or retrieval function that is never invoked or referenced anywhere across the application (excluding test files). Explain its intended functionality and contrast it with the actively referenced functions in that module."
+        ground_truth:
+          target_symbols: ["getStatusKeyFromCode"]
+          target_files:
+            - "packages/server/src/unstable-core-do-not-import/http/getHTTPStatusCode.ts"
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies getStatusKeyFromCode in packages/server/src/unstable-core-do-not-import/http/getHTTPStatusCode.ts as an exported conversion function with zero incoming references across the application."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly distinguishes that other functions in the same module (getStatusCodeFromKey, getHTTPStatusCode, getHTTPStatusCodeFromError) are actively invoked across the HTTP response resolution and error formatting pipelines."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect the reactive observable primitives and conversion utilities module and summarize all top-level functions defined in it, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_files:
+            - "packages/server/src/observable/observable.ts"
+          atomic_facts:
+            - id: "fact_symbol_1"
+              weight: 25
+              description: "Summarizes isObservable(x: unknown): x is Observable<unknown, unknown> as a type guard checking whether an object has a subscribe method."
+            - id: "fact_symbol_2"
+              weight: 25
+              description: "Summarizes observable<TValue, TError = unknown>(subscribe: (observer: Observer<TValue, TError>) => TeardownLogic): Observable<TValue, TError> as a factory creating an observable with subscriber management, teardown cleanup, and operator piping."
+            - id: "fact_symbol_3"
+              weight: 25
+              description: "Summarizes observableToPromise<TValue>(observable: Observable<TValue, unknown>): Promise<TValue> as a utility that resolves with the observable's first value or rejects if it errors or completes first."
+            - id: "fact_symbol_4"
+              weight: 25
+              description: "Summarizes observableToAsyncIterable<TValue>(observable: Observable<TValue, unknown>, signal: AbortSignal): AsyncIterableIterator<TValue> as a utility turning an observable into an async iterable iterator with queueing, abort signal handling, and completion teardown."
+  - id: "nest"
+    path: "/home/huuhieu/projects/eval_repo_set/nest"
+    mcp_context:
+      workspace_id: 2
+      project_id: 4
+      repository_id: 4
       branch: "master"
     questions:
       - q_id: "Q1_blast_radius"
         dimension: "D1_Impact"
-        text: "If the user retrieval function get_user_by_email changes its signature or return type, which route handlers, services, and authentication endpoints across the codebase will be directly affected? List the caller functions and their containing files."
+        text: "If the dependency injection container method `registerRequestProvider` changes its signature or return type, which services, context creators, modules, and caller functions across the core framework will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["registerRequestProvider", "NestContainer.registerRequestProvider"]
+          target_files:
+            - "packages/core/injector/container.ts"
+            - "packages/core/nest-application-context.ts"
+            - "packages/core/injector/module-ref.ts"
+            - "packages/core/middleware/middleware-module.ts"
+            - "packages/core/router/router-explorer.ts"
+            - "packages/core/helpers/external-context-creator.ts"
+          atomic_facts:
+            - id: "fact_caller_app_context"
+              weight: 20
+              description: "Identifies caller method `registerRequestByContextId` in `packages/core/nest-application-context.ts`."
+            - id: "fact_caller_module_ref"
+              weight: 20
+              description: "Identifies caller method `registerRequestByContextId` in `packages/core/injector/module-ref.ts`."
+            - id: "fact_caller_middleware_module"
+              weight: 20
+              description: "Identifies caller method `getContextId` in `packages/core/middleware/middleware-module.ts`."
+            - id: "fact_caller_router_explorer"
+              weight: 20
+              description: "Identifies caller method `getContextId` in `packages/core/router/router-explorer.ts`."
+            - id: "fact_caller_external_context"
+              weight: 20
+              description: "Identifies caller method `registerRequestProvider` in `packages/core/helpers/external-context-creator.ts`."
 
       - q_id: "Q2_security_callers"
         dimension: "D2_Usages"
-        text: "Which route handlers and services across the application call the password verification helper verify_password?"
+        text: "Which routines, context creators, scanner methods, and configuration services across the framework invoke the `assertEnhancer` validation helper?"
+        ground_truth:
+          target_symbols: ["assertEnhancer"]
+          target_files:
+            - "packages/core/helpers/assert-enhancer.ts"
+            - "packages/core/guards/guards-context-creator.ts"
+            - "packages/core/interceptors/interceptors-context-creator.ts"
+            - "packages/core/pipes/pipes-context-creator.ts"
+            - "packages/core/application-config.ts"
+            - "packages/core/scanner.ts"
+          atomic_facts:
+            - id: "fact_guards_context_creator"
+              weight: 20
+              description: "Identifies caller `GuardsContextCreator` in `packages/core/guards/guards-context-creator.ts` (invoked in `createConcreteContext` and `getInstanceByMetatype` for guard instances)."
+            - id: "fact_interceptors_context_creator"
+              weight: 20
+              description: "Identifies caller `InterceptorsContextCreator` in `packages/core/interceptors/interceptors-context-creator.ts` (invoked in `createConcreteContext` and `getInstanceByMetatype` for interceptor instances)."
+            - id: "fact_pipes_context_creator"
+              weight: 20
+              description: "Identifies caller `PipesContextCreator` in `packages/core/pipes/pipes-context-creator.ts` (invoked in `createConcreteContext` and `getInstanceByMetatype` for pipe instances)."
+            - id: "fact_application_config"
+              weight: 20
+              description: "Identifies caller `ApplicationConfig` in `packages/core/application-config.ts` (invoked in `useGlobalPipes`, `useGlobalInterceptors`, and `useGlobalGuards`)."
+            - id: "fact_dependencies_scanner"
+              weight: 20
+              description: "Identifies caller `DependenciesScanner` in `packages/core/scanner.ts` (invoked in `applyApplicationProviders` during validation of global enhancer providers)."
 
-      - q_id: "Q3_init_dependencies"
+      - q_id: "Q3_core_dependencies"
         dimension: "D3_Callees"
-        text: "What internal helper functions, security utilities, or database routines are directly invoked during the initial database setup in init_db?"
+        text: "What internal helper functions, enhancer creators, and subsystem routines are directly invoked by `RouterExecutionContext.create` during the creation of an HTTP route execution handler?"
+        ground_truth:
+          target_symbols: ["RouterExecutionContext.create", "create"]
+          target_files:
+            - "packages/core/router/router-execution-context.ts"
+          atomic_facts:
+            - id: "fact_callee_metadata"
+              weight: 20
+              description: "Identifies invocation of `this.getMetadata` to extract handler metadata, parameters, headers, and status code."
+            - id: "fact_callee_context_utils"
+              weight: 20
+              description: "Identifies invocation of `contextUtils.mergeParamsMetatypes` and `contextUtils.warnOnMissingParamtypes` to merge and validate parameter reflection types."
+            - id: "fact_callee_enhancer_creators"
+              weight: 20
+              description: "Identifies invocations of `pipesContextCreator.create`, `guardsContextCreator.create`, and `interceptorsContextCreator.create` to instantiate route enhancers."
+            - id: "fact_callee_pipeline_builders"
+              weight: 20
+              description: "Identifies invocations of `this.createGuardsFn` and `this.createPipesFn` to assemble the guard authorization and pipe transformation closures."
+            - id: "fact_callee_interceptors_consumer"
+              weight: 20
+              description: "Identifies invocation of `interceptorsConsumer.intercept` to run the interceptor pipeline surrounding the controller method callback."
 
       - q_id: "Q4_semantic_search"
         dimension: "D4_Semantic"
-        text: "Find the function responsible for decoding a password-reset token and returning the subject email, and identify which endpoint calls it to complete the password reset flow."
+        text: "Find the component responsible for signing and verifying HTTP cookie values using HMAC-SHA256 with secret key rotation and timing-safe equality checks, and explain how its mechanism works and which routing parameter resolver or service utilizes it."
+        ground_truth:
+          target_symbols: ["CookieSigner"]
+          target_files:
+            - "packages/core/helpers/cookies/cookie-signer.ts"
+            - "packages/core/router/route-params-factory.ts"
+            - "packages/core/helpers/cookies/request-cookies.ts"
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 40
+              description: "Correctly identifies the target symbol `CookieSigner` in `packages/core/helpers/cookies/cookie-signer.ts`."
+            - id: "fact_implementation_logic"
+              weight: 30
+              description: "Accurately explains the underlying mechanism: signs values with HMAC-SHA256 formatted as `s:<value>.<signature>` with unpadded base64 digest, supports secret rotation by verifying against all configured secrets, and uses `timingSafeEqual` to prevent timing side-channel attacks."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies that `CookieSigner` is configured on `NestApplication` / `ApplicationConfig` and consumed by `RouteParamsFactory` and `request-cookies.ts` helper routines to resolve signed cookie parameter decorators."
 
       - q_id: "Q5_dead_code"
         dimension: "D5_DeadCode"
-        text: "In the database CRUD module (crud.py), identify any top-level entity creation or retrieval function that is never called by any route handler or application service (excluding test files)."
+        text: "In the dependency injection provider classification utilities (within the injector subsystem), identify any exported provider type guard function that is never invoked or referenced anywhere across the application (excluding test files)."
+        ground_truth:
+          target_symbols: ["isValueProvider"]
+          target_files:
+            - "packages/core/injector/helpers/provider-classifier.ts"
+            - "packages/core/injector/instance-wrapper.ts"
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies `isValueProvider` in `packages/core/injector/helpers/provider-classifier.ts` as having zero incoming references or calls across the entire application (excluding test files)."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly distinguishes that other provider classifier functions in the same module (`isClassProvider` and `isFactoryProvider`) are actively referenced by `InstanceWrapper.mergeWith` in `packages/core/injector/instance-wrapper.ts`."
 
       - q_id: "Q6_module_outline"
         dimension: "D6_Structure"
-        text: "Inspect utils.py and summarize all email generation and template rendering functions defined in it, including their exact parameter signatures and return types."
+        text: "Inspect the route exclusion matching utility module within the routing subsystem and summarize all top-level functions defined in it, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_files:
+            - "packages/core/router/utils/exclude-route.util.ts"
+          atomic_facts:
+            - id: "fact_symbol_1"
+              weight: 25
+              description: "Summarizes `isRequestMethodAll(method: RequestMethod): boolean` as checking whether the HTTP request method represents all methods (`RequestMethod.ALL` or -1)."
+            - id: "fact_symbol_2"
+              weight: 25
+              description: "Summarizes `isRouteExcluded(excludedRoutes: ExcludeRouteMetadata[], path: string, requestMethod?: RequestMethod): boolean` as determining whether an incoming request path and method match any configured excluded route."
+            - id: "fact_symbol_3"
+              weight: 25
+              description: "Summarizes `matchesExcludedPath(route: ExcludeRouteMetadata, path: string, pathRegex?: RegExp): boolean` as checking whether a path matches the compiled regular expression of an excluded route without exceeding max parameter length limits."
+            - id: "fact_symbol_4"
+              weight: 25
+              description: "Summarizes `toExcludedPathMatcher({ regexp, keys }: ReturnType<typeof pathToRegexp>, maxParamLength?: number): Pick<ExcludeRouteMetadata, 'pathRegex' | 'paramLimit'>` as converting a compiled route regular expression and keys into an excluded route matcher with parameter bounds enforcement."
+  - id: "koa"
+    path: "/home/huuhieu/projects/eval_repo_set/koa"
+    mcp_context:
+      workspace_id: 3
+      project_id: 5
+      repository_id: 5
+      branch: "master"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the object property filtering utility `only` changes its signature or return type, which core serialization methods and caller components across the codebase will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["only"]
+          target_files:
+            - "lib/only.js"
+            - "lib/application.js"
+            - "lib/request.js"
+            - "lib/response.js"
+          atomic_facts:
+            - id: "fact_caller_1"
+              weight: 35
+              description: "Identifies caller `toJSON()` on `Application` in `lib/application.js` (filtering `subdomainOffset`, `proxy`, and `env`)."
+            - id: "fact_caller_2"
+              weight: 35
+              description: "Identifies caller `toJSON()` on `request` in `lib/request.js` (filtering `method`, `url`, and `header`)."
+            - id: "fact_caller_3"
+              weight: 30
+              description: "Identifies caller `toJSON()` on `response` in `lib/response.js` (filtering `status`, `message`, and `header`)."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which routines, handlers, and services across the application invoke the `isStream` helper?"
+        ground_truth:
+          target_symbols: ["isStream"]
+          target_files:
+            - "lib/is-stream.js"
+            - "lib/application.js"
+            - "lib/response.js"
+          atomic_facts:
+            - id: "fact_usage_1"
+              weight: 35
+              description: "Identifies caller `respond(ctx)` in `lib/application.js` where `isStream(body)` determines whether the response payload should be piped to `res` using `Stream.pipeline`."
+            - id: "fact_usage_2"
+              weight: 35
+              description: "Identifies caller `set body(val)` in `lib/response.js` where `isStream` is invoked to check if the previous body or incoming body is a stream for listener cleanup and setting content-type to `'bin'`."
+            - id: "fact_usage_3"
+              weight: 30
+              description: "Identifies caller `get length()` in `lib/response.js` where `isStream(body)` checks whether the response body is a stream to return undefined length."
+
+      - q_id: "Q3_core_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions, security utilities, and subsystem routines are directly invoked by `handleRequest` during HTTP request dispatching and response lifecycle management?"
+        ground_truth:
+          target_symbols: ["handleRequest"]
+          target_files:
+            - "lib/application.js"
+          atomic_facts:
+            - id: "fact_callee_1"
+              weight: 25
+              description: "Identifies invocation of `onFinished(res, onerror)` to listen for native response completion or stream termination errors."
+            - id: "fact_callee_2"
+              weight: 25
+              description: "Identifies invocation of `fnMiddleware(ctx)` to execute the composed middleware pipeline promise."
+            - id: "fact_callee_3"
+              weight: 25
+              description: "Identifies invocation of `respond(ctx)` to finalize, format, and send the HTTP response payload upon middleware resolution."
+            - id: "fact_callee_4"
+              weight: 25
+              description: "Identifies invocation of `ctx.onerror(err)` to handle caught errors, promise rejections, or stream failure events."
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the component responsible for query string parsing and serialization that groups duplicate query keys into array values and parses search parameters using WHATWG standards, and explain how its mechanism works and which request accessor utilizes it."
+        ground_truth:
+          target_symbols: ["parse", "stringify"]
+          target_files:
+            - "lib/search-params.js"
+            - "lib/request.js"
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 40
+              description: "Correctly identifies the query search parameters component and its functions `parse` and `stringify` in `lib/search-params.js`."
+            - id: "fact_implementation_logic"
+              weight: 30
+              description: "Accurately explains the underlying algorithm: `parse` iterates through WHATWG `URLSearchParams` entries, checking existing keys with `Object.hasOwn` to accumulate duplicate keys into arrays; `stringify` iterates object entries and handles arrays by appending each element to `URLSearchParams`."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies that the HTTP request prototype in `lib/request.js` utilizes `parse` and `stringify` within the `query` getter and setter properties (caching parsed results in `_querycache`)."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the core application server and orchestration engine, identify the exported HTTP error verification utility function that is exposed on the module exports for external consumers but has zero incoming calls or invocations anywhere within the application codebase (excluding test files)."
+        ground_truth:
+          target_symbols: ["isHttpError"]
+          target_files:
+            - "lib/application.js"
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies `isHttpError` (re-exported from `http-errors`) as having zero incoming references or invocations across the internal application codebase."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly distinguishes that other functions and classes in the module (such as `Application`, `isHttpErrorLike`, `respond`, `getAsyncLocalStorage`, and `createHttpError`) are actively invoked or referenced internally."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect the HTTP request context prototype module and summarize all explicitly defined methods on the context prototype, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_files:
+            - "lib/context.js"
+          atomic_facts:
+            - id: "fact_symbol_1"
+              weight: 25
+              description: "Summarizes `inspect()` taking no arguments and returning an `Object` (delegating to `this.toJSON()`), used for `util.inspect` formatting."
+            - id: "fact_symbol_2"
+              weight: 25
+              description: "Summarizes `toJSON()` taking no arguments and returning an `Object` containing serialized context properties (`request`, `response`, `app`, `originalUrl`, `req`, `res`, `socket`)."
+            - id: "fact_symbol_3"
+              weight: 25
+              description: "Summarizes `throw(...args)` taking `...args` (`status`, `msg`, `props`), returning `never` (throws an `HttpError` via `createError`), used for throwing user-level HTTP errors."
+            - id: "fact_symbol_4"
+              weight: 25
+              description: "Summarizes `onerror(err)` taking `err`, returning `void`, used for default context error handling, application event emission (`app.emit('error', err, this)`), header resets, and sending HTTP error responses."
+  - id: "express"
+    path: "/home/huuhieu/projects/eval_repo_set/express"
+    mcp_context:
+      workspace_id: 3
+      project_id: 6
+      repository_id: 6
+      branch: "master"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the HTTP response status setter `res.status` changes its signature or return type (for instance, if it no longer returns the response object instance for chaining), which endpoints, services, and caller functions across the codebase will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["res.status", "status"]
+          target_files:
+            - "lib/response.js"
+            - "examples/error-pages/index.js"
+            - "examples/error/index.js"
+            - "examples/mvc/index.js"
+            - "examples/web-service/index.js"
+          atomic_facts:
+            - id: "fact_caller_response_helpers"
+              weight: 20
+              description: "Identifies direct callers within the HTTP response prototype in lib/response.js: res.send (setting 304 on fresh requests), res.sendStatus (setting status code), and res.redirect (setting redirect status)."
+            - id: "fact_caller_error_pages"
+              weight: 20
+              description: "Identifies callers in examples/error-pages/index.js within the 404 middleware handler (res.status(404)) and 500 error handler middleware (res.status(err.status || 500))."
+            - id: "fact_caller_error"
+              weight: 20
+              description: "Identifies callers in examples/error/index.js within the 500 error handling middleware (res.status(500))."
+            - id: "fact_caller_mvc"
+              weight: 20
+              description: "Identifies callers in examples/mvc/index.js within the 500 handler (res.status(500).render('5xx')) and 404 handler (res.status(404).render('404', ...)) relying on chained render."
+            - id: "fact_caller_web_service"
+              weight: 20
+              description: "Identifies callers in examples/web-service/index.js within the general error handler (res.status(err.status || 500)) and the 404 missing resource handler (res.status(404))."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which routines, handlers, and services across the application invoke the `normalizeType` helper?"
+        ground_truth:
+          target_symbols: ["normalizeType"]
+          target_files:
+            - "lib/utils.js"
+            - "lib/response.js"
+          atomic_facts:
+            - id: "fact_usage_normalize_types"
+              weight: 50
+              description: "Identifies caller exports.normalizeTypes in lib/utils.js, which maps an array of MIME type strings using exports.normalizeType."
+            - id: "fact_usage_res_format"
+              weight: 50
+              description: "Identifies caller res.format in lib/response.js, which invokes normalizeType(key) on the matched content-negotiated type to set the Content-Type response header."
+
+      - q_id: "Q3_core_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions, security utilities, and subsystem routines are directly invoked by `app.handle` during HTTP request dispatching?"
+        ground_truth:
+          target_symbols: ["app.handle", "handle"]
+          target_files: ["lib/application.js"]
+          atomic_facts:
+            - id: "fact_callee_finalhandler"
+              weight: 35
+              description: "Identifies invocation of finalhandler(req, res, { env, onerror }) using this.get('env') and logerror.bind(this) when no completion callback is provided."
+            - id: "fact_callee_headers_and_security"
+              weight: 35
+              description: "Identifies checking this.enabled('x-powered-by') and invoking res.setHeader('X-Powered-By', 'Express') to conditionally set the framework header."
+            - id: "fact_callee_prototypes_and_router"
+              weight: 30
+              description: "Identifies mutating request/response prototypes via Object.setPrototypeOf(req, this.request) and Object.setPrototypeOf(res, this.response), then delegating pipeline processing to this.router.handle(req, res, done)."
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the component responsible for serializing JSON data while escaping HTML control characters (such as '<', '>', and '&') to prevent browser MIME-type sniffing vulnerabilities while optimizing V8 argument dispatch, and explain how its mechanism works and which endpoint or service utilizes it."
+        ground_truth:
+          target_symbols: ["stringify"]
+          target_files: ["lib/response.js"]
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 40
+              description: "Correctly identifies the target symbol stringify in lib/response.js."
+            - id: "fact_implementation_logic"
+              weight: 30
+              description: "Accurately explains that stringify optimizes JSON.stringify calls based on arguments.length for V8, and when the escape parameter is enabled, replaces '<', '>', and '&' with unicode escape sequences '\\u003c', '\\u003e', and '\\u0026' to prevent HTML sniffing."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies that this mechanism is invoked directly by res.json and res.jsonp within the response prototype, utilizing settings configured on the application prototype ('json escape', 'json replacer', and 'json spaces')."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the application configuration and settings prototype component, identify any top-level boolean check or setting inspection method that is never invoked or referenced anywhere across the application (excluding test files), while its counterpart inspection and mutation methods remain actively utilized."
+        ground_truth:
+          target_symbols: ["app.disabled", "disabled"]
+          target_files: ["lib/application.js"]
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies app.disabled (or disabled) in lib/application.js as having zero incoming calls or references across the entire codebase outside of tests."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly differentiates that counterpart configuration methods in the same module (app.enabled, app.enable, app.disable, app.set, and app.get) are actively referenced across lib/application.js, lib/response.js, and examples/error-pages/index.js."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect the view resolution and template rendering engine module and summarize all top-level functions, constructors, and prototype methods defined in it, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_symbols:
+            - "View"
+            - "View.prototype.lookup"
+            - "View.prototype.render"
+            - "View.prototype.resolve"
+            - "tryStat"
+          target_files: ["lib/view.js"]
+          atomic_facts:
+            - id: "fact_symbol_constructor"
+              weight: 20
+              description: "Summarizes View(name, options) constructor, initializing template properties, resolving engine from options or require(), and looking up view path."
+            - id: "fact_symbol_lookup"
+              weight: 20
+              description: "Summarizes View.prototype.lookup(name) returning String|undefined, which iterates through root directories and calls resolve() to find the view path."
+            - id: "fact_symbol_render"
+              weight: 20
+              description: "Summarizes View.prototype.render(options, callback) returning void, invoking this.engine and ensuring synchronous callbacks are forced async via process.nextTick."
+            - id: "fact_symbol_resolve"
+              weight: 20
+              description: "Summarizes View.prototype.resolve(dir, file) returning String|undefined, checking <dir>/<file> and <dir>/<basename>/index<ext> using tryStat."
+            - id: "fact_symbol_trystat"
+              weight: 20
+              description: "Summarizes tryStat(path) returning fs.Stats|undefined, safely checking file stats via fs.statSync and catching errors."      
+  - id: "axios"
+    path: "/home/huuhieu/projects/eval_repo_set/axios"
+    mcp_context:
+      workspace_id: 3
+      project_id: 7
+      repository_id: 7
+      branch: "main"
+    questions:
+      - q_id: "Q1_blast_radius"
+        dimension: "D1_Impact"
+        text: "If the response promise settlement utility `settle` changes its signature or return type, which endpoints, services, and caller functions across the codebase will be directly affected? List the affected callers and their locations."
+        ground_truth:
+          target_symbols: ["settle"]
+          target_files:
+            - "lib/core/settle.js"
+            - "lib/adapters/xhr.js"
+            - "lib/adapters/fetch.js"
+            - "lib/adapters/http.js"
+          atomic_facts:
+            - id: "fact_caller_xhr"
+              weight: 25
+              description: "Identifies caller in lib/adapters/xhr.js within the xhrAdapter response completion handler (handleResponse)."
+            - id: "fact_caller_fetch"
+              weight: 25
+              description: "Identifies caller in lib/adapters/fetch.js within fetchAdapter when settling the response promise."
+            - id: "fact_caller_http_data_uri"
+              weight: 25
+              description: "Identifies callers in lib/adapters/http.js within httpAdapter for synchronous data URL settlement (rejection on non-GET methods and 200 OK resolution)."
+            - id: "fact_caller_http_stream"
+              weight: 25
+              description: "Identifies callers in lib/adapters/http.js within httpAdapter for streaming responses (responseType === 'stream') and buffered response completion (handleStreamEnd on stream end)."
+
+      - q_id: "Q2_security_callers"
+        dimension: "D2_Usages"
+        text: "Which routines, handlers, and services across the application invoke the `toByteStringHeaderObject` helper?"
+        ground_truth:
+          target_symbols: ["toByteStringHeaderObject"]
+          target_files:
+            - "lib/helpers/sanitizeHeaderValue.js"
+            - "lib/adapters/http.js"
+            - "lib/adapters/fetch.js"
+            - "lib/adapters/xhr.js"
+          atomic_facts:
+            - id: "fact_usage_http"
+              weight: 34
+              description: "Identifies caller in lib/adapters/http.js where httpAdapter invokes toByteStringHeaderObject to sanitize request headers before dispatching via Node's http/https request."
+            - id: "fact_usage_fetch"
+              weight: 33
+              description: "Identifies caller in lib/adapters/fetch.js where fetchAdapter invokes toByteStringHeaderObject on normalized headers before constructing the Fetch API Request."
+            - id: "fact_usage_xhr"
+              weight: 33
+              description: "Identifies caller in lib/adapters/xhr.js where xhrAdapter invokes toByteStringHeaderObject when iterating over headers to call setRequestHeader on the XMLHttpRequest instance."
+
+      - q_id: "Q3_core_dependencies"
+        dimension: "D3_Callees"
+        text: "What internal helper functions, security utilities, and subsystem routines are directly invoked by `dispatchRequest` during HTTP request dispatching?"
+        ground_truth:
+          target_symbols: ["dispatchRequest"]
+          target_files:
+            - "lib/core/dispatchRequest.js"
+          atomic_facts:
+            - id: "fact_callee_cancellation_and_safety"
+              weight: 25
+              description: "Identifies calls to utils.toSafeFlatObject (to prevent prototype pollution) and throwIfCancellationRequested (which inspects config.cancelToken and config.signal.aborted)."
+            - id: "fact_callee_headers_and_transform"
+              weight: 25
+              description: "Identifies calls to AxiosHeaders.from (to normalize request and response headers) and transformData (to apply config.transformRequest and config.transformResponse)."
+            - id: "fact_callee_adapter_and_validation"
+              weight: 25
+              description: "Identifies calls to adapters.getAdapter (to resolve the transport adapter) and assertValidRequestUrl (to validate URL presence and safety constraints)."
+            - id: "fact_callee_timing_and_settlement"
+              weight: 25
+              description: "Identifies calls to resolveClock / elapsedSince (to compute request execution duration) and isCancel (to check rejection reason)."
+
+      - q_id: "Q4_semantic_search"
+        dimension: "D4_Semantic"
+        text: "Find the component responsible for calculating rolling data transfer rates using a circular sampling buffer of byte chunk sizes and timestamps, and explain how its mechanism works and which endpoint or service utilizes it."
+        ground_truth:
+          target_symbols: ["speedometer"]
+          target_files:
+            - "lib/helpers/speedometer.js"
+            - "lib/helpers/progressEventReducer.js"
+          atomic_facts:
+            - id: "fact_target_symbol"
+              weight: 35
+              description: "Correctly identifies the target symbol speedometer in lib/helpers/speedometer.js."
+            - id: "fact_implementation_logic"
+              weight: 35
+              description: "Accurately explains the underlying algorithm: maintaining fixed-size circular arrays (bytes and timestamps) with sliding head/tail pointers updated modulo samplesCount, calculating cumulative bytes and elapsed time since firstSampleTS / startedAt, enforcing a minimum sampling duration threshold (min), and computing transfer rate in bytes per second."
+            - id: "fact_caller_context"
+              weight: 30
+              description: "Identifies progressEventReducer (in lib/helpers/progressEventReducer.js) as the direct consumer that invokes speedometer to calculate upload/download transmission speeds (rate) and estimated remaining transfer time (estimated) for adapter progress events across XHR, Fetch, and HTTP adapters."
+
+      - q_id: "Q5_dead_code"
+        dimension: "D5_DeadCode"
+        text: "In the URL serialization and query parameter formatting utilities, identify any top-level string conversion or encoding function that is exported but never imported or invoked by any other module across the application (excluding test files)."
+        ground_truth:
+          target_symbols: ["encode"]
+          target_files:
+            - "lib/helpers/buildURL.js"
+          atomic_facts:
+            - id: "fact_unused_detected"
+              weight: 60
+              description: "Correctly identifies encode as an exported function in lib/helpers/buildURL.js that has zero incoming imports or references from any other application module."
+            - id: "fact_active_symbols_differentiated"
+              weight: 40
+              description: "Correctly distinguishes that buildURL in the same module is actively imported and utilized by core components including lib/core/Axios.js, lib/helpers/resolveConfig.js, and lib/adapters/http.js."
+
+      - q_id: "Q6_module_outline"
+        dimension: "D6_Structure"
+        text: "Inspect the URL path resolution and credential redaction module and summarize all top-level functions defined in it, including their exact parameter signatures, return types, and purpose."
+        ground_truth:
+          target_symbols:
+            - "buildFullPath"
+            - "redactFragment"
+            - "redactSensitiveURLParts"
+            - "assertValidHttpProtocolURL"
+          target_files:
+            - "lib/core/buildFullPath.js"
+          atomic_facts:
+            - id: "fact_symbol_1"
+              weight: 25
+              description: "Summarizes redactFragment(fragment) with parameter fragment (string), return type string, and purpose of redacting parameter values in URL hash fragments using the REDACTED token."
+            - id: "fact_symbol_2"
+              weight: 25
+              description: "Summarizes redactSensitiveURLParts(url) with parameter url (string), return type string, and purpose of stripping sensitive userinfo credentials, query values, and fragments from URLs before embedding them in error messages."
+            - id: "fact_symbol_3"
+              weight: 25
+              description: "Summarizes assertValidHttpProtocolURL(url, config) with parameters url (string) and config (object), return type void (throws AxiosError with code ERR_INVALID_URL if invalid), and purpose of validating that http: or https: protocol URLs contain // after the protocol scheme."
+            - id: "fact_symbol_4"
+              weight: 25
+              description: "Summarizes buildFullPath(baseURL, requestedURL, allowAbsoluteUrls, config) with parameters baseURL (string), requestedURL (string), allowAbsoluteUrls (boolean), config (object), return type string, and purpose of combining baseURL with requestedURL if requestedURL is relative or if absolute URLs are disabled."           

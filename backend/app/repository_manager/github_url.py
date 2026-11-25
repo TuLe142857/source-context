@@ -108,25 +108,31 @@ def fetch_github_branches(owner: str, repository: str) -> list[str]:
     Returns:
         list[str]: List of branch names.
     """
-    url = f"https://api.github.com/repos/{owner}/{repository}/branches?per_page=100"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Source-Context-Backend",
-            "Accept": "application/vnd.github.v3+json",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            if isinstance(data, list):
-                branches = [
-                    cast(str, branch["name"])
-                    for branch in data
-                    if isinstance(branch, dict) and "name" in branch
-                ]
-                if branches:
-                    return branches
-    except Exception:
-        pass
+    branches: list[str] = []
+    page = 1
+    while page <= 10:
+        url = f"https://api.github.com/repos/{owner}/{repository}/branches?per_page=100&page={page}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Source-Context-Backend",
+                "Accept": "application/vnd.github.v3+json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                if not isinstance(data, list) or not data:
+                    break
+                for branch in data:
+                    if isinstance(branch, dict) and "name" in branch:
+                        branches.append(cast(str, branch["name"]))
+                if len(data) < 100:
+                    break
+                page += 1
+        except Exception:
+            break
+
+    if branches:
+        return branches
     return ["main", "master"]

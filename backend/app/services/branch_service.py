@@ -34,7 +34,11 @@ from app.schemas.repository import (
     WorkspaceHierarchyResponse,
 )
 
-from app.util.git_util import get_latest_commit_hash, get_repo_name
+from app.util.git_util import (
+    fetch_remote_branches_via_git,
+    get_latest_commit_hash,
+    get_repo_name,
+)
 
 
 class BranchService:
@@ -89,7 +93,14 @@ class BranchService:
         installation_id = (
             self.current_user.github_installation_id if self.current_user else None
         )
-        if installation_id:
+
+        # 1. Try git ls-remote first (fast, complete branch list without GitHub REST rate limits)
+        branches = fetch_remote_branches_via_git(
+            ref.clone_url, installation_id=installation_id
+        )
+
+        # 2. Try RepoManagerV2 (paginated GitHub API with or without auth token)
+        if not branches:
             try:
                 repo_manager = RepoManagerV2()
                 branches = repo_manager.list_branches(
@@ -98,8 +109,17 @@ class BranchService:
             except Exception:
                 branches = []
 
+        # 3. Fallback to public GitHub API fetcher
         if not branches:
             branches = fetch_github_branches(ref.owner, ref.repository)
+
+        # Sort branches: ensure 'main' and 'master' always appear at the top
+        if branches:
+            priority = {"main": 0, "master": 1}
+            branches = sorted(
+                list(dict.fromkeys(branches)),
+                key=lambda b: (priority.get(b, 2), b.lower()),
+            )
 
         return RemoteBranchesResponse(
             git_url=ref.clone_url,

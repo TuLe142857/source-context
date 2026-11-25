@@ -1,7 +1,11 @@
 from .base import BaseLLMClient
 from openai import Client
+
+
 class OpenAILLMClient(BaseLLMClient):
-    def __init__(self, model: str, base_url: str | None = None, api_key: str | None = None):
+    def __init__(
+        self, model: str, base_url: str | None = None, api_key: str | None = None
+    ):
         self._client = Client(api_key=api_key, base_url=base_url)
         super().__init__(model)
 
@@ -19,4 +23,3 @@ class OpenAILLMClient(BaseLLMClient):
             messages=messages,
         )
         return res.choices[0].message.content
-
