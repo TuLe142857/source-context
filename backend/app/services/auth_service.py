@@ -27,7 +27,7 @@ from app.schemas.auth import (
     RegisterVerifyRequest,
 )
 from app.schemas.user import UserResponse
-from .mail_service import MailService, MailServiceDep
+from .notification_service import NotificationService, NotificationServiceDep
 
 
 REGISTER_OTP_TTL_SECONDS = 5 * 60
@@ -36,11 +36,14 @@ REGISTER_OTP_KEY_PREFIX = "otp:register:"
 
 class AuthService:
     def __init__(
-        self, session: DBSession, redis: Redis, mail_service: MailService
+        self,
+        session: DBSession,
+        redis: Redis,
+        notification_service: NotificationService,
     ) -> None:
         self.session = session
         self.redis = redis
-        self.mail_service = mail_service
+        self.notification_service = notification_service
 
     async def register_user(
         self, payload: RegisterRequest, bg_tasks: BackgroundTasks | None = None
@@ -76,20 +79,18 @@ class AuthService:
             ex=REGISTER_OTP_TTL_SECONDS,
         )
 
-        mail_send_kwargs = {
+        send_otp_kwargs = {
             "to": payload.email,
-            "subject": "Verify your Source Context account",
-            "template_name": "registration_otp",
-            "context": {
-                "otp_code": otp,
-                "expire_minutes": REGISTER_OTP_TTL_SECONDS // 60,
-            },
+            "otp": otp,
+            "expire_minutes": REGISTER_OTP_TTL_SECONDS // 60,
         }
         if bg_tasks is not None:
-            bg_tasks.add_task(self.mail_service.send_template_email, **mail_send_kwargs)
+            bg_tasks.add_task(
+                self.notification_service.send_registration_otp, **send_otp_kwargs
+            )
         else:
             await run_in_threadpool(
-                self.mail_service.send_template_email, **mail_send_kwargs
+                self.notification_service.send_registration_otp, **send_otp_kwargs
             )
 
     async def verify_registration_otp(
@@ -202,9 +203,13 @@ class AuthService:
 
 
 def get_auth_service(
-    session: DBSession, redis: RedisDep, mail_service: MailServiceDep
+    session: DBSession,
+    redis: RedisDep,
+    notification_service: NotificationServiceDep,
 ) -> AuthService:
-    return AuthService(session=session, redis=redis, mail_service=mail_service)
+    return AuthService(
+        session=session, redis=redis, notification_service=notification_service
+    )
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
