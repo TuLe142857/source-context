@@ -4,12 +4,14 @@ from ollama import Client
 
 class OllamaLLMClient(BaseLLMClient):
     def __init__(
-        self, model: str, base_url: str | None = None, api_key: str | None = None
+        self,
+        model: str,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        timeout: float | None = 120.0,
     ):
-        headers = (
-            {"Authorization": f"Bearer {api_key}"} if api_key is not None else None
-        )
-        self._client = Client(host=base_url, headers=headers)
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+        self._client = Client(host=base_url, headers=headers, timeout=timeout)
         super().__init__(model)
 
     def chat(self, message: str, system_prompt: str | None = None) -> str:
