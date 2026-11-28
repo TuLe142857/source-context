@@ -2,12 +2,18 @@ name: Publish MCP to PyPi
 
 on:
   push:
-    branches:
+    branches: 
       - master
-    paths:
+    paths: 
       - "mcp/**"
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+
+# Never cancel a publish half-way; queue the next one instead.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -29,4 +35,4 @@ jobs:
         run: uv build mcp
 
       - name: Publish
-        run: uv publish
+        run: uv publish --check-url https://pypi.org/simple/
