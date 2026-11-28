@@ -3,7 +3,7 @@
 from pathlib import Path
 import sys
 
-from app.core.qdrant import get_qdrant_client
+from app.infra.qdrant import get_qdrant_client
 from app.retrieval.retriever import CodeRetriever
 
 

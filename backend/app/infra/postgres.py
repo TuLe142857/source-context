@@ -6,15 +6,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
-
 from app.core.config import settings
-
-
-class Base(DeclarativeBase):
-    """Base declarative class for all SQLAlchemy ORM models."""
-
-    pass
 
 
 class Database:

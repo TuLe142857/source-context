@@ -10,7 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.postgres import database
+from app.infra.postgres import database
 from app.embedding.embedding_pipeline import process_uast_batch_nodes
 from app.embedding.utils import extract_summarizable_nodes
 from app.enums import BranchIndexingStatus, IndexingJobStatus

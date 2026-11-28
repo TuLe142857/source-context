@@ -3,7 +3,7 @@
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.postgres import Base
+from .base import Base
 
 
 class WorkspaceRepository(Base):

@@ -15,7 +15,7 @@ from .model import (
     get_model_cls_for_uast_node,
 )
 
-from app.core.s3 import get_s3_client
+from app.infra.s3 import get_s3_client
 from app.core.config import settings
 import uuid
 

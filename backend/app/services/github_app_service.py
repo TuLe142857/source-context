@@ -16,7 +16,7 @@ from app.api.dependencies import DBSession
 from app.core.config import settings
 from app.core.error_code import ErrorCode
 from app.core.exceptions import AppException
-from app.core.redis import get_redis_async_client
+from app.infra.redis import get_redis_async_client
 from app.enums import BranchIndexingStatus, IndexingJobStatus
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob

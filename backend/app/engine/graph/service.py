@@ -9,7 +9,7 @@ from .model import (
     ApiCallNodeModel,
 )
 from typing import cast, Annotated, Any
-from app.core.s3 import get_s3_client
+from app.infra.s3 import get_s3_client
 from app.core.config import settings
 from app.core import AppException, ErrorCode
 from mypy_boto3_s3 import S3Client

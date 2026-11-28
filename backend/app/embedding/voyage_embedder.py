@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from app.core.config import settings
 
 if TYPE_CHECKING:
-    from app.core.qdrant import QdrantVectorStore
+    from app.infra.qdrant import QdrantVectorStore
     from app.embedding.utils import EnrichedNodeData
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ def batch_embed_nodes_template(
     if not enhanced_batch:
         return []
 
-    from app.core.qdrant import QdrantVectorStore
+    from app.infra.qdrant import QdrantVectorStore
 
     embedder = get_voyage_embedder()
     store = vector_store or QdrantVectorStore()

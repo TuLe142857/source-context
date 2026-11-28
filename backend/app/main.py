@@ -13,12 +13,14 @@ from app.api.routes.health import router as health_router
 from app.core.config import Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
-from app.core.postgres import Base, database
-from app.core.s3 import get_s3_client, create_default_bucket_if_not_exists
+from app.infra.postgres import database
+from app.infra.s3 import get_s3_client, create_default_bucket_if_not_exists
+from app.model.base import init_db
 from neo4j import AsyncGraphDatabase
 from neo4j.exceptions import Neo4jError
 
 from .worker import create_worker
+
 
 celery_worker = create_worker()
 
@@ -33,8 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # POSTGRES
     try:
-        async with database.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        await init_db(database.engine)
         logger.info("Database connected and schema initialized successfully.")
     except Exception as exc:
         logger.warning("Could not connect to Database at startup: %s", exc)

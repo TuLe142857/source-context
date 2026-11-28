@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 import re
 
-from app.core.qdrant import QdrantVectorStore
+from app.infra.qdrant import QdrantVectorStore
 from app.embedding.utils import (
     EnrichedNodeData,
     chunk_list,

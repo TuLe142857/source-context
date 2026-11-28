@@ -7,7 +7,7 @@ import sys
 from typing import Any, Literal
 
 from app.core.config import settings
-from app.core.qdrant import QdrantVectorStore
+from app.infra.qdrant import QdrantVectorStore
 from app.embedding.base import BaseInference
 from app.embedding.inference import get_inference_client, get_summary
 from app.embedding.no_llm_pipeline import process_uast_batch_no_llm

@@ -1,7 +1,7 @@
 import boto3
 
 from mypy_boto3_s3 import S3Client
-from .config import settings
+from app.core.config import settings
 from functools import lru_cache
 
 

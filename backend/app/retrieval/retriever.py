@@ -8,7 +8,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from app.core.config import settings
-from app.core.qdrant import get_qdrant_client
+from app.infra.qdrant import get_qdrant_client
 from app.embedding.voyage_embedder import VoyageEmbedder, get_voyage_embedder
 
 logger = logging.getLogger(__name__)

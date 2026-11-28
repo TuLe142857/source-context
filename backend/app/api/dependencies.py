@@ -14,9 +14,9 @@ from redis.asyncio import Redis
 from app.core import AppException, ErrorCode
 from app.core.config import Settings
 from app.core.pat import hash_pat_token
-from app.core.postgres import database
-from app.core.redis import get_redis_async_client
-from app.core.qdrant import get_qdrant_client
+from app.infra.postgres import database
+from app.infra.redis import get_redis_async_client
+from app.infra.qdrant import get_qdrant_client
 from app.core.security import decode_access_token
 from app.model.pat import PAT
 from app.model.user import User

@@ -23,8 +23,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.core.postgres import database
-from app.core.qdrant import get_qdrant_client
+from app.infra.postgres import database
+from app.infra.qdrant import get_qdrant_client
 from app.enums import BranchIndexingStatus
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob

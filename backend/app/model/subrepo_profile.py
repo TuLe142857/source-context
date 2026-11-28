@@ -7,7 +7,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.postgres import Base
+from .base import Base
 
 if TYPE_CHECKING:
     from app.model.project import Project
