@@ -1,10 +1,16 @@
-from openai import Client
+from typing import cast
+
+from openai import Client, omit
 from openai.types.chat import ChatCompletionMessageParam
 
-from .base import BaseLLMClient
+from .base import BaseLLMClient, ChatMessage
 
 
 class OpenAILLMClient(BaseLLMClient):
+    """Client for OpenAI and any OpenAI-compatible endpoint (e.g. ollama.com/v1)."""
+
+    provider = "openai"
+
     def __init__(
         self,
         model: str,
@@ -21,18 +27,21 @@ class OpenAILLMClient(BaseLLMClient):
         )
         super().__init__(model)
 
-    def chat(self, message: str, system_prompt: str | None = None) -> str:
-        messages: list[ChatCompletionMessageParam]
-        if system_prompt:
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message},
-            ]
-        else:
-            messages = [{"role": "user", "content": message}]
-
+    def _complete(
+        self,
+        messages: list[ChatMessage],
+        *,
+        max_tokens: int | None,
+        temperature: float | None,
+    ) -> str | None:
+        # Unset params are omitted from the request (not sent as null): some
+        # OpenAI-compatible servers reject parameters they do not know.
         res = self._client.chat.completions.create(
             model=self.model,
-            messages=messages,
+            messages=cast(list[ChatCompletionMessageParam], messages),
+            max_tokens=omit if max_tokens is None else max_tokens,
+            temperature=omit if temperature is None else temperature,
         )
-        return res.choices[0].message.content or ""
+        if not res.choices:
+            return None
+        return res.choices[0].message.content

@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import ClassVar, Literal, Sequence
 
-
-class EmbeddingDimensionMismatchError(ValueError):
-    """Raised when a provider returns vectors with an unexpected dimension."""
+from .exception import EmbeddingError
 
 
 class BaseEmbedder(ABC):
@@ -34,7 +32,13 @@ class BaseEmbedder(ABC):
         return self._batch_size
 
     def embed_documents(self, texts: list[str]) -> list[Sequence[float]]:
-        """Embed documents, splitting them into batches of `batch_size`."""
+        """Embed documents, splitting them into batches of `batch_size`.
+
+        Raises:
+            EmbeddingError: The provider call failed.
+            EmbeddingDimensionMismatchError: The provider returned the wrong
+                number of vectors or a vector of the wrong dimension.
+        """
         vectors: list[Sequence[float]] = []
         for start in range(0, len(texts), self._batch_size):
             batch = texts[start : start + self._batch_size]
@@ -42,7 +46,13 @@ class BaseEmbedder(ABC):
         return vectors
 
     def embed_query(self, text: str) -> Sequence[float]:
-        """Embed a single query and return its vector."""
+        """Embed a single query and return its vector.
+
+        Raises:
+            EmbeddingError: The provider call failed.
+            EmbeddingDimensionMismatchError: The provider returned a vector
+                of the wrong dimension.
+        """
         return self._embed_checked([text], "query")[0]
 
     def _embed_checked(
@@ -50,21 +60,29 @@ class BaseEmbedder(ABC):
     ) -> list[Sequence[float]]:
         if not texts:
             return []
-        vectors = list(self.embed(texts, input_type))
+        try:
+            vectors = list(self._embed(texts, input_type))
+        except EmbeddingError:
+            raise
+        except Exception as exc:
+            raise EmbeddingError(
+                f"{self.provider}/{self.model} embed failed: "
+                f"{exc.__class__.__name__}: {exc}"
+            ) from exc
         if len(vectors) != len(texts):
-            raise EmbeddingDimensionMismatchError(
+            raise EmbeddingError(
                 f"{self.model} returned {len(vectors)} vectors for {len(texts)} texts"
             )
         for vector in vectors:
             if len(vector) != self._dimensions:
-                raise EmbeddingDimensionMismatchError(
+                raise EmbeddingError(
                     f"{self.model} returned a {len(vector)}-dimensional vector, "
                     f"expected {self._dimensions}"
                 )
         return vectors
 
     @abstractmethod
-    def embed(
+    def _embed(
         self, texts: list[str], input_type: Literal["query", "document"]
     ) -> Sequence[Sequence[float]]:
-        """Send one request to the provider. Prefer embed_documents/embed_query."""
+        """Send one request to the provider. Use embed_query or embed_document instead"""

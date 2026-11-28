@@ -26,7 +26,7 @@ class VoyageEmbedder(BaseEmbedder):
         )
         super().__init__(dimensions, model, batch_size=batch_size)
 
-    def embed(
+    def _embed(
         self, texts: list[str], input_type: Literal["query", "document"]
     ) -> Sequence[Sequence[float]]:
         res = self._client.embed(
