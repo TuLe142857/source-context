@@ -27,6 +27,6 @@ build-sandbox-java:
 #	docker build -f java.Dockerfile -t sandbox/java25:latest --build-arg JAVA_VERSION=25 .
 
 build-sandbox-node:
-	docker build -f node.Dockerfile -t sandbox/node24:latest --build-arg NODE_VERSION=22 .
+	docker build -f node.Dockerfile -t sandbox/node22:latest --build-arg NODE_VERSION=22 .
 	docker build -f node.Dockerfile -t sandbox/node24:latest --build-arg NODE_VERSION=24 .
 
