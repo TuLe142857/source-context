@@ -1,1 +1,0 @@
-{ "name": "sample-client", "version": "0.1.0", "dependencies": { "axios": "^1" } }
