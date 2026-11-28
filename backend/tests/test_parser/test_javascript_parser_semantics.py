@@ -5,10 +5,11 @@ from textwrap import dedent
 
 from tree_sitter import Query
 
-from app.parser.languages.javascript.adapter import get_query
+from app.engine.parser.languages.javascript.adapter import get_query
 
-from app.parser.languages import get_language_registry
-from app.parser.uast import (
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import (
+    AttributeAccessNode,
     CallNode,
     FunctionNode,
     ImportNode,
@@ -515,3 +516,91 @@ def test_javascript_byte_ranges_support_unicode_and_crlf() -> None:
     assert function_text.endswith(
         "}",
     )
+
+
+def test_javascript_require_bindings() -> None:
+    source = dedent(
+        """\
+        const axios = require("axios");
+        const { Router, json: parseJson } = require("express");
+        """,
+    )
+
+    root, _ = parse_javascript(source)
+
+    imports = [
+        (node.module_path, node.imported_names, node.alias)
+        for node in find_nodes(root, ImportNode)
+        if isinstance(node, ImportNode)
+    ]
+
+    assert imports == [
+        ("axios", [], {"axios": "axios"}),
+        ("express", ["Router", "json"], {"json": "parseJson"}),
+    ]
+
+
+def test_javascript_iife_call_name_handling() -> None:
+    source = dedent(
+        """\
+        ((function (window) {
+            console.log(window);
+        }))(this);
+
+        ((function namedInit(window) {
+            console.log(window);
+        }))(this);
+        """,
+    )
+
+    root, _ = parse_javascript(source)
+    calls = [n for n in find_nodes(root, CallNode) if isinstance(n, CallNode)]
+    call_names = {c.name for c in calls}
+
+    assert "<anonymous>" in call_names
+    assert "namedInit" in call_names
+    assert "log" in call_names
+
+
+def test_javascript_subscript_and_attribute_name_truncation() -> None:
+    very_long_prop = "a" * 1000
+    source = f'window["{very_long_prop}"]();\nconst val = window["{very_long_prop}"];\n'
+
+    root, _ = parse_javascript(source)
+    calls = [n for n in find_nodes(root, CallNode) if isinstance(n, CallNode)]
+    attrs = [
+        n
+        for n in find_nodes(root, AttributeAccessNode)
+        if isinstance(n, AttributeAccessNode)
+    ]
+
+    for call in calls:
+        if call.name is not None:
+            assert len(call.name) <= 256
+
+    for attr in attrs:
+        if attr.name is not None:
+            assert len(attr.name) <= 256
+
+
+def test_uast_node_model_name_pre_save_truncation() -> None:
+    from app.engine.graph.model import CallNodeModel
+
+    long_name = "x" * 2000
+    call_node = CallNode(
+        id="test-uid-1",
+        name=long_name,
+        node_type="call",
+        start_byte=0,
+        end_byte=10,
+        start_point=(0, 0),
+        end_point=(0, 10),
+    )
+
+    model = CallNodeModel.from_uast(call_node)
+    assert model.name is not None
+    assert len(model.name) <= 500
+
+    model.name = "y" * 3000
+    model.pre_save()
+    assert len(model.name) <= 500

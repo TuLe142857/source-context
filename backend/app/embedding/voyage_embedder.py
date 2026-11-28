@@ -2,9 +2,13 @@
 
 from functools import lru_cache
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.core.config import settings
+
+if TYPE_CHECKING:
+    from app.core.qdrant import QdrantVectorStore
+    from app.embedding.utils import EnrichedNodeData
 
 logger = logging.getLogger(__name__)
 
@@ -126,3 +130,38 @@ class VoyageEmbedder:
 def get_voyage_embedder() -> VoyageEmbedder:
     """Returns a cached instance of VoyageEmbedder."""
     return VoyageEmbedder()
+
+
+def batch_embed_nodes_template(
+    enhanced_batch: list["EnrichedNodeData"],
+    vector_store: "QdrantVectorStore | None" = None,
+) -> list["EnrichedNodeData"]:
+    """Embeds enriched node chunks with Voyage AI (voyage-code-3) and upserts vector points to Qdrant.
+
+    Args:
+        enhanced_batch (list[EnrichedNodeData]): Batch of enriched nodes with structured text.
+        vector_store (QdrantVectorStore | None): Optional target QdrantVectorStore instance.
+
+    Returns:
+        list[EnrichedNodeData]: Enriched nodes with vector embeddings populated.
+    """
+    if not enhanced_batch:
+        return []
+
+    from app.core.qdrant import QdrantVectorStore
+
+    embedder = get_voyage_embedder()
+    store = vector_store or QdrantVectorStore()
+
+    texts = [
+        item.formatted_embed_text or item.summary or item.signature
+        for item in enhanced_batch
+    ]
+
+    embeddings = embedder.embed_documents(texts)
+    for idx, item in enumerate(enhanced_batch):
+        if idx < len(embeddings):
+            item.embedding = embeddings[idx]
+
+    store.upsert_batch(enhanced_batch, vector_size=1024)
+    return enhanced_batch

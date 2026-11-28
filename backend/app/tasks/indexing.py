@@ -1,29 +1,38 @@
 import asyncio
+from datetime import datetime, timezone
 import logging
 from pathlib import Path
+import re
 from typing import Any
-from celery import shared_task
+from celery import shared_task  # type: ignore[import-untyped]
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.postgres import database
-from app.embedding.embedding_pipeline import process_uast_batch_llm_summaries
+from app.embedding.embedding_pipeline import process_uast_batch_nodes
 from app.embedding.utils import extract_summarizable_nodes
 from app.enums import BranchIndexingStatus, IndexingJobStatus
-from app.graph import build_call_graph_for_project, save_file_node
-from app.graph.model import ProjectNodeModel
+from app.engine.api_map import build_api_map_for_project, link_api_map
+from app.engine.graph import build_call_graph_for_project, save_file_node
+from app.engine.graph.model import ProjectNodeModel
 from app.model.branch import Branch
 from app.model.indexing_job import IndexingJob
 from app.model.project import Project
+from app.model.repo_profile import RepoProfile
+from app.model.subrepo_profile import SubrepoProfile
 from app.model.repository import Repository
-from app.parser import UnsupportedLanguageError
-from app.parser.languages import get_language_registry
-from app.parser.uast import UASTNode
-from app.repository_manager.git_client import GitClient
-from app.scip import scip_pb2
-from app.scip.sandbox import get_scip_sandbox_registry
+from app.engine.parser import UnsupportedLanguageError
+from app.engine.parser.languages import get_language_registry
+from app.engine.parser.uast import UASTNode
+from app.repository_manager_v2 import (
+    RepoManagerV2,
+    post_download_metadata_hook,
+)
+from app.repository_manager_v2.profile_extractor import extract_subproject_profile
+from app.engine.scip import scip_pb2
+from app.engine.scip.sandbox import get_scip_sandbox_registry
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +40,16 @@ logger = logging.getLogger(__name__)
 async def download_branch_source_stage(
     branch_id: int,
     db: AsyncSession,
+    workspace_id: int | None = None,
 ) -> tuple[Path, str]:
-    """Stage 1: Clones/updates the source code for a specific branch using GitClient.
+    """Stage 1: Clones/updates the source code for a specific branch using RepoManagerV2.
+
+    Supports private repositories by resolving the owner's GitHub App installation ID.
 
     Args:
         branch_id (int): Target branch ID.
         db (AsyncSession): Database session.
+        workspace_id (int | None, optional): Target workspace ID. Defaults to None.
 
     Returns:
         tuple[Path, str]: Local storage Path and actual commit SHA.
@@ -54,15 +67,40 @@ async def download_branch_source_stage(
     branch: Branch = row[0]
     repo: Repository = row[1]
 
-    destination = Path(
-        f"{settings.repository_workspace_root}/repo_{repo.id}/{branch.branch_name}"
+    # Resolve GitHub App installation_id for private repo access
+    from app.repository_manager.resolver import resolve_repository_installation_id
+
+    installation_id = await resolve_repository_installation_id(
+        db=db, repo=repo, workspace_id=workspace_id
     )
 
-    git_client = GitClient(timeout_seconds=settings.git_command_timeout_seconds)
-    metadata = git_client.clone_or_update_branch(
+    # Determine workspace storage root safely
+    root_path = Path(settings.repository_workspace_root).expanduser()
+    try:
+        root_path.mkdir(parents=True, exist_ok=True)
+    except (PermissionError, OSError):
+        root_path = Path(__file__).resolve().parents[3] / "workspace-repositories"
+        root_path.mkdir(parents=True, exist_ok=True)
+
+    destination = root_path / f"repo_{repo.id}" / branch.branch_name
+
+    logger.info(
+        "Stage 1: Cloning/updating branch %s for repository %s (installation_id=%s) to %s",
+        branch.branch_name,
+        repo.name,
+        installation_id,
+        destination,
+    )
+
+    repo_manager = RepoManagerV2(
+        app_settings=settings,
+        timeout_seconds=settings.git_command_timeout_seconds,
+    )
+    metadata = repo_manager.clone_or_update_branch(
         repository_url=repo.git_url,
         branch_name=branch.branch_name,
         destination=destination,
+        installation_id=installation_id,
     )
 
     branch.local_path = str(destination)
@@ -76,6 +114,198 @@ async def download_branch_source_stage(
         metadata.commit_sha,
     )
     return destination, metadata.commit_sha
+
+
+async def extract_repo_profile_stage(
+    branch_id: int,
+    destination: Path,
+    commit_sha: str,
+    workspace_id: int | None = None,
+    session: AsyncSession | None = None,
+) -> None:
+    """Stage: Extracts and saves repository-level and subproject-level profiles.
+
+    Runs in an isolated database transaction so that extracted profiles are committed
+    and persisted even if subsequent indexing stages fail. Skips extraction if a
+    repository profile already exists for this repository with the exact same commit SHA.
+
+    Args:
+        branch_id (int): Target branch ID.
+        destination (Path): Local filesystem path where branch source is cloned.
+        commit_sha (str): Commit SHA of the cloned branch.
+        workspace_id (int | None, optional): Target workspace ID. Defaults to None.
+        session (AsyncSession | None, optional): Optional database session. If None,
+            a new session is created from database.async_session_factory() to ensure
+            transaction isolation. Defaults to None.
+    """
+    if session is None:
+        async with database.async_session_factory() as profile_session:
+            await _run_profile_extraction(
+                branch_id=branch_id,
+                destination=destination,
+                commit_sha=commit_sha,
+                workspace_id=workspace_id,
+                db=profile_session,
+            )
+    else:
+        await _run_profile_extraction(
+            branch_id=branch_id,
+            destination=destination,
+            commit_sha=commit_sha,
+            workspace_id=workspace_id,
+            db=session,
+        )
+
+
+async def _run_profile_extraction(
+    branch_id: int,
+    destination: Path,
+    commit_sha: str,
+    workspace_id: int | None,
+    db: AsyncSession,
+) -> None:
+    """Internal helper to execute profile extraction and commit changes.
+
+    Args:
+        branch_id (int): Target branch ID.
+        destination (Path): Cloned branch source directory.
+        commit_sha (str): Commit SHA.
+        workspace_id (int | None): Workspace ID.
+        db (AsyncSession): Dedicated session for this transaction.
+    """
+    stmt = (
+        select(Branch, Repository)
+        .join(Repository, Branch.repository_id == Repository.id)
+        .where(Branch.id == branch_id)
+    )
+    res = await db.execute(stmt)
+    row = res.first()
+    if row is None:
+        logger.warning(
+            "Cannot extract repo profile: Branch with ID %d not found.", branch_id
+        )
+        return
+
+    branch: Branch = row[0]
+    repo: Repository = row[1]
+    commit_sha_val = commit_sha or "HEAD"
+
+    # Bước 1: Kiểm tra commit hash, nếu đã tồn tại bản ghi với cùng commit_sha thì bỏ qua
+    profile_stmt = select(RepoProfile).where(RepoProfile.repository_id == repo.id)
+    profile_res = await db.execute(profile_stmt)
+    existing_profile = profile_res.scalar_one_or_none()
+
+    if existing_profile is not None and existing_profile.commit_sha == commit_sha_val:
+        logger.info(
+            "Repo profile for repository %s (id=%d) with commit %s already exists. Skipping extraction.",
+            repo.name,
+            repo.id,
+            commit_sha_val,
+        )
+        return
+
+    # Lấy danh sách sub-projects user đã cấu hình cho branch này
+    proj_stmt = select(Project).where(
+        Project.branch_id == branch.id,
+        (Project.workspace_id == workspace_id) | (Project.workspace_id.is_(None)),
+    )
+    branch_projects = list((await db.execute(proj_stmt)).scalars().all())
+    subproj_tuples = [
+        (
+            p.root_dir,
+            p.root_dir,
+            p.language.value if hasattr(p.language, "value") else str(p.language),
+        )
+        for p in branch_projects
+    ]
+
+    post_download_metadata = post_download_metadata_hook(
+        destination=destination,
+        repository_url=repo.git_url,
+        branch_name=branch.branch_name,
+        commit_sha=commit_sha_val,
+        subprojects=subproj_tuples,
+    )
+    logger.info("Hook xử lý sau khi tải repo hoàn tất: %s", post_download_metadata)
+
+    # Lưu/cập nhật RepoProfile
+    if existing_profile is not None:
+        existing_profile.branch_id = branch.id
+        existing_profile.branch_name = branch.branch_name
+        existing_profile.commit_sha = commit_sha_val
+        existing_profile.primary_language = post_download_metadata.get(
+            "primary_language", "unknown"
+        )
+        existing_profile.summary = post_download_metadata.get("summary")
+        existing_profile.readme_content = post_download_metadata.get("readme_content")
+        existing_profile.license_name = post_download_metadata.get("license_name")
+        existing_profile.topics = post_download_metadata.get("topics", [])
+        existing_profile.languages_breakdown = post_download_metadata.get(
+            "languages_breakdown", {}
+        )
+        existing_profile.extra_info = post_download_metadata.get("extra_info", {}) or {}
+        existing_profile.analyzed_at = datetime.now(timezone.utc)
+        profile_record = existing_profile
+    else:
+        new_profile = RepoProfile(
+            repository_id=repo.id,
+            branch_id=branch.id,
+            branch_name=branch.branch_name,
+            commit_sha=commit_sha_val,
+            primary_language=post_download_metadata.get("primary_language", "unknown"),
+            summary=post_download_metadata.get("summary"),
+            readme_content=post_download_metadata.get("readme_content"),
+            license_name=post_download_metadata.get("license_name"),
+            topics=post_download_metadata.get("topics", []),
+            languages_breakdown=post_download_metadata.get("languages_breakdown", {}),
+            extra_info=post_download_metadata.get("extra_info", {}) or {},
+        )
+        db.add(new_profile)
+        await db.flush()
+        profile_record = new_profile
+
+    # Trích xuất và lưu SubrepoProfile cho từng sub-project của user
+    if branch_projects:
+        await db.execute(
+            delete(SubrepoProfile).where(
+                SubrepoProfile.repo_profile_id == profile_record.id
+            )
+        )
+        for proj in branch_projects:
+            proj_path = destination / proj.root_dir.lstrip("./")
+            lang_str = (
+                proj.language.value
+                if hasattr(proj.language, "value")
+                else str(proj.language)
+            )
+            sub_res = extract_subproject_profile(
+                local_dir=proj_path,
+                language=lang_str,
+                name=proj.root_dir,
+                root_dir=proj.root_dir,
+            )
+            subrepo = SubrepoProfile(
+                repo_profile_id=profile_record.id,
+                project_id=proj.id,
+                name=sub_res.name,
+                root_dir=sub_res.root_dir,
+                language=sub_res.language,
+                project_type=sub_res.project_type,
+                frameworks=sub_res.frameworks,
+                tech_stack=sub_res.tech_stack,
+                key_entrypoints=sub_res.key_entrypoints,
+                directory_map=sub_res.directory_map,
+                extra_info=sub_res.extra_info,
+            )
+            db.add(subrepo)
+
+    await db.commit()
+    logger.info(
+        "Successfully saved RepoProfile and SubrepoProfiles for repository %s (id=%d, commit: %s)",
+        repo.name,
+        repo.id,
+        commit_sha_val,
+    )
 
 
 async def parse_tree_sitter_ast_stage(
@@ -109,7 +339,16 @@ async def parse_tree_sitter_ast_stage(
         local_path,
     )
 
-    files = [f for f in project_root.rglob("*") if f.is_file()]
+    files = [
+        f
+        for f in project_root.rglob("*")
+        if f.is_file()
+        and not any(
+            part.startswith(".")
+            or part in ("node_modules", "__pycache__", "venv", ".venv")
+            for part in f.relative_to(project_root).parts
+        )
+    ]
     logger.info(
         "Start parsing source code of project: project_id= %d, project_root: %s, total files = %d",
         project_id,
@@ -166,23 +405,26 @@ async def run_scip_and_build_graph_stage(
     root_dir: str,
     language: str,
     local_path: Path,
+    file_roots: list[UASTNode] | None = None,
 ) -> dict[str, Any]:
     """
     Stage 3: Combined template handler for running SCIP indexer & building Code Graph DB (Neo4j).
 
     - Index SCIP
     - Build call graph
+    - Build API map (endpoints and calls); runs without SCIP too, with same-file resolution
     Args:
         project_id (int): Target project ID.
         root_dir (str): Sub-directory root path inside branch.
         language (str): Programming language target.
         local_path (Path): Path to branch source code directory.
+        file_roots (list[UASTNode] | None): Stage-2 UAST roots of this run; the API map anchors
+            on them, so stale File nodes of earlier runs are never used.
 
     Returns:
         dict[str, Any]: SCIP indexing and Code Graph construction result placeholder.
     """
     project_root = local_path / root_dir
-    project_root_relative = project_root.relative_to(settings.repository_workspace_root)
 
     logger.info(
         "Stage 3 (Combined): SCIP indexing and Code Graph DB construction for project_id=%d (%s) at %s",
@@ -192,20 +434,61 @@ async def run_scip_and_build_graph_stage(
     )
     sandbox_registry = get_scip_sandbox_registry()
     sandbox = sandbox_registry.get_sandbox(language)
+    index: scip_pb2.Index | None = None
     if sandbox is None:
-        raise ValueError(f"No SCIP sandbox available for language: {language}")
+        logger.warning(
+            "No SCIP sandbox for language %s: call graph skipped, API map without SCIP",
+            language,
+        )
+    else:
+        project_root_relative = project_root.relative_to(
+            settings.repository_workspace_root
+        )
+        logger.info("Start indexing scip")
+        index_bytes = sandbox.index(str(project_root_relative))
+        index = scip_pb2.Index()
+        index.ParseFromString(index_bytes)
+        logger.info(
+            f"SCIP indexing successful, total documents = {len(index.documents)}"
+        )
 
-    logger.info("Start indexing scip")
-    index_bytes = sandbox.index(str(project_root_relative))
-    index = scip_pb2.Index()
-    index.ParseFromString(index_bytes)
-    logger.info(f"SCIP indexing successful, total documents = {len(index.documents)}")
+        logger.info("Start building call graph")
+        build_call_graph_for_project(project_id, index, project_root)
+        logger.info("Build call graph successful")
 
-    logger.info("Start building call graph")
-    build_call_graph_for_project(project_id, index, project_root)
-    logger.info("Build call graph successful")
+    api_map: dict[str, int] = {}
+    try:
+        logger.info("Start building API map")
+        api_map = build_api_map_for_project(
+            project_id, project_root, index=index, file_roots=file_roots
+        )
+    except Exception:
+        # The API map is derived data: a failure must not fail the indexing job.
+        logger.exception("API map failed for project_id=%d", project_id)
 
-    return {"status": "scip_graph_built", "language": language, "neo4j_nodes": 0}
+    return {
+        "status": "scip_graph_built",
+        "language": language,
+        "neo4j_nodes": 0,
+        "api_map": api_map,
+    }
+
+
+def link_workspace_api_map_stage(project_ids: list[int]) -> int:
+    """
+    Stage 3b: Link API calls to endpoints (RESOLVES_TO) across the projects of a workspace.
+
+    Runs after every project of the branch went through stage 3: saving a project's API nodes
+    drops the links other projects had to it, so the whole workspace is linked again.
+
+    Returns:
+        Number of links created; 0 when linking failed (logged, never raised).
+    """
+    try:
+        return link_api_map(project_ids)
+    except Exception:
+        logger.exception("API linking failed for projects %s", project_ids)
+        return 0
 
 
 async def build_vector_embeddings_stage(
@@ -251,12 +534,25 @@ async def build_vector_embeddings_stage(
         return {"status": "vector_embedded", "qdrant_points": 0}
 
     embedded_batches = await asyncio.to_thread(
-        process_uast_batch_llm_summaries,
+        process_uast_batch_nodes,
         workspace_id=workspace_id,
         branch_id=branch_id,
         candidate_tuples=candidate_tuples,
-        batch_size=50,
     )
+
+    flattened_items = [
+        item
+        for batch in embedded_batches
+        for item in batch
+        if getattr(item, "summary", None)
+    ]
+    if flattened_items:
+        logger.info(
+            "Updating %d node summaries in Neo4j for project_id=%d",
+            len(flattened_items),
+            project_id,
+        )
+        await asyncio.to_thread(_update_neo4j_node_summaries, flattened_items)
 
     total_points = sum(len(b) for b in embedded_batches)
     logger.info(
@@ -265,6 +561,54 @@ async def build_vector_embeddings_stage(
         project_id,
     )
     return {"status": "vector_embedded", "qdrant_points": total_points}
+
+
+def _update_neo4j_node_summaries(items: list[Any], batch_size: int = 1000) -> None:
+    """Updates the summary property of UAST nodes in Neo4j in batches.
+
+    Args:
+        items (list[Any]): List of EnrichedNodeData items with summaries.
+        batch_size (int, optional): Number of items per Cypher query. Defaults to 1000.
+    """
+    from neomodel import db
+
+    batch_payload = [
+        {"node_id": item.node_id, "summary": item.summary}
+        for item in items
+        if getattr(item, "summary", None)
+    ]
+    if not batch_payload:
+        return
+
+    query = """
+    UNWIND $batch AS item
+    MATCH (n:Node {uid: item.node_id})
+    SET n.summary = item.summary
+    """
+    total = len(batch_payload)
+    for i in range(0, total, batch_size):
+        chunk = batch_payload[i : i + batch_size]
+        db.cypher_query(query, {"batch": chunk})
+        logger.info(
+            "Updated %d/%d node summaries in Neo4j",
+            min(i + batch_size, total),
+            total,
+        )
+
+
+def sanitize_error_message(msg: str) -> str:
+    """Sanitizes error messages to prevent leaking credentials or internal IDs.
+
+    Args:
+        msg (str): Raw error string.
+
+    Returns:
+        str: Sanitized error string safe for client display.
+    """
+    cleaned = re.sub(r"(ghs_[a-zA-Z0-9_]+|Bearer\s+[a-zA-Z0-9_\-\.]+)", "***", msg)
+    cleaned = re.sub(r"://[^@\s]+@", "://***@", cleaned)
+    cleaned = re.sub(r"/installations/\d+", "/installations/***", cleaned)
+    return cleaned
 
 
 async def execute_branch_indexing_pipeline(
@@ -293,6 +637,10 @@ async def execute_branch_indexing_pipeline(
         job.progress_pct = 20
         await db.commit()
 
+        from app.engine.graph.init_db import ensure_neo4j_schema
+
+        await asyncio.to_thread(ensure_neo4j_schema)
+
         branch_res = await db.execute(select(Branch).where(Branch.id == branch_id))
         branch = branch_res.scalar_one_or_none()
 
@@ -301,7 +649,30 @@ async def execute_branch_indexing_pipeline(
             branch.indexing_status = BranchIndexingStatus.INDEXING
             await db.commit()
 
-        destination, _ = await download_branch_source_stage(branch_id=branch_id, db=db)
+        destination, commit_sha = await download_branch_source_stage(
+            branch_id=branch_id, db=db, workspace_id=workspace_id
+        )
+        logger.info(
+            "Stage 1 complete: Branch %d successfully cloned to %s (commit: %s)",
+            branch_id,
+            destination,
+            commit_sha,
+        )
+
+        # Profile extraction stage: run in isolated transaction so it is persisted even if subsequent stages fail
+        try:
+            await extract_repo_profile_stage(
+                branch_id=branch_id,
+                destination=destination,
+                commit_sha=commit_sha,
+                workspace_id=workspace_id,
+            )
+        except Exception as profile_exc:
+            logger.exception(
+                "Profile extraction failed for branch_id=%d: %s",
+                branch_id,
+                profile_exc,
+            )
 
         # Fetch projects under this branch for this workspace
         proj_res = await db.execute(
@@ -312,6 +683,21 @@ async def execute_branch_indexing_pipeline(
             )
         )
         projects = proj_res.scalars().all()
+
+        if not projects:
+            # If no sub-projects are configured under this branch yet, complete the job
+            job.status = IndexingJobStatus.COMPLETED
+            job.progress_pct = 100
+            job.error_message = None
+            if branch is not None:
+                branch.indexing_status = BranchIndexingStatus.INDEXED
+            await db.commit()
+            logger.info(
+                "IndexingJob %d for branch_id=%d COMPLETED (no sub-projects configured).",
+                job_id,
+                branch_id,
+            )
+            return
 
         # Step 2: Tree-sitter AST Parsing
         job.status = IndexingJobStatus.PROCESSING
@@ -331,8 +717,25 @@ async def execute_branch_indexing_pipeline(
         await db.commit()
         for p in projects:
             await run_scip_and_build_graph_stage(
-                p.id, p.root_dir, str(p.language), destination
+                p.id,
+                p.root_dir,
+                str(p.language),
+                destination,
+                uast_parse_results.get(p.id),
             )
+
+        # Step 3b: API links across every project of the workspace, other branches included
+        workspace_project_ids = list(
+            (
+                await db.execute(
+                    select(Project.id).where(
+                        (Project.workspace_id == workspace_id)
+                        | (Project.workspace_id.is_(None))
+                    )
+                )
+            ).scalars()
+        )
+        link_workspace_api_map_stage(workspace_project_ids)
 
         # Step 4: Vector DB Embeddings Construction
         job.status = IndexingJobStatus.PROCESSING
@@ -367,7 +770,7 @@ async def execute_branch_indexing_pipeline(
     except Exception as exc:
         logger.exception("IndexingJob %d failed: %s", job_id, exc)
         job.status = IndexingJobStatus.FAILED
-        job.error_message = str(exc)
+        job.error_message = sanitize_error_message(str(exc))
 
         branch_err_res = await db.execute(select(Branch).where(Branch.id == branch_id))
         err_branch = branch_err_res.scalar_one_or_none()

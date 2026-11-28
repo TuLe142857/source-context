@@ -3,14 +3,14 @@
 from collections.abc import Sequence
 
 from app.chunking import SourceChunk
-from app.parser import ParseResult
+from app.engine.parser import ParseResult
 
 from app.chunking import (
     ChunkingOptions,
     ChunkingService,
     ChunkSizeUnit,
 )
-from app.parser import (
+from app.engine.parser import (
     ParseStatus,
     ParserService,
 )

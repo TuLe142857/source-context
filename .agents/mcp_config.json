@@ -1,11 +1,43 @@
 {
     "mcpServers": {
-        "source-context-mcp": {
+        "source-context": {
             "command": "uvx",
             "args": [
                 "source-context-mcp",
                 "run"
-            ]
+            ],
+            "tools": {
+                "get_repository_overview": {
+                    "eager": true
+                },
+                "search_code_snippets": {
+                    "eager": true
+                },
+                "search_symbols_metadata": {
+                    "eager": true
+                },
+                "search_in_repo_and_branch": {
+                    "eager": true
+                },
+                "get_file_structure": {
+                    "eager": true
+                },
+                "analyze_impact": {
+                    "eager": true
+                },
+                "find_node_usages": {
+                    "eager": true
+                },
+                "find_node_callees": {
+                    "eager": true
+                },
+                "get_file_content": {
+                    "eager": true
+                },
+                "find_unused_nodes_in_file": {
+                    "eager": true
+                }
+            }
         }
     }
 }

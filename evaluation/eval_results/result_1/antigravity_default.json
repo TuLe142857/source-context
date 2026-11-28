@@ -1,0 +1,499 @@
+[
+  {
+    "condition": "antigravity_default",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q1_structure",
+    "dimension": "D1_Structure",
+    "question_text": "List all classes and top-level functions defined in backend/app/utils.py.",
+    "metrics": {
+      "conversation_id": "a8361fba-a6ca-4f06-9e95-e6be5841189a",
+      "status": "SUCCESS",
+      "response": "The classes and top-level functions defined in [backend/app/utils.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py) are:\n\n### Classes\n- [`EmailData`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L19-L22) (dataclass)\n\n### Top-level Functions\n- [`render_email_template`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L25-L31)\n- [`send_email`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L34-L57)\n- [`generate_test_email`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L60-L67)\n- [`generate_reset_password_email`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L70-L84)\n- [`generate_new_account_email`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L87-L102)\n- [`generate_password_reset_token`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L105-L115)\n- [`verify_password_reset_token`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L118-L125)\n",
+      "cli_duration_seconds": 11.489145236,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 22306,
+        "output_tokens": 781,
+        "thinking_tokens": 321,
+        "cache_read_tokens": 0,
+        "total_tokens": 23087
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.00677269,
+          "parameters": {
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py"
+          },
+          "output_length_chars": 21
+        }
+      ],
+      "tool_call_count": 1,
+      "mcp_tool_call_count": 0,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 16.746
+    }
+  },
+  {
+    "condition": "antigravity_default",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q2_usages",
+    "dimension": "D2_Usages",
+    "question_text": "Find all route handlers, dependencies, or modules across backend/app/ that call or reference get_current_user (defined in backend/app/api/deps.py).",
+    "metrics": {
+      "conversation_id": "9b27c0c8-cd6b-46fb-8505-6be26a74f110",
+      "status": "SUCCESS",
+      "response": "Across `backend/app/`, the function `get_current_user` is directly referenced only within [backend/app/api/deps.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/deps.py):\n\n### 1. Direct References to `get_current_user`\n* **Definition**:\n  * [backend/app/api/deps.py:30](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/deps.py#L30) — `def get_current_user(session: SessionDep, token: TokenDep) -> User:`\n* **Dependency Alias**:\n  * [backend/app/api/deps.py:49](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/deps.py#L49) — `CurrentUser = Annotated[User, Depends(get_current_user)]`\n\n---\n\n### 2. Indirect References via `CurrentUser`\nAll other dependencies and route handlers consume `get_current_user` indirectly through the `CurrentUser` dependency:\n\n#### Dependencies in `backend/app/api/deps.py`\n* [backend/app/api/deps.py:52](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/deps.py#L52) — `get_current_active_superuser(current_user: CurrentUser) -> User`\n\n#### Route Handlers\n* **[backend/app/api/routes/login.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py)**\n  * [Line 46](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L46): `test_token(current_user: CurrentUser) -> Any`\n* **[backend/app/api/routes/users.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py)**\n  * [Line 83](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L83): `update_user_me(*, session: SessionDep, user_in: UserUpdateMe, current_user: CurrentUser) -> Any`\n  * [Line 105](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L105): `update_password_me(*, session: SessionDep, body: UpdatePassword, current_user: CurrentUser) -> Message`\n  * [Line 125](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L125): `read_user_me(current_user: CurrentUser) -> UserPublic`\n  * [Line 133](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L133): `delete_user_me(session: SessionDep, current_user: CurrentUser) -> Message`\n  * [Line 164](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L164): `read_user_by_id(user_id: uuid.UUID, session: SessionDep, current_user: CurrentUser) -> Any`\n  * [Line 216](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L216): `delete_user(session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID) -> Message`\n* **[backend/app/api/routes/items.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py)**\n  * [Line 15](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py#L15): `read_items(session: SessionDep, current_user: CurrentUser, skip: int = 0, limit: int = 100) -> Any`\n  * [Line 49](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py#L49): `read_item(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any`\n  * [Line 63](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py#L63): `create_item(*, session: SessionDep, current_user: CurrentUser, item_in: ItemCreate) -> Any`\n  * [Line 79](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py#L79): `update_item(*, session: SessionDep, current_user: CurrentUser, id: uuid.UUID, item_in: ItemUpdate) -> Any`\n  * [Line 101](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py#L101): `delete_item(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Message`\n",
+      "cli_duration_seconds": 29.246302871,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 56000,
+        "output_tokens": 2301,
+        "thinking_tokens": 742,
+        "cache_read_tokens": 0,
+        "total_tokens": 58301
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.016974012,
+          "parameters": {
+            "CommandLine": "grep -rn \"get_current_user\" app/"
+          },
+          "output_length_chars": 288
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.028850935,
+          "parameters": {
+            "EndLine": 60,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/deps.py",
+            "StartLine": 25
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 6,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.017134123,
+          "parameters": {
+            "CommandLine": "grep -rn \"get_current_user\" ."
+          },
+          "output_length_chars": 292
+        },
+        {
+          "step_index": 8,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.013398207,
+          "parameters": {
+            "CommandLine": "grep -rn \"CurrentUser\" app/"
+          },
+          "output_length_chars": 1670
+        }
+      ],
+      "tool_call_count": 4,
+      "mcp_tool_call_count": 0,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 33.1
+    }
+  },
+  {
+    "condition": "antigravity_default",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q3_callees",
+    "dimension": "D3_Callees",
+    "question_text": "What internal functions, CRUD helpers, or security utilities inside backend/app/ does login_access_token (in backend/app/api/routes/login.py) call?",
+    "metrics": {
+      "conversation_id": "59b63537-9173-4b0e-87ac-8e0414608aae",
+      "status": "SUCCESS",
+      "response": "In [login.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L24-L42), the `login_access_token` endpoint calls the following internal functions, CRUD helpers, and security utilities inside `backend/app/`:\n\n### 1. Direct Calls\n* **CRUD Helper**:\n  * [`crud.authenticate(session, email, password)`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L45-L60): Authenticates the user by email and password against the database.\n* **Security Utility**:\n  * [`security.create_access_token(subject, expires_delta)`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/core/security.py#L22-L26): Encodes and signs a JWT access token with the user's ID as the subject.\n\n---\n\n### 2. Indirect Calls (via `crud.authenticate`)\nDuring authentication, `crud.authenticate` invokes:\n* **CRUD Helper**:\n  * [`crud.get_user_by_email(session, email)`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L34-L37): Queries the database for a user matching the provided email.\n* **Security Utility**:\n  * [`security.verify_password(plain_password, hashed_password)`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/core/security.py#L29-L32): Verifies the plaintext password against the stored password hash (or against `DUMMY_HASH` to mitigate timing attacks if the user does not exist).\n\n---\n\n### 3. Dependency Injection\n* [`deps.get_db()`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/deps.py#L21-L24): Invoked by FastAPI via the `SessionDep` dependency annotation (`Annotated[Session, Depends(get_db)]`) on the `session` argument to yield a database session.\n",
+      "cli_duration_seconds": 33.049777265,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 79254,
+        "output_tokens": 2484,
+        "thinking_tokens": 1719,
+        "cache_read_tokens": 0,
+        "total_tokens": 81738
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.02762007,
+          "parameters": {
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py"
+          },
+          "output_length_chars": 21
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.009257215,
+          "parameters": {
+            "EndLine": 50,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py",
+            "StartLine": 1
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 6,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.042171814,
+          "parameters": {
+            "EndLine": 68,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py",
+            "StartLine": 45
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 8,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.03912925,
+          "parameters": {
+            "EndLine": 60,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/core/security.py",
+            "StartLine": 1
+          },
+          "output_length_chars": 19
+        },
+        {
+          "step_index": 10,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.020867585,
+          "parameters": {
+            "EndLine": 40,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/deps.py",
+            "StartLine": 1
+          },
+          "output_length_chars": 20
+        }
+      ],
+      "tool_call_count": 5,
+      "mcp_tool_call_count": 0,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 36.372
+    }
+  },
+  {
+    "condition": "antigravity_default",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q4_retrieval",
+    "dimension": "D4_Retrieval",
+    "question_text": "Retrieve the full source code of the authenticate function in backend/app/crud.py.",
+    "metrics": {
+      "conversation_id": "0a766504-c909-4318-a861-e9297673f2f4",
+      "status": "SUCCESS",
+      "response": "Here is the full source code of the `authenticate` function from [backend/app/crud.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L45-L60):\n\n```python\ndef authenticate(*, session: Session, email: str, password: str) -> User | None:\n    db_user = get_user_by_email(session=session, email=email)\n    if not db_user:\n        # Prevent timing attacks by running password verification even when user doesn't exist\n        # This ensures the response time is similar whether or not the email exists\n        verify_password(password, DUMMY_HASH)\n        return None\n    verified, updated_password_hash = verify_password(password, db_user.hashed_password)\n    if not verified:\n        return None\n    if updated_password_hash:\n        db_user.hashed_password = updated_password_hash\n        session.add(db_user)\n        session.commit()\n        session.refresh(db_user)\n    return db_user\n```\n",
+      "cli_duration_seconds": 7.577059884,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 21783,
+        "output_tokens": 514,
+        "thinking_tokens": 219,
+        "cache_read_tokens": 0,
+        "total_tokens": 22297
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.261681079,
+          "parameters": {
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py"
+          },
+          "output_length_chars": 20
+        }
+      ],
+      "tool_call_count": 1,
+      "mcp_tool_call_count": 0,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 11.471
+    }
+  },
+  {
+    "condition": "antigravity_default",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q5_unused",
+    "dimension": "D5_DeadCode",
+    "question_text": "Identify any top-level functions in backend/app/crud.py that are not called or referenced anywhere inside backend/app/ (excluding tests).",
+    "metrics": {
+      "conversation_id": "82d25fe6-f344-4aee-8075-05fbaac443f6",
+      "status": "SUCCESS",
+      "response": "The top-level function in [backend/app/crud.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py) that is not called or referenced anywhere inside `backend/app/` (excluding tests) is:\n\n* **[`create_item`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L63-L68)**\n\n### Summary of Top-Level Functions in `backend/app/crud.py`:\n\n| Function | Referenced in `backend/app/` | Locations |\n| :--- | :---: | :--- |\n| `create_user` | **Yes** | [app/core/db.py#L33](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/core/db.py#L33), [app/api/routes/users.py#L68](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L68), [app/api/routes/users.py#L158](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L158) |\n| `update_user` | **Yes** | [app/api/routes/users.py#L210](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py#L210), [app/api/routes/login.py#L92](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L92) |\n| `get_user_by_email` | **Yes** | [app/crud.py#L46](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py#L46), [app/api/routes/users.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/users.py), [app/api/routes/login.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py) |\n| `authenticate` | **Yes** | [app/api/routes/login.py#L30](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L30) |\n| `create_item` | **No** | *Only referenced in test utilities (`tests/utils/item.py`)*. The endpoint [app/api/routes/items.py#L61-L72](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py#L61-L72) instantiates and saves the item inline instead of invoking `crud.create_item`. |\n",
+      "cli_duration_seconds": 57.867419447,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 181714,
+        "output_tokens": 3528,
+        "thinking_tokens": 2145,
+        "cache_read_tokens": 9444,
+        "total_tokens": 185242
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.029271947,
+          "parameters": {
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/crud.py"
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 4,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.010579863,
+          "parameters": {
+            "CommandLine": "grep -rn --exclude-dir=tests \"create_user\" app/"
+          },
+          "output_length_chars": 692
+        },
+        {
+          "step_index": 6,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.007330098,
+          "parameters": {
+            "CommandLine": "grep -rn --exclude-dir=tests \"update_user\" app/"
+          },
+          "output_length_chars": 475
+        },
+        {
+          "step_index": 8,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.062612939,
+          "parameters": {
+            "CommandLine": "grep -rn --exclude-dir=tests \"get_user_by_email\" app/"
+          },
+          "output_length_chars": 993
+        },
+        {
+          "step_index": 10,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.015161358,
+          "parameters": {
+            "CommandLine": "grep -rn --exclude-dir=tests \"authenticate\" app/"
+          },
+          "output_length_chars": 278
+        },
+        {
+          "step_index": 12,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.011697938,
+          "parameters": {
+            "CommandLine": "grep -rn --exclude-dir=tests \"create_item\" app/"
+          },
+          "output_length_chars": 272
+        },
+        {
+          "step_index": 14,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.04199549,
+          "parameters": {
+            "EndLine": 85,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/items.py",
+            "StartLine": 55
+          },
+          "output_length_chars": 21
+        },
+        {
+          "step_index": 16,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.028146863,
+          "parameters": {
+            "CommandLine": "grep -rn \"crud\" app/"
+          },
+          "output_length_chars": 1464
+        },
+        {
+          "step_index": 18,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.02342591,
+          "parameters": {
+            "CommandLine": "grep -rn \"app.crud\" app/"
+          },
+          "output_length_chars": 134
+        },
+        {
+          "step_index": 20,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.22949724,
+          "parameters": {
+            "CommandLine": "grep -rn \"from \\.*crud\" app/"
+          },
+          "output_length_chars": 134
+        },
+        {
+          "step_index": 22,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.016178395,
+          "parameters": {
+            "CommandLine": "grep -rn \"create_item\" app/tests/"
+          },
+          "output_length_chars": 168
+        },
+        {
+          "step_index": 24,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.016585497,
+          "parameters": {
+            "CommandLine": "find . -name \"*test*\""
+          },
+          "output_length_chars": 402
+        },
+        {
+          "step_index": 26,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.122577457,
+          "parameters": {
+            "CommandLine": "grep -rn \"create_item\" tests/"
+          },
+          "output_length_chars": 280
+        }
+      ],
+      "tool_call_count": 13,
+      "mcp_tool_call_count": 0,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 60.711
+    }
+  },
+  {
+    "condition": "antigravity_default",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "full-stack-fastapi-backend",
+    "question_id": "Q6_semantic",
+    "dimension": "D6_Semantic",
+    "question_text": "Find the functions responsible for generating and verifying password-reset JWT tokens across backend/app/.",
+    "metrics": {
+      "conversation_id": "cfc4cd97-e5de-47d2-9fe1-46f234ffbb70",
+      "status": "SUCCESS",
+      "response": "The functions responsible for generating and verifying password-reset JWT tokens are defined in [backend/app/utils.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py):\n\n### 1. Token Generation\n* **Function**: [`generate_password_reset_token(email: str) -> str`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L105-L115)\n* **Location**: [backend/app/utils.py:105-115](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L105-L115)\n* **Details**: Encodes a JWT containing claims for `exp` (configured by `settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS`), `nbf` (current UTC timestamp), and `sub` (the user's email address), signed with `settings.SECRET_KEY` using `security.ALGORITHM`.\n\n### 2. Token Verification\n* **Function**: [`verify_password_reset_token(token: str) -> str | None`](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L118-L125)\n* **Location**: [backend/app/utils.py:118-125](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py#L118-L125)\n* **Details**: Decodes the JWT using `settings.SECRET_KEY` and `security.ALGORITHM`. If valid, it returns the decoded subject (`sub`, the email string); if invalid or expired (`InvalidTokenError`), it returns `None`.\n\n---\n\n### Usage in API Routes\nBoth functions are utilized in [backend/app/api/routes/login.py](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py):\n* **`generate_password_reset_token`**: Called in [recover_password (line 63)](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L63) and [recover_password_html_content (line 116)](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L116) to generate tokens for password recovery emails.\n* **`verify_password_reset_token`**: Called in [reset_password (line 82)](file:///home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py#L82) to authenticate the incoming reset request and extract the target email.\n",
+      "cli_duration_seconds": 34.184817928,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 98413,
+        "output_tokens": 1829,
+        "thinking_tokens": 790,
+        "cache_read_tokens": 0,
+        "total_tokens": 100242
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.017264578,
+          "parameters": {
+            "CommandLine": "grep -rn -i \"reset_password\" app/"
+          },
+          "output_length_chars": 608
+        },
+        {
+          "step_index": 4,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.044399801,
+          "parameters": {
+            "CommandLine": "grep -rn -i \"token\" app/core/"
+          },
+          "output_length_chars": 368
+        },
+        {
+          "step_index": 6,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.031172422,
+          "parameters": {
+            "EndLine": 100,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py",
+            "StartLine": 1
+          },
+          "output_length_chars": 21
+        },
+        {
+          "step_index": 8,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.00788656,
+          "parameters": {
+            "ByteOffset": 0,
+            "EndLine": 125,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/utils.py",
+            "StartLine": 101
+          },
+          "output_length_chars": 21
+        },
+        {
+          "step_index": 10,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.024278692,
+          "parameters": {
+            "CommandLine": "grep -rn \"password_reset_token\" app/"
+          },
+          "output_length_chars": 882
+        },
+        {
+          "step_index": 12,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.008397337,
+          "parameters": {
+            "EndLine": 90,
+            "Path": "/home/huuhieu/projects/full-stack-fastapi-template/backend/app/api/routes/login.py",
+            "StartLine": 55
+          },
+          "output_length_chars": 21
+        },
+        {
+          "step_index": 14,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.015348503,
+          "parameters": {
+            "CommandLine": "grep -rn \"jwt\\.\" app/"
+          },
+          "output_length_chars": 508
+        }
+      ],
+      "tool_call_count": 7,
+      "mcp_tool_call_count": 0,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 37.111
+    }
+  }
+]

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from app.parser.repository_contracts import (
+from app.engine.parser.repository_contracts import (
     SourceFileChange,
     SourceFileFingerprint,
 )

@@ -68,6 +68,7 @@ class AuthService:
             )
 
         otp = generate_otp()
+        print(f"OTP la: {otp}")
 
         await self.redis.set(
             f"{REGISTER_OTP_KEY_PREFIX}{payload.email}",

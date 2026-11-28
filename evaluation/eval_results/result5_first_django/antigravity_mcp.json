@@ -1,0 +1,865 @@
+[
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "django",
+    "question_id": "Q0_architecture_overview",
+    "dimension": "D0_Architecture",
+    "question_text": "Provide a comprehensive architectural and technical overview of this repository: summarize its primary purpose, core language, package manager/build configuration, and explain the responsibilities of major subpackages including db, core, contrib, views, and dispatch.",
+    "metrics": {
+      "conversation_id": "d93a90f7-cf0f-4d18-ab42-aa4d4335f7b2",
+      "status": "SUCCESS",
+      "response": "### Architectural & Technical Overview of Django\n\n---\n\n### 1. Primary Purpose\n**Django** is an established, high-level **Python web framework** designed around the *\"batteries-included\"* philosophy. It accelerates web development with a clean, pragmatic architecture that emphasizes maintainability, security by default, and rapid prototyping. \n\nThe framework encapsulates an end-to-end web stack:\n- **Model-View-Template (MVT)** / Model-View-Controller architecture.\n- Full dual-stack support for **synchronous (WSGI)** and **asynchronous (ASGI)** request lifecycles.\n- Enterprise-grade tooling out of the box (integrated ORM, automated migrations, comprehensive admin interface, user authentication, security protections against CSRF/XSS/SQLi).\n\n---\n\n### 2. Core Language\n- **Python**: Primary language (strictly Python 3.12+ through Python 3.15, including support for Python free-threading / PEP 703).\n- **JavaScript / CSS**: Ancillary frontend assets used primarily for `contrib.admin`, `contrib.gis`, and administrative widgets.\n\n---\n\n### 3. Package Manager & Build Configuration\n- **Build System**: Configured according to modern Python standards (PEP 517 / PEP 518 / PEP 621) in `pyproject.toml` using `setuptools>=83` and `setuptools.build_meta`.\n- **Package Manager**: Packaged for distribution via `pip` / PyPI; package metadata and scripts define the CLI executables `django` and `django-admin` (pointing to `django.core.management:execute_from_command_line`).\n- **Core Runtime Dependencies**:\n  - `asgiref >= 3.13`: For async/sync interoperability and ASGI handling.\n  - `sqlparse >= 0.5.0`: For SQL formatting and parsing in the migration and database engines.\n  - `tzdata`: For Windows platform timezone compatibility.\n  - Optional dependencies: `argon2-cffi`, `bcrypt` for enhanced password hashing.\n- **Development & Quality Assurance**:\n  - Multi-environment testing orchestrated via `tox` (`tox.ini`).\n  - Formatting and linting configured with `black`, `isort`, `.flake8`, `pre-commit`, and `biome.json` / `Gruntfile.js` for JavaScript tests.\n\n---\n\n### 4. Responsibilities of Major Subpackages\n\n#### `django.db` (Database Abstraction & ORM)\nProvides the data modeling, query generation, and schema management tier:\n- **`db.models`**: Object-Relational Mapper (ORM) that represents relational database tables as Python classes (`Model`). Provides `QuerySet` APIs, field definitions (`Field`, `CharField`, `ForeignKey`, `GeneratedField`, etc.), query expressions (`F`, `Q`, `Subquery`), and constraints (`CheckConstraint`, `UniqueConstraint`).\n- **`db.backends`**: Database engine abstraction layers (e.g., PostgreSQL, SQLite, MySQL, Oracle) that compile Python abstract query trees into vendor-specific SQL, manage connection lifecycles, and handle type mapping.\n- **`db.migrations`**: Schema migration engine (`Migration`, `operations`, dependency graphs, schema autodetector, and executor) allowing safe, version-controlled transformations of the database schema.\n- **Transaction management**: Provides ACID transaction controls (`atomic`, savepoints) and multi-database connection routing.\n\n#### `django.core` (Framework Engine & Foundational Services)\nHouses the runtime infrastructure, low-level execution mechanisms, and cross-cutting utilities:\n- **`core.handlers`**: Manages the HTTP request/response pipeline (`BaseHandler`, `WSGIHandler`, `ASGIHandler`), middleware loading and chaining, and URL routing resolution.\n- **`core.management`**: Command-line orchestration system (`django-admin` / `manage.py`), providing `BaseCommand` and built-in management tasks (`migrate`, `runserver`, `shell`, `check`, `dumpdata`, `loaddata`).\n- **`core.checks`**: Internal system check framework that inspects models, settings, and configurations for bugs, security weaknesses, and deprecations before execution.\n- **`core.cache`**: Pluggable caching subsystem supporting Redis, Memcached, database, and local-memory storage.\n- **`core.exceptions`**: Unified framework exception hierarchy (`ValidationError`, `ObjectDoesNotExist`, `PermissionDenied`, `BadRequest`, `SuspiciousOperation`).\n- **Core Utilities**: Email abstractions (`core.mail`), file/storage abstractions (`core.files`), cryptographic signing (`core.signing`), and model serialization (`core.serializers`).\n\n#### `django.contrib` (The \"Batteries Included\" Suite)\nA collection of modular, production-ready applications that ship with the framework:\n- **`contrib.admin`**: Auto-generated, highly customizable CRUD admin portal (`ModelAdmin`, `AdminSite`, inlines, filters).\n- **`contrib.auth`**: Comprehensive user authentication and authorization system (session/token auth, password hashers, permission/group management).\n- **`contrib.contenttypes`**: Generic relation framework tracking all models installed in a Django project.\n- **`contrib.sessions`**: HTTP session framework supporting multiple storage engines (database, cache, signed cookies, files).\n- **`contrib.staticfiles`**: Asset management pipeline for discovering, processing, and deploying static files (`collectstatic`).\n- **`contrib.gis` (GeoDjango)**: Geographic Information System (GIS) module for spatial database queries and geometries.\n- **`contrib.postgres`**: PostgreSQL-specific database fields (JSONField, ArrayField, HStore) and full-text search extensions.\n- **Additional modules**: `messages`, `sites`, `sitemaps`, `syndication`, `redirects`, `flatpages`, and `humanize`.\n\n#### `django.views` (HTTP Presentation & View Controllers)\nImplements view execution logic and standard HTTP response workflows:\n- **`views.generic`**: Class-Based Views (CBVs) providing reusable inheritance hierarchies:\n  - Base views: `View`, `TemplateView`, `RedirectView`.\n  - Display/Data views: `ListView`, `DetailView`.\n  - Form/Editing views: `FormView`, `CreateView`, `UpdateView`, `DeleteView`.\n  - Mixins: `ContextMixin`, `TemplateResponseMixin`, `MultipleObjectMixin`.\n- **`views.decorators`**: Functional view decorators controlling caching, HTTP method restrictions (`require_POST`, `require_GET`), CSRF enforcement, and GZip compression.\n- **Default handlers (`views.defaults`)**: Built-in HTTP error views (`page_not_found` 404, `server_error` 500, `permission_denied` 403, `bad_request` 400).\n\n#### `django.dispatch` (Signal Dispatcher / Publish-Subscribe)\nProvides an in-process, decoupled event bus:\n- **`Signal` class**: Implements the Observer/Pub-Sub pattern. Components publish events (e.g., `pre_save`, `post_save`, `request_started`, `user_logged_in`) while decoupled receivers listen without direct coupling.\n- **Receiver management**: Provides the `@receiver` decorator and `connect()` / `disconnect()` APIs with weak referencing to avoid memory leaks.\n- **Sync/Async execution**: Supports both synchronous (`send`, `send_robust`) and asynchronous (`asend`, `asend_robust`) event delivery with error isolation.\n",
+      "cli_duration_seconds": 116.180274384,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 67960,
+        "output_tokens": 6209,
+        "thinking_tokens": 3483,
+        "cache_read_tokens": 429867,
+        "total_tokens": 74169
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.094710828,
+          "parameters": {
+            "Arguments": {
+              "repository_id": 1,
+              "workspace_id": 1
+            },
+            "ServerName": "source-context",
+            "ToolName": "get_repository_overview"
+          },
+          "output_length_chars": 2986
+        },
+        {
+          "step_index": 8,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.210647199,
+          "parameters": {
+            "Arguments": {
+              "project_id": "1",
+              "workspace_id": 1
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_files_in_project"
+          },
+          "output_length_chars": 0
+        },
+        {
+          "step_index": 10,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.055112812,
+          "parameters": {
+            "EndLine": 100,
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/d93a90f7-cf0f-4d18-ab42-aa4d4335f7b2/.system_generated/steps/8/output.txt",
+            "StartLine": 1
+          },
+          "output_length_chars": 23
+        },
+        {
+          "step_index": 14,
+          "tool_name": "call_mcp_tool",
+          "mcp_tool": null,
+          "duration_seconds": 0.120783589,
+          "parameters": {
+            "Arguments": {
+              "branch_name": "main",
+              "repository_id": 1,
+              "workspace_id": 1
+            },
+            "ServerName": "source-context",
+            "ToolName": "list_projects"
+          },
+          "output_length_chars": 100
+        },
+        {
+          "step_index": 16,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.102782257,
+          "parameters": {
+            "CommandLine": "ls -la /home/huuhieu/projects/django"
+          },
+          "output_length_chars": 2099
+        },
+        {
+          "step_index": 18,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.097986991,
+          "parameters": {
+            "EndLine": 100,
+            "Path": "/home/huuhieu/projects/django/pyproject.toml",
+            "StartLine": 1
+          },
+          "output_length_chars": 20
+        },
+        {
+          "step_index": 20,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.121023064,
+          "parameters": {
+            "file": "dispatch/__init__.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 903
+        },
+        {
+          "step_index": 22,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.229645379,
+          "parameters": {
+            "file": "dispatch/dispatcher.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 10239
+        },
+        {
+          "step_index": 24,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.09292076,
+          "parameters": {
+            "file": "db/__init__.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 77
+        },
+        {
+          "step_index": 26,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.059009823,
+          "parameters": {
+            "file": "db/models/__init__.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 3436
+        },
+        {
+          "step_index": 28,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.137239903,
+          "parameters": {
+            "file": "db/migrations/__init__.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 175
+        },
+        {
+          "step_index": 30,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.212251896,
+          "parameters": {
+            "file": "core/exceptions.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 10239
+        },
+        {
+          "step_index": 32,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.132077415,
+          "parameters": {
+            "file": "core/handlers/base.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 7577
+        },
+        {
+          "step_index": 34,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.198624812,
+          "parameters": {
+            "file": "views/generic/base.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 10239
+        },
+        {
+          "step_index": 36,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.113960739,
+          "parameters": {
+            "file": "contrib/__init__.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 77
+        },
+        {
+          "step_index": 38,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.152451036,
+          "parameters": {
+            "file": "contrib/admin/__init__.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 1349
+        },
+        {
+          "step_index": 40,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.113777111,
+          "parameters": {
+            "file": "contrib/auth/__init__.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 10239
+        }
+      ],
+      "tool_call_count": 17,
+      "mcp_tool_call_count": 14,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 120.006
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "django",
+    "question_id": "Q1_blast_radius",
+    "dimension": "D1_Impact",
+    "question_text": "If the active user model resolution helper get_user_model changes its signature or return type, which views, forms, authentication backends, and management commands across the codebase will be directly affected? List the affected caller functions and their containing files.",
+    "metrics": {
+      "conversation_id": "432e073e-3869-41cd-9aea-6697968a14a8",
+      "status": "SUCCESS",
+      "response": "Based on impact and usage analysis performed using the `source-context` MCP tools on `get_user_model` (`django.contrib.auth.get_user_model` in [contrib/auth/__init__.py](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L260-L274)), here are the directly affected **views**, **forms**, **authentication backends**, and **management commands**, along with their caller functions and containing files:\n\n---\n\n### 1. Management Commands\n\n* **`createsuperuser` command**\n  * **File:** [`django/contrib/auth/management/commands/createsuperuser.py`](file:///home/huuhieu/projects/django/django/contrib/auth/management/commands/createsuperuser.py#L30-L35)\n  * **Caller Method:** `Command.__init__(self, *args, **kwargs)`\n  * **Details:** Directly invokes `self.UserModel = get_user_model()`. The resulting model is then used throughout command configuration and execution methods (`add_arguments`, `handle`, `username_is_unique`, `natural_key_defined`, `_validate_username`).\n\n* **`changepassword` command**\n  * **File:** [`django/contrib/auth/management/commands/changepassword.py`](file:///home/huuhieu/projects/django/django/contrib/auth/management/commands/changepassword.py#L8-L9)\n  * **Caller:** Module-level initialization (`UserModel = get_user_model()`)\n  * **Affected Functions/Methods:** `Command.handle(self, *args, **options)` queries `UserModel._default_manager` and catches `UserModel.DoesNotExist`.\n\n---\n\n### 2. Views\n\n* **`PasswordResetConfirmView`** (and auth views module)\n  * **File:** [`django/contrib/auth/views.py`](file:///home/huuhieu/projects/django/django/contrib/auth/views.py#L31-L32)\n  * **Caller:** Module-level initialization (`UserModel = get_user_model()`)\n  * **Affected Function/Method:** `PasswordResetConfirmView.get_user(self, uidb64)` relies directly on `UserModel._meta.pk` and `UserModel._default_manager.get(...)`.\n\n---\n\n### 3. Forms\n\n* **User and Authentication Forms**\n  * **File:** [`django/contrib/auth/forms.py`](file:///home/huuhieu/projects/django/django/contrib/auth/forms.py#L18-L19)\n  * **Caller:** Module-level initialization (`UserModel = get_user_model()`)\n  * **Affected Form Classes & Methods:**\n    * **`UserCreationForm`** & **`UserChangeForm`**: Define `Meta.model = UserModel`.\n    * **`AuthenticationForm`**: References `UserModel.USERNAME_FIELD` in `__init__`.\n    * **`PasswordResetForm`**: Accesses `UserModel.get_email_field_name()` and `UserModel._meta.pk` in `save(self, ...)`.\n    * **`AdminUserCreationForm`**: Inherits from `UserCreationForm`.\n\n---\n\n### 4. Authentication Backends\n\n* **`ModelBackend` & `RemoteUserBackend`**\n  * **File:** [`django/contrib/auth/backends.py`](file:///home/huuhieu/projects/django/django/contrib/auth/backends.py#L13-L14)\n  * **Caller:** Module-level initialization (`UserModel = get_user_model()`)\n  * **Affected Functions/Methods:**\n    * **`ModelBackend`**:\n      * `authenticate(self, request, username=None, password=None, **kwargs)`\n      * `aauthenticate(self, request, username=None, password=None, **kwargs)`\n      * `with_perm(self, perm, is_active=True, include_superusers=True, obj=None, backend=None)`\n      * `get_user(self, user_id)`\n      * `aget_user(self, user_id)`\n    * **`RemoteUserBackend`**:\n      * `authenticate(self, request, remote_user)`\n      * `aauthenticate(self, request, remote_user)`\n    * **Subclasses:** `AllowAllUsersModelBackend` and `AllowAllUsersRemoteUserBackend`.\n\n---\n\n### Summary Table\n\n| Category | File Path | Direct Caller / Scope | Affected Caller Functions & Methods |\n| :--- | :--- | :--- | :--- |\n| **Management Command** | [`contrib/auth/management/commands/createsuperuser.py`](file:///home/huuhieu/projects/django/django/contrib/auth/management/commands/createsuperuser.py#L32) | `Command.__init__` | `Command.__init__`, `add_arguments`, `handle`, `_validate_username` |\n| **Management Command** | [`contrib/auth/management/commands/changepassword.py`](file:///home/huuhieu/projects/django/django/contrib/auth/management/commands/changepassword.py#L9) | Module scope (`UserModel`) | `Command.handle` |\n| **Views** | [`contrib/auth/views.py`](file:///home/huuhieu/projects/django/django/contrib/auth/views.py#L32) | Module scope (`UserModel`) | `PasswordResetConfirmView.get_user` |\n| **Forms** | [`contrib/auth/forms.py`](file:///home/huuhieu/projects/django/django/contrib/auth/forms.py#L19) | Module scope (`UserModel`) | `UserCreationForm`, `UserChangeForm`, `AuthenticationForm.__init__`, `PasswordResetForm.save` |\n| **Authentication Backends** | [`contrib/auth/backends.py`](file:///home/huuhieu/projects/django/django/contrib/auth/backends.py#L14) | Module scope (`UserModel`) | `ModelBackend.authenticate`, `aauthenticate`, `get_user`, `aget_user`, `with_perm`; `RemoteUserBackend.authenticate`, `aauthenticate` |\n",
+      "cli_duration_seconds": 76.303856367,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 54625,
+        "output_tokens": 6480,
+        "thinking_tokens": 4295,
+        "cache_read_tokens": 355530,
+        "total_tokens": 61105
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.314259403,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "get_user_model",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.074332032,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/432e073e-3869-41cd-9aea-6697968a14a8/.system_generated/steps/2/output.txt"
+          },
+          "output_length_chars": 22
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.11828896,
+          "parameters": {
+            "file": "contrib/auth/views.py",
+            "line_end": 45,
+            "line_start": 20,
+            "repository_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 8,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.103638407,
+          "parameters": {
+            "CommandLine": "find /home/huuhieu/projects/django -maxdepth 3 -name \"views.py\""
+          },
+          "output_length_chars": 1621
+        },
+        {
+          "step_index": 10,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.100721624,
+          "parameters": {
+            "CommandLine": "find /home/huuhieu/projects/django -name \"backends.py\""
+          },
+          "output_length_chars": 186
+        },
+        {
+          "step_index": 12,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.175971342,
+          "parameters": {
+            "file": "contrib/auth/__init__.py",
+            "repository_id": 1,
+            "symbol": "get_user_model",
+            "workspace_id": 1
+          },
+          "output_length_chars": 8028
+        },
+        {
+          "step_index": 14,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.324350851,
+          "parameters": {
+            "file": "contrib/auth/forms.py",
+            "line_end": 50,
+            "line_start": 1,
+            "repository_id": 1
+          },
+          "output_length_chars": 10233
+        },
+        {
+          "step_index": 16,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.129933007,
+          "parameters": {
+            "CommandLine": "grep -rn \"get_user_model\" /home/huuhieu/projects/django/django/"
+          },
+          "output_length_chars": 2795
+        },
+        {
+          "step_index": 18,
+          "tool_name": "run_command",
+          "mcp_tool": null,
+          "duration_seconds": 0.122999498,
+          "parameters": {
+            "CommandLine": "grep -rn \"get_user_model\" /home/huuhieu/projects/django/tests/ | head -n 30"
+          },
+          "output_length_chars": 1501
+        },
+        {
+          "step_index": 20,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.098688275,
+          "parameters": {
+            "file": "contrib/auth/management/commands/createsuperuser.py",
+            "line_end": 45,
+            "line_start": 25,
+            "repository_id": 1
+          },
+          "output_length_chars": 10239
+        },
+        {
+          "step_index": 22,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.104073261,
+          "parameters": {
+            "file": "contrib/auth/management/commands/changepassword.py",
+            "repository_id": 1
+          },
+          "output_length_chars": 2764
+        },
+        {
+          "step_index": 24,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.340002648,
+          "parameters": {
+            "file": "contrib/auth/backends.py",
+            "line_end": 70,
+            "line_start": 1,
+            "repository_id": 1
+          },
+          "output_length_chars": 10239
+        }
+      ],
+      "tool_call_count": 12,
+      "mcp_tool_call_count": 7,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 79.047
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "django",
+    "question_id": "Q2_security_callers",
+    "dimension": "D2_Usages",
+    "question_text": "Which security routines, middleware components, cryptographic signers, and authentication handlers across the application call the timing-safe string comparison helper constant_time_compare?",
+    "metrics": {
+      "conversation_id": "42bce8e0-d283-4e98-b775-ee40a1e44584",
+      "status": "SUCCESS",
+      "response": "The timing-safe string comparison helper **`constant_time_compare`** ([`django/utils/crypto.py`](file:///home/huuhieu/projects/django/django/utils/crypto.py#L80-L82)) is invoked across the following components:\n\n---\n\n### 1. Middleware Components\n* **CSRF Protection Middleware (`CsrfViewMiddleware`)**:\n  * **Helper**: [`_does_token_match(request_csrf_token, csrf_secret)`](file:///home/huuhieu/projects/django/django/middleware/csrf.py#L142-L156) at **line 156**\n  * **Purpose**: Compares the unmasked request CSRF token against the session/cookie CSRF secret in constant time to prevent timing attacks during token validation in `CsrfViewMiddleware._check_token()`.\n\n---\n\n### 2. Cryptographic Signers\n* **Cryptographic Signer (`Signer`)**:\n  * **Method**: [`Signer.unsign(signed_value)`](file:///home/huuhieu/projects/django/django/core/signing.py#L246-L253) at **line 251** (also inherited by [`TimestampSigner`](file:///home/huuhieu/projects/django/django/core/signing.py))\n  * **Purpose**: Safely checks whether the signature attached to a signed string matches the freshly computed HMAC/signature for that value before returning the unsigned payload.\n\n---\n\n### 3. Authentication Handlers\n* **Session Authentication & User Retrieval (`django.contrib.auth`)**:\n  * **`login(request, user, backend=None)`** ([`contrib/auth/__init__.py`](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L168-L197) at **line 179**)\n  * **`alogin(request, user, backend=None)`** ([`contrib/auth/__init__.py`](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L200-L226) at **line 207**)\n  * **`get_user(request)`** ([`contrib/auth/__init__.py`](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L277-L318) at **lines 301, 309**)\n  * **`aget_user(request)`** ([`contrib/auth/__init__.py`](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L321-L359) at **lines 342, 350**)\n  * **Purpose**: Compares the session authentication hash against the user's current session hash (`session_hash_verified`) to validate active sessions and prevent session hijacking across logins and user requests.\n\n---\n\n### 4. Security Routines & Token Generators\n* **Password Reset Token Verification**:\n  * **Class / Method**: [`PasswordResetTokenGenerator.check_token(user, token)`](file:///home/huuhieu/projects/django/django/contrib/auth/tokens.py#L50-L81) at **line 69**\n  * **Purpose**: Compares the provided reset token hash against the generated HMAC digest for the user and timestamp without leaking timing information.\n\n* **Password Hasher Verification Routines (`django.contrib.auth.hashers`)**:\n  * [`PBKDF2PasswordHasher.verify(password, encoded)`](file:///home/huuhieu/projects/django/django/contrib/auth/hashers.py#L346-L349) at **line 349** (also inherited by `PBKDF2SHA1PasswordHasher`)\n  * [`BCryptSHA256PasswordHasher.verify(password, encoded)`](file:///home/huuhieu/projects/django/django/contrib/auth/hashers.py#L529-L533) at **line 533** (also inherited by `BCryptPasswordHasher`)\n  * [`ScryptPasswordHasher.verify(password, encoded)`](file:///home/huuhieu/projects/django/django/contrib/auth/hashers.py#L619-L628) at **line 628**\n  * [`MD5PasswordHasher.verify(password, encoded)`](file:///home/huuhieu/projects/django/django/contrib/auth/hashers.py#L676-L679) at **line 679**\n  * **Purpose**: Compares candidate password hashes against stored encoded password hashes to prevent side-channel timing attacks during password authentication.\n",
+      "cli_duration_seconds": 34.041184121,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 30418,
+        "output_tokens": 3546,
+        "thinking_tokens": 2209,
+        "cache_read_tokens": 82715,
+        "total_tokens": 33964
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.235088809,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "constant_time_compare",
+            "workspace_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 4,
+          "tool_name": "read_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.278214361,
+          "parameters": {
+            "Path": "/home/huuhieu/.gemini/antigravity-cli/brain/42bce8e0-d283-4e98-b775-ee40a1e44584/.system_generated/steps/2/output.txt"
+          },
+          "output_length_chars": 22
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.138977794,
+          "parameters": {
+            "file": "middleware/csrf.py",
+            "line_end": 165,
+            "line_start": 140,
+            "repository_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 8,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.099649378,
+          "parameters": {
+            "file": "middleware/csrf.py",
+            "line_end": 165,
+            "line_start": 135,
+            "repository_id": 1
+          },
+          "output_length_chars": 10238
+        }
+      ],
+      "tool_call_count": 4,
+      "mcp_tool_call_count": 3,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 36.858
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "django",
+    "question_id": "Q3_login_dependencies",
+    "dimension": "D3_Callees",
+    "question_text": "What internal helper functions, security utilities, and signal dispatchers are directly invoked by the session establishment function login in the authentication module?",
+    "metrics": {
+      "conversation_id": "371a9fce-3368-46ea-9b92-886276012345",
+      "status": "SUCCESS",
+      "response": "In Django's authentication module ([django/contrib/auth/__init__.py](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L168-L197)), the session establishment function `login(request, user, backend=None)` directly invokes the following internal helper functions, security utilities, and signal dispatchers:\n\n---\n\n### 1. Internal Helper Functions\n* **`_get_user_session_key(request)`** ([django/contrib/auth/__init__.py#L107-L110](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L107-L110))\n  * Extracts and converts the user ID stored in `request.session[SESSION_KEY]` back to a Python object via `user_model._meta.pk.to_python()` to verify whether the session already belongs to the logging-in user.\n* **`_get_backend_from_user(user, backend=None)`** ([django/contrib/auth/__init__.py#L54-L72](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L54-L72))\n  * Resolves and validates the dotted module path of the authentication backend that authenticated the user, persisting it to `request.session[BACKEND_SESSION_KEY]`.\n* **`_set_auth_user(request, user)`** ([django/contrib/auth/__init__.py#L91-L104](file:///home/huuhieu/projects/django/django/contrib/auth/__init__.py#L91-L104))\n  * Updates the request instance by assigning `request.user = user` as well as defining the coroutine function for `request.auser()`.\n\n---\n\n### 2. Security Utilities\n* **`constant_time_compare(val1, val2)`** ([django/utils/crypto.py#L80-L82](file:///home/huuhieu/projects/django/django/utils/crypto.py#L80-L82))\n  * Mitigates timing attacks by safely comparing the existing session's auth hash (`HASH_SESSION_KEY`) against `user.get_session_auth_hash()`. If a discrepancy or mismatch is found, `request.session.flush()` is called to prevent session hijacking/reuse.\n* **`rotate_token(request)`** ([django/middleware/csrf.py#L116-L121](file:///home/huuhieu/projects/django/django/middleware/csrf.py#L116-L121))\n  * Changes/rotates the CSRF token on login to protect against CSRF and session fixation attacks.\n\n---\n\n### 3. Signal Dispatchers\n* **`user_logged_in.send(sender=user.__class__, request=request, user=user)`** (invoking `Signal.send` in [django/dispatch/dispatcher.py#L218-L262](file:///home/huuhieu/projects/django/django/dispatch/dispatcher.py#L218-L262))\n  * Dispatches the `user_logged_in` signal (imported from [django/contrib/auth/signals.py](file:///home/huuhieu/projects/django/django/contrib/auth/signals.py)) to notify all registered receivers that the session has been established.\n",
+      "cli_duration_seconds": 29.954073353,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 31327,
+        "output_tokens": 2473,
+        "thinking_tokens": 1307,
+        "cache_read_tokens": 113879,
+        "total_tokens": 33800
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_find_node_callees",
+          "mcp_tool": null,
+          "duration_seconds": 0.521845243,
+          "parameters": {
+            "repository_id": 1,
+            "symbol": "login"
+          },
+          "output_length_chars": 3710
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.13980644,
+          "parameters": {
+            "file": "contrib/auth/__init__.py",
+            "line_end": 180,
+            "line_start": 105,
+            "repository_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.100209643,
+          "parameters": {
+            "file": "contrib/auth/__init__.py",
+            "line_end": 230,
+            "line_start": 150,
+            "repository_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 8,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.178012958,
+          "parameters": {
+            "file": "contrib/auth/__init__.py",
+            "repository_id": 1
+          },
+          "output_length_chars": 10238
+        },
+        {
+          "step_index": 10,
+          "tool_name": "mcp_source-context_get_node_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.09978249,
+          "parameters": {
+            "node_id": "69028ac3-12ea-4ce6-bf9d-6834b8d21f28"
+          },
+          "output_length_chars": 1313
+        },
+        {
+          "step_index": 12,
+          "tool_name": "mcp_source-context_analyze_impact",
+          "mcp_tool": null,
+          "duration_seconds": 0.111816062,
+          "parameters": {
+            "node_id": "69028ac3-12ea-4ce6-bf9d-6834b8d21f28",
+            "repository_id": 1
+          },
+          "output_length_chars": 9886
+        }
+      ],
+      "tool_call_count": 6,
+      "mcp_tool_call_count": 6,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 34.386
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "django",
+    "question_id": "Q4_semantic_search",
+    "dimension": "D4_Semantic",
+    "question_text": "Find the class responsible for generating and validating one-time password reset tokens using HMAC and timestamp encoding, and describe how its token validation mechanism determines whether a token has expired or is invalid.",
+    "metrics": {
+      "conversation_id": "5992b6b1-7610-4f1b-b78e-9698c48c08aa",
+      "status": "SUCCESS",
+      "response": "The class responsible for generating and validating one-time password reset tokens using HMAC and timestamp encoding is **`PasswordResetTokenGenerator`**, located in [django/contrib/auth/tokens.py](file:///home/huuhieu/projects/django/django/contrib/auth/tokens.py#L8-L128).\n\n---\n\n### How Token Validation Works (`check_token`)\n\nIn [tokens.py](file:///home/huuhieu/projects/django/django/contrib/auth/tokens.py#L50-L81), the `check_token(user, token)` method determines whether a token is invalid or expired through the following sequence:\n\n1. **Existence and Input Check:**\n   - Verifies both `user` and `token` are truthy:\n     ```python\n     if not (user and token):\n         return False\n     ```\n\n2. **Format and Timestamp Parsing:**\n   - Splits the token string by the hyphen (`-`):\n     ```python\n     ts_b36, _ = token.split(\"-\")\n     ```\n     If the token does not split into exactly two parts, it catches `ValueError` and returns `False`.\n   - Decodes the base-36 encoded timestamp string into an integer (`ts = base36_to_int(ts_b36)`). If the string cannot be converted from base-36, it catches `ValueError` and returns `False`.\n\n3. **HMAC Integrity and State Invalidation Check:**\n   - The method tests the token against the active secret and any fallback secrets (`[self.secret, *self.secret_fallbacks]`).\n   - For each secret, it re-generates the expected token using `_make_token_with_timestamp(user, ts, secret)` and compares it against the input token using `constant_time_compare`.\n   - The HMAC payload (`_make_hash_value`) includes:\n     - `user.pk`\n     - `user.password`\n     - `user.last_login` (truncated to seconds)\n     - `timestamp`\n     - `email`\n   - If the token was tampered with, or if the user's password, login timestamp, or email changed since token generation (rendering it a one-time token), the regenerated hash will not match.\n   - If no secret produces a match, the loop falls through to `else: return False`.\n\n4. **Expiration (Timeout) Check:**\n   - The timestamp represents the number of seconds elapsed since `2001-01-01 00:00:00`.\n   - The method checks whether the elapsed time between now and the timestamp exceeds the configured timeout:\n     ```python\n     if (self._num_seconds(self._now()) - ts) > settings.PASSWORD_RESET_TIMEOUT:\n         return False\n     ```\n   - If `(current_seconds - ts) > settings.PASSWORD_RESET_TIMEOUT`, the token is considered expired and `False` is returned.\n\n5. **Validation Success:**\n   - If all format, cryptographic integrity, user state, and expiration criteria pass, the method returns `True`.\n",
+      "cli_duration_seconds": 30.290203068,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 24212,
+        "output_tokens": 2116,
+        "thinking_tokens": 1161,
+        "cache_read_tokens": 52011,
+        "total_tokens": 26328
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_search_in_repo_and_branch",
+          "mcp_tool": null,
+          "duration_seconds": 0.706676778,
+          "parameters": {
+            "branch_name": "main",
+            "query": "class responsible for generating and validating one-time password reset tokens using HMAC and timestamp encoding",
+            "repository_id": 1,
+            "top_k": 5
+          },
+          "output_length_chars": 1624
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.211681228,
+          "parameters": {
+            "file": "django/contrib/auth/tokens.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 7235
+        },
+        {
+          "step_index": 8,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.108818363,
+          "parameters": {
+            "file": "django/contrib/auth/tokens.py",
+            "line_end": 130,
+            "line_start": 1,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 4406
+        }
+      ],
+      "tool_call_count": 3,
+      "mcp_tool_call_count": 3,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 33.141
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "django",
+    "question_id": "Q5_dead_code",
+    "dimension": "D5_DeadCode",
+    "question_text": "In the web shortcuts module (shortcuts.py), identify which asynchronous or synchronous helper functions have zero incoming calls or references anywhere else in the Django framework (excluding tests).",
+    "metrics": {
+      "conversation_id": "d3e4255a-c65b-4c0b-9c10-d8af940893c6",
+      "status": "SUCCESS",
+      "response": "Based on the AST and static usage analysis from the `source-context` MCP tools (`django/shortcuts.py`), the following helper functions in `shortcuts.py` have **zero incoming calls or references** anywhere else in the Django framework (excluding tests):\n\n---\n\n### **Asynchronous Helper Functions**\n1. **`aget_object_or_404(klass, *args, **kwargs)`** (lines 111–127)\n   - Asynchronous counterpart to `get_object_or_404`.\n   - Incoming references in Django (excluding tests): **0**\n\n2. **`aget_list_or_404(klass, *args, **kwargs)`** (lines 155–172)\n   - Asynchronous counterpart to `get_list_or_404`.\n   - Incoming references in Django (excluding tests): **0**\n\n---\n\n### **Synchronous Helper Functions**\n3. **`get_list_or_404(klass, *args, **kwargs)`** (lines 130–152)\n   - Synchronous shortcut to retrieve a list of objects or raise `Http404`.\n   - Incoming references in Django (excluding tests): **0**\n\n4. **`render(request, template_name, context=None, content_type=None, status=None, using=None)`** (lines 21–29)\n   - Shortcut to render templates into an `HttpResponse`.\n   - Incoming references in Django (excluding tests): **0**\n\n5. **`redirect(to, *args, permanent=False, preserve_request=False, max_length=MAX_URL_REDIRECT_LENGTH, **kwargs)`** (lines 32–64)\n   - Shortcut returning an `HttpResponseRedirect` or `HttpResponsePermanentRedirect`.\n   - Incoming references in Django (excluding tests): **0** *(only calls `resolve_url` internally)*\n\n---\n\n### **Summary of Remaining Functions in `shortcuts.py` (Which DO Have References)**\n- **`_get_queryset(klass)`**: Used internally within `shortcuts.py` by `get_object_or_404`, `aget_object_or_404`, `get_list_or_404`, and `aget_list_or_404`.\n- **`get_object_or_404(klass, *args, **kwargs)`**: Used by Django's class-based generic views (`django.views.generic.detail`, `django.views.generic.edit`, and `django.views.generic.dates`).\n- **`resolve_url(to, *args, **kwargs)`**: Used by `redirect()` inside `shortcuts.py` as well as across test client utilities and admin site views.\n",
+      "cli_duration_seconds": 59.753807126,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 43238,
+        "output_tokens": 3805,
+        "thinking_tokens": 2361,
+        "cache_read_tokens": 259596,
+        "total_tokens": 47043
+      },
+      "tool_calls": [
+        {
+          "step_index": 2,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.31582203,
+          "parameters": {
+            "file": "django/shortcuts.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 5766
+        },
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_find_unused_nodes_in_file",
+          "mcp_tool": null,
+          "duration_seconds": 0.225975251,
+          "parameters": {
+            "file_id": "8d1515b9-176a-4cad-a92c-eea4a360dd47"
+          },
+          "output_length_chars": 975
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.910469686,
+          "parameters": {
+            "file": "django/shortcuts.py",
+            "repository_id": 1,
+            "symbol": "get_object_or_404",
+            "workspace_id": 1
+          },
+          "output_length_chars": 5020
+        },
+        {
+          "step_index": 8,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.493503101,
+          "parameters": {
+            "file": "django/shortcuts.py",
+            "repository_id": 1,
+            "symbol": "resolve_url",
+            "workspace_id": 1
+          },
+          "output_length_chars": 9337
+        },
+        {
+          "step_index": 10,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.402850842,
+          "parameters": {
+            "file": "django/shortcuts.py",
+            "repository_id": 1,
+            "symbol": "_get_queryset",
+            "workspace_id": 1
+          },
+          "output_length_chars": 77
+        },
+        {
+          "step_index": 12,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.318229486,
+          "parameters": {
+            "node_id": "40e62021-6c15-4ea5-8e51-3df4cf930e3a"
+          },
+          "output_length_chars": 3912
+        },
+        {
+          "step_index": 14,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.115351453,
+          "parameters": {
+            "node_id": "296428d9-3e3c-4741-ba29-1dabcb79bb36"
+          },
+          "output_length_chars": 77
+        },
+        {
+          "step_index": 16,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.120513342,
+          "parameters": {
+            "node_id": "22327921-8e75-44be-8b51-a7b17f733748"
+          },
+          "output_length_chars": 1222
+        },
+        {
+          "step_index": 18,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.117970112,
+          "parameters": {
+            "file": "django/shortcuts.py",
+            "line_end": 70,
+            "line_start": 30,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 7041
+        },
+        {
+          "step_index": 20,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.060604497,
+          "parameters": {
+            "node_id": "bf1f536f-66ef-46b7-9151-f576cb42264f"
+          },
+          "output_length_chars": 77
+        },
+        {
+          "step_index": 22,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.125515208,
+          "parameters": {
+            "node_id": "a59c5a7f-3086-41fa-a1de-740e2d1bd0ac"
+          },
+          "output_length_chars": 77
+        },
+        {
+          "step_index": 24,
+          "tool_name": "mcp_source-context_find_node_usages",
+          "mcp_tool": null,
+          "duration_seconds": 0.311593185,
+          "parameters": {
+            "node_id": "3ac0b0bd-14a9-4760-a9fc-0ce49c087d57"
+          },
+          "output_length_chars": 77
+        }
+      ],
+      "tool_call_count": 12,
+      "mcp_tool_call_count": 12,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 62.898
+    }
+  },
+  {
+    "condition": "antigravity_mcp",
+    "model": "Gemini 3.8 Flash (Medium)",
+    "repo_id": "django",
+    "question_id": "Q6_module_outline",
+    "dimension": "D6_Structure",
+    "question_text": "Inspect shortcuts.py and summarize all top-level HTTP response, redirect, and model object retrieval helper functions defined in it, including their exact parameter signatures and docstrings.",
+    "metrics": {
+      "conversation_id": "ff740b1c-2f62-49de-8262-d5003cf79df7",
+      "status": "SUCCESS",
+      "response": "Inspection of [shortcuts.py](file:///home/huuhieu/projects/django/django/shortcuts.py) reveals the following top-level helper functions categorized by purpose:\n\n---\n\n### 1. HTTP Response Helpers\n\n#### [`render`](file:///home/huuhieu/projects/django/django/shortcuts.py#L21-L29)\n* **Signature**:\n  ```python\n  def render(request, template_name, context=None, content_type=None, status=None, using=None)\n  ```\n* **Docstring**:\n  ```text\n  Return an HttpResponse whose content is filled with the result of calling\n  django.template.loader.render_to_string() with the passed arguments.\n  ```\n\n---\n\n### 2. Redirect & URL Resolution Helpers\n\n#### [`redirect`](file:///home/huuhieu/projects/django/django/shortcuts.py#L32-L64)\n* **Signature**:\n  ```python\n  def redirect(to, *args, permanent=False, preserve_request=False, max_length=MAX_URL_REDIRECT_LENGTH, **kwargs)\n  ```\n* **Docstring**:\n  ```text\n  Return an HttpResponseRedirect to the appropriate URL for the arguments\n  passed.\n\n  The arguments could be:\n\n      * A model: the model's `get_absolute_url()` function will be called.\n\n      * A view name, possibly with arguments: `urls.reverse()` will be used\n        to reverse-resolve the name.\n\n      * A URL, which will be used as-is for the redirect location.\n\n  Issues a temporary redirect by default. Set permanent=True to issue a\n  permanent redirect. Set preserve_request=True to instruct the user agent\n  to preserve the original HTTP method and body when following the redirect.\n  ```\n\n#### [`resolve_url`](file:///home/huuhieu/projects/django/django/shortcuts.py#L175-L213)\n* **Signature**:\n  ```python\n  def resolve_url(to, *args, **kwargs)\n  ```\n* **Docstring**:\n  ```text\n  Return a URL appropriate for the arguments passed.\n\n  The arguments could be:\n\n      * A model: the model's `get_absolute_url()` function will be called.\n\n      * A view name, possibly with arguments: `urls.reverse()` will be used\n        to reverse-resolve the name.\n\n      * A URL, which will be returned as-is.\n  ```\n\n---\n\n### 3. Model Object Retrieval Helpers\n\n#### [`get_object_or_404`](file:///home/huuhieu/projects/django/django/shortcuts.py#L80-L108)\n* **Signature**:\n  ```python\n  def get_object_or_404(klass, *args, **kwargs)\n  ```\n* **Docstring**:\n  ```text\n  Use get() to return an object, or raise an Http404 exception if the object\n  does not exist.\n\n  klass may be a Model, Manager, or QuerySet object. All other passed\n  arguments and keyword arguments are used in the get() query.\n\n  Like with QuerySet.get(), MultipleObjectsReturned is raised if more than\n  one object is found.\n  ```\n\n#### [`aget_object_or_404`](file:///home/huuhieu/projects/django/django/shortcuts.py#L111-L127) *(Async)*\n* **Signature**:\n  ```python\n  async def aget_object_or_404(klass, *args, **kwargs)\n  ```\n* **Docstring**:\n  ```text\n  See get_object_or_404().\n  ```\n\n#### [`get_list_or_404`](file:///home/huuhieu/projects/django/django/shortcuts.py#L130-L152)\n* **Signature**:\n  ```python\n  def get_list_or_404(klass, *args, **kwargs)\n  ```\n* **Docstring**:\n  ```text\n  Use filter() to return a list of objects, or raise an Http404 exception if\n  the list is empty.\n\n  klass may be a Model, Manager, or QuerySet object. All other passed\n  arguments and keyword arguments are used in the filter() query.\n  ```\n\n#### [`aget_list_or_404`](file:///home/huuhieu/projects/django/django/shortcuts.py#L155-L172) *(Async)*\n* **Signature**:\n  ```python\n  async def aget_list_or_404(klass, *args, **kwargs)\n  ```\n* **Docstring**:\n  ```text\n  See get_list_or_404().\n  ```\n\n#### [`_get_queryset`](file:///home/huuhieu/projects/django/django/shortcuts.py#L67-L77) *(Internal Helper)*\n* **Signature**:\n  ```python\n  def _get_queryset(klass)\n  ```\n* **Docstring**:\n  ```text\n  Return a QuerySet or a Manager.\n  Duck typing in action: any class with a `get()` method (for\n  get_object_or_404) or a `filter()` method (for get_list_or_404) might do\n  the job.\n  ```\n",
+      "cli_duration_seconds": 27.210912665,
+      "num_turns": 1,
+      "usage": {
+        "input_tokens": 19758,
+        "output_tokens": 3034,
+        "thinking_tokens": 1619,
+        "cache_read_tokens": 40024,
+        "total_tokens": 22792
+      },
+      "tool_calls": [
+        {
+          "step_index": 4,
+          "tool_name": "mcp_source-context_get_file_structure",
+          "mcp_tool": null,
+          "duration_seconds": 0.106435273,
+          "parameters": {
+            "file": "django/shortcuts.py",
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 5766
+        },
+        {
+          "step_index": 6,
+          "tool_name": "mcp_source-context_get_file_content",
+          "mcp_tool": null,
+          "duration_seconds": 0.046532897,
+          "parameters": {
+            "file": "django/shortcuts.py",
+            "line_end": 215,
+            "line_start": 1,
+            "repository_id": 1,
+            "workspace_id": 1
+          },
+          "output_length_chars": 7041
+        }
+      ],
+      "tool_call_count": 2,
+      "mcp_tool_call_count": 2,
+      "has_mcp_in_init": true,
+      "wall_clock_seconds": 30.048
+    }
+  }
+]

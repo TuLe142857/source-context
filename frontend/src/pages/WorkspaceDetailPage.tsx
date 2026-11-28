@@ -1,4 +1,7 @@
-import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OverviewPanel } from '@/components/workspace/OverviewPanel';
@@ -6,11 +9,58 @@ import { MembersPanel } from '@/components/workspace/MembersPanel';
 import { RepositoriesPanel } from '@/components/workspace/RepositoriesPanel';
 import { BranchesPanel } from '@/components/workspace/BranchesPanel';
 import { IndexingPanel } from '@/components/workspace/IndexingPanel';
+import { linkGitHubInstallation } from '@/api/webhooks.api';
 import { useWorkspaceHierarchyQuery, useWorkspaceMembersQuery, useWorkspaceQuery } from '@/hooks/useWorkspaces';
 
 export function WorkspaceDetailPage() {
   const params = useParams<{ workspaceId: string }>();
   const workspaceId = Number(params.workspaceId);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const pendingInstallationId = searchParams.get('pending_installation_id');
+    if (pendingInstallationId) {
+      linkGitHubInstallation({
+        installation_id: Number(pendingInstallationId),
+        workspace_id: workspaceId,
+      })
+        .then(() => {
+          toast.success('Liên kết tài khoản với GitHub App thành công!');
+          queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+          queryClient.invalidateQueries({ queryKey: ['workspaces', workspaceId] });
+        })
+        .catch((err) => {
+          toast.error('Không thể liên kết GitHub App: ' + (err?.message || 'Lỗi'));
+        })
+        .finally(() => {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('pending_installation_id');
+              next.delete('setup_action');
+              return next;
+            },
+            { replace: true }
+          );
+        });
+      return;
+    }
+
+    if (searchParams.get('github_connected') === 'true') {
+      toast.success('Liên kết tài khoản với GitHub App thành công!');
+      queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['workspaces', workspaceId] });
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('github_connected');
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [searchParams, setSearchParams, queryClient, workspaceId]);
 
   const workspaceQuery = useWorkspaceQuery(workspaceId);
   const hierarchyQuery = useWorkspaceHierarchyQuery(workspaceId);

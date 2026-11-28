@@ -116,3 +116,18 @@ class RepositoryTraversalError(RepositoryManagerError):
         super().__init__(
             f"Unable to traverse repository path {path}: {reason}",
         )
+
+
+class GitHubAppAuthenticationError(RepositoryManagerError):
+    """Raised when GitHub App authentication or token minting fails."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class GitHubAppApiError(RepositoryManagerError):
+    """Raised when GitHub API requests fail."""
+
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        self.status_code = status_code
+        super().__init__(message)

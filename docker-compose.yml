@@ -1,10 +1,10 @@
-x-healthcheck-defaults: &healthcheck_base
+x-healthcheck-default: &healthcheck-default
   interval: 10s
   timeout: 5s
   retries: 5
   start_period: 10s
 
-x-common-env: &common-env
+x-backend-env: &backend-env
   SOURCE_CONTEXT_ENV_STATE: ${SOURCE_CONTEXT_ENV_STATE:?SOURCE_CONTEXT_ENV_STATE is required}
   SOURCE_CONTEXT_ENVIRONMENT: ${SOURCE_CONTEXT_ENVIRONMENT:?SOURCE_CONTEXT_ENVIRONMENT is required}
   SOURCE_CONTEXT_SECRET_KEY: ${SOURCE_CONTEXT_SECRET_KEY:?SOURCE_CONTEXT_SECRET_KEY is required}
@@ -33,6 +33,7 @@ x-common-env: &common-env
 
   SOURCE_CONTEXT_MINIO_ROOT_USER: ${SOURCE_CONTEXT_MINIO_ROOT_USER:?SOURCE_CONTEXT_MINIO_ROOT_USER is required}
   SOURCE_CONTEXT_MINIO_ROOT_PASSWORD: ${SOURCE_CONTEXT_MINIO_ROOT_PASSWORD:?SOURCE_CONTEXT_MINIO_ROOT_PASSWORD is required}
+  SOURCE_CONTEXT_S3_ENDPOINT: ${SOURCE_CONTEXT_S3_ENDPOINT:-http://rustfs:9000}
 
   SOURCE_CONTEXT_SMTP_SERVER: ${SOURCE_CONTEXT_SMTP_SERVER:? Variable is empty or not set}
   SOURCE_CONTEXT_SMTP_PORT: ${SOURCE_CONTEXT_SMTP_PORT:? Variable is empty or not set}
@@ -49,13 +50,21 @@ x-common-env: &common-env
   SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL: ${SOURCE_CONTEXT_VOYAGE_EMBEDDING_MODEL:-voyage-code-3}
   GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
   VITE_GITHUB_APP_NAME: ${VITE_GITHUB_APP_NAME:-}
+  SOURCE_CONTEXT_LLM_PROVIDER: ${SOURCE_CONTEXT_LLM_PROVIDER:-}
+  SOURCE_CONTEXT_GITHUB_APP_ID: ${SOURCE_CONTEXT_GITHUB_APP_ID:-4542819}
+  SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY_PATH: ${SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY_PATH:-source-context.2026-10-16.private-key.pem}
+  SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY: ${SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY:-}
 
 services:
+
+  # ================================================================================================
+  #         BACKEND & WORKER
+  # ================================================================================================
   backend:
-#    image: ghcr.io/tule142857/source-context/backend:latest
+    image: ghcr.io/tule142857/source-context/backend:latest
     restart: unless-stopped
     environment:
-      <<: *common-env
+      <<: *backend-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,20 +72,21 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
     expose:
       - "8000"
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${SOURCE_CONTEXT_BACKEND_HOST_PORT:-8000}:8000"
     volumes:
       - workspace_repos:/workspace-repositories
+      - ./source-context.2026-10-16.private-key.pem:/app/source-context.2026-10-16.private-key.pem:ro
 
   celery-worker:
-#    image: ghcr.io/tule142857/source-context/backend:latest
+    image: ghcr.io/tule142857/source-context/backend:latest
     restart: unless-stopped
     environment:
-      <<: *common-env
+      <<: *backend-env
     depends_on:
       backend:
         condition: service_started
@@ -86,11 +96,18 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
+      rustfs:
+        condition: service_healthy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - workspace_repos:/workspace-repositories
+      - ./source-context.2026-10-16.private-key.pem:/app/source-context.2026-10-16.private-key.pem:ro
     command: celery -A app.worker.celery_worker worker --loglevel=info
 
+
+  # ================================================================================================
+  #           INFRASTRUCTURES
+  # ================================================================================================
   postgres:
     image: postgres:17
     restart: unless-stopped
@@ -100,12 +117,12 @@ services:
       POSTGRES_DB: ${SOURCE_CONTEXT_POSTGRES_DB:?SOURCE_CONTEXT_POSTGRES_DB is required}
     volumes:
       - ./docker/postgres:/docker-entrypoint-initdb.d/
-#      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${SOURCE_CONTEXT_POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
-      <<: *healthcheck_base
-      test: ["CMD-SHELL", "pg_isready -U ${SOURCE_CONTEXT_POSTGRES_USER:?SOURCE_CONTEXT_POSTGRES_USER is required} -d ${SOURCE_CONTEXT_POSTGRES_DB:?SOURCE_CONTEXT_POSTGRES_DB is required}"]
+      <<: *healthcheck-default
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
 
   neo4j:
     image: neo4j:community
@@ -113,29 +130,26 @@ services:
     environment:
       - NEO4J_AUTH=${SOURCE_CONTEXT_NEO4J_USER:?SOURCE_CONTEXT_NEO4J_USER is required}/${SOURCE_CONTEXT_NEO4J_PASSWORD:?SOURCE_CONTEXT_NEO4J_PASSWORD is required}
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_HTTP_PORT:-7474}:7474"
-      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_PORT:-7687}:7687"
-#    volumes:
-#      - neo4j_data:/data
+      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_HTTP_HOST_PORT:-7474}:7474"
+      - "127.0.0.1:${SOURCE_CONTEXT_NEO4J_HOST_PORT:-7687}:7687"
+    volumes:
+      - neo4j_data:/data
     healthcheck:
-      <<: *healthcheck_base
-      test: [
-        "CMD",
-        "cypher-shell",
-        "-u", "${SOURCE_CONTEXT_NEO4J_USER:?SOURCE_CONTEXT_NEO4J_USER is required}",
-        "-p", "${SOURCE_CONTEXT_NEO4J_PASSWORD:?SOURCE_CONTEXT_NEO4J_PASSWORD is required}",
-        "RETURN 1"
-      ]
+      <<: *healthcheck-default
+      start_period: 40s
+      test: ["CMD-SHELL", "cypher-shell -u \"$${NEO4J_AUTH%%/*}\" -p \"$${NEO4J_AUTH#*/}\" 'RETURN 1' || exit 1"]
 
   qdrant:
     image: qdrant/qdrant:latest
     restart: unless-stopped
     environment:
       - QDRANT__TELEMETRY_DISABLED=true
-#    volumes:
-#      - qdrant_data:/qdrant/storage
+    ports:
+      - "127.0.0.1:${SOURCE_CONTEXT_QDRANT_HOST_PORT:-6333}:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
     healthcheck:
-      <<: *healthcheck_base
+      <<: *healthcheck-default
       test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
 
   redis:
@@ -146,73 +160,33 @@ services:
       --user default off
       --user ${SOURCE_CONTEXT_REDIS_USER:?SOURCE_CONTEXT_REDIS_USER is required} on ">${SOURCE_CONTEXT_REDIS_PASSWORD:?SOURCE_CONTEXT_REDIS_PASSWORD is required}" allcommands allkeys allchannels
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_REDIS_PORT:-6379}:6379"
-#    volumes:
-#      - redis_data:/data
+      - "127.0.0.1:${SOURCE_CONTEXT_REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
-      <<: *healthcheck_base
+      <<: *healthcheck-default
       test: [ "CMD", "redis-cli", "ping" ]
 
-  minio:
-    image: minio/minio:latest
+  rustfs:
+    image: rustfs/rustfs:latest
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${SOURCE_CONTEXT_MINIO_ROOT_USER:?SOURCE_CONTEXT_MINIO_ROOT_USER is required}
-      MINIO_ROOT_PASSWORD: ${SOURCE_CONTEXT_MINIO_ROOT_PASSWORD:?SOURCE_CONTEXT_MINIO_ROOT_PASSWORD is required}
+      RUSTFS_ACCESS_KEY: ${SOURCE_CONTEXT_MINIO_ROOT_USER:?SOURCE_CONTEXT_MINIO_ROOT_USER is required}
+      RUSTFS_SECRET_KEY: ${SOURCE_CONTEXT_MINIO_ROOT_PASSWORD:?SOURCE_CONTEXT_MINIO_ROOT_PASSWORD is required}
     ports:
-      - "127.0.0.1:${SOURCE_CONTEXT_MINIO_API_PORT:-9000}:9000"
-      - "127.0.0.1:${SOURCE_CONTEXT_MINIO_CONSOLE_PORT:-9001}:9001"
-#    volumes:
-#      - minio_data:/data
-    command: server /data --address :9000 --console-address :9001
+      - "127.0.0.1:${SOURCE_CONTEXT_MINIO_API_HOST_PORT:-9000}:9000"
+      - "127.0.0.1:${SOURCE_CONTEXT_MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    volumes:
+      - rustfs_data:/data
     healthcheck:
-      <<: *healthcheck_base
-      test: [ "CMD", "mc", "ready", "local"]
-
-
-  # Log collector
-  alloy:
-    image: grafana/alloy:v1.18.1
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:12345:12345"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./docker/observability/alloy/config.alloy:/etc/alloy/config.alloy
-#      - alloy_data:/var/lib/alloy/data
-    command:
-      - run
-      - --server.http.listen-addr=0.0.0.0:12345
-      - --storage.path=/var/lib/alloy/data
-      - /etc/alloy/config.alloy
-
-  # Log aggregation system
-  loki:
-    image: grafana/loki:3.7
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:3100:3100"
-    volumes:
-      - ./docker/observability/loki/loki-config.yml:/etc/loki/loki-config.yml
-#      - loki_data:/loki
-    command:
-      - -config.file=/etc/loki/loki-config.yml
-
-  # Log dashboard
-  grafana:
-    image: grafana/grafana:13.1
-    restart: unless-stopped
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
-    volumes:
-      - ./docker/observability/grafana/provisioning:/etc/grafana/provisioning
-      - ./docker/observability/grafana/dashboards:/var/lib/grafana/dashboards
-    ports:
-      - "127.0.0.1:3000:3000"
+      <<: *healthcheck-default
+      test: [ "CMD", "curl", "-sf", "http://127.0.0.1:9000/health" ]
 
 volumes:
+  postgres_data:
+  neo4j_data:
+  qdrant_data:
+  redis_data:
+  rustfs_data:
   workspace_repos:
     name: workspace_repo
-  loki_data:
-  alloy_data:

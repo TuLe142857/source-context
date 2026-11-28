@@ -3,7 +3,7 @@ import uuid
 import typer
 from neomodel import db
 
-from app.graph.model import WorkspaceNodeModel
+from app.engine.graph.model import WorkspaceNodeModel
 
 cli = typer.Typer(name="workspace", help="Manage workspaces")
 

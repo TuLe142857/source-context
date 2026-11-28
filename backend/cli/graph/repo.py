@@ -3,7 +3,7 @@ import uuid
 import typer
 from neomodel import db
 
-from app.graph.model import RepositoryNodeModel, WorkspaceNodeModel
+from app.engine.graph.model import RepositoryNodeModel, WorkspaceNodeModel
 
 cli = typer.Typer(name="repo", help="Manage repositories")
 

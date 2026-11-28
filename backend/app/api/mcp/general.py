@@ -10,6 +10,8 @@ from app.schemas.branch import SimpleBranchResponse
 from app.schemas.general import (
     BranchProjectsRequest,
     BranchRequest,
+    RepositoryOverviewRequest,
+    RepositoryOverviewResponse,
     RepositoryRequest,
 )
 from app.schemas.project import ProjectResponse
@@ -95,3 +97,25 @@ async def get_projects(
         branch_name=payload.branch_name,
     )
     return APIResponse.ok(data=projects)
+
+
+@router.post(
+    "/repository-overview",
+    response_model=ResponseSuccessSchema[RepositoryOverviewResponse],
+    responses=build_error_docs(
+        ErrorCode.RESOURCE_NOT_FOUND,
+        ErrorCode.UNAUTHORIZED,
+        ErrorCode.UNKNOWN_ERROR,
+    ),
+    summary="Get repository overview and technical profile",
+)
+async def get_repository_overview(
+    payload: RepositoryOverviewRequest,
+    general_service: GeneralServiceDep,
+) -> APIResponse:
+    overview = await general_service.get_repository_overview(
+        repository_id=payload.repository_id,
+        workspace_id=payload.workspace_id,
+        include_readme=payload.include_readme,
+    )
+    return APIResponse.ok(data=overview)

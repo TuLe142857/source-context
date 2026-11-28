@@ -5,6 +5,8 @@ export interface UserResponse {
   username: string;
   full_name?: string | null;
   is_active: string;
+  github_installation_id?: number | null;
+  github_username?: string | null;
 }
 
 /** Step 1: request an OTP for the given email. */

@@ -11,18 +11,21 @@ dependencies = [
     "boto3>=1.43.57",
     "boto3-stubs[s3]>=1.43.57",
     "celery[redis]>=5.4.0",
+    "cryptography>=42.0.0",
     "docker>=7.2.0",
     "fastapi[standard]>=0.139.2",
     "grpcio-tools>=1.83.0",
     "jinja2>=3.1.6",
+    "llama-cpp-python>=0.3.36",
     "neo4j~=6.1.0",
     "neomodel~=6.1.0",
+    "ollama>=0.6.3",
     "openai>=2.48.0",
     "pathspec>=1.1.1",
     "protobuf>=7.35.1",
     "psycopg[binary]>=3.1.0",
     "pydantic-settings>=2.14.2",
-    "pyjwt>=2.8.0",
+    "pyjwt[crypto]>=2.8.0",
     "qdrant-client>=1.18.0",
     "redis>=5.0.0",
     "sqlalchemy>=2.0.0",
@@ -53,6 +56,10 @@ packages = ["app", "cli"]
 
 [project.scripts]
 cli="cli:run"
+
+[tool.ruff]
+# sample projects read as source code by tests (e.g. tests/test_api_map/fixtures), never imported
+extend-exclude = ["tests/**/fixtures"]
 
 [tool.ruff.lint.isort]
 known-third-party = [

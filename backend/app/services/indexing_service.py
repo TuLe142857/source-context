@@ -13,6 +13,7 @@ from app.model.workspace import Workspace
 from app.model.workspace_branch import WorkspaceBranch
 from app.model.repository import Repository
 from app.schemas.indexing import IndexingJobResponse
+from app.repository_manager.resolver import resolve_repository_installation_id
 from app.tasks import index_branch_task
 from app.util.git_util import get_latest_commit_hash
 
@@ -72,10 +73,24 @@ class IndexingService:
         repo_stmt = select(Repository).where(Repository.id == branch.repository_id)
         repo_res = await self.session.scalars(repo_stmt)
         repo = repo_res.one_or_none()
+        if repo is None:
+            raise AppException(
+                error_code=ErrorCode.RESOURCE_NOT_FOUND,
+                message=f"Repository for branch {branch_id} not found.",
+            )
+
+        # Resolve GitHub App installation_id for private repository access
+        installation_id = await resolve_repository_installation_id(
+            db=self.session, repo=repo, workspace_id=workspace_id
+        )
 
         new_commit_hashed = get_latest_commit_hash(
-            repo_url=repo.git_url, branch_name=branch.branch_name
+            repo_url=repo.git_url,
+            branch_name=branch.branch_name,
+            installation_id=installation_id,
         )
+        if new_commit_hashed and new_commit_hashed != "HEAD":
+            branch.commit_hashed = new_commit_hashed
 
         if branch.indexing_status == BranchIndexingStatus.INDEXING:
             raise AppException(
@@ -148,6 +163,20 @@ class IndexingService:
 
         jobs: list[IndexingJob] = []
         for branch in branches:
+            repo_stmt = select(Repository).where(Repository.id == branch.repository_id)
+            repo = (await self.session.scalars(repo_stmt)).one_or_none()
+            if repo is not None:
+                inst_id = await resolve_repository_installation_id(
+                    db=self.session, repo=repo, workspace_id=workspace_id
+                )
+                commit_hash = get_latest_commit_hash(
+                    repo_url=repo.git_url,
+                    branch_name=branch.branch_name,
+                    installation_id=inst_id,
+                )
+                if commit_hash and commit_hash != "HEAD":
+                    branch.commit_hashed = commit_hash
+
             branch.indexing_status = BranchIndexingStatus.INDEXING
             job = IndexingJob(
                 workspace_id=workspace_id,

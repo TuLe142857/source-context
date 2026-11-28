@@ -10,6 +10,7 @@ from app.domain.source_file import SourceLanguage
 
 if TYPE_CHECKING:
     from app.model.branch import Branch
+    from app.model.subrepo_profile import SubrepoProfile
 
 
 class Project(Base):
@@ -35,6 +36,12 @@ class Project(Base):
 
     # Relationships
     branch: Mapped["Branch"] = relationship("Branch", back_populates="projects")
+    subrepo_profile: Mapped["SubrepoProfile | None"] = relationship(
+        "SubrepoProfile",
+        back_populates="project",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     @property
     def langguage(self) -> SourceLanguage:

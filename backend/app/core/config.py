@@ -3,9 +3,9 @@
 from functools import lru_cache
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import AliasChoices, Field, SecretStr, computed_field
+from pydantic import AliasChoices, Field, SecretStr, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["development", "test", "production"]
@@ -239,6 +239,54 @@ class Settings(BaseSettings):
         ),
     )
 
+    # Inference / LLM Provider Selection ("openai" or "local_slm")
+    LLM_PROVIDER: Literal["openai", "local_slm"] = Field(
+        default="openai",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_LLM_PROVIDER", "LLM_PROVIDER"),
+    )
+
+    @field_validator("LLM_PROVIDER", mode="before")
+    @classmethod
+    def validate_llm_provider(cls, v: Any) -> str:
+        """Normalizes and validates LLM provider selection.
+
+        Args:
+            v (Any): Raw input value for LLM_PROVIDER.
+
+        Returns:
+            str: Validated provider name ('openai' or 'local_slm').
+        """
+        if not v or (isinstance(v, str) and not v.strip()):
+            return "openai"
+        val = str(v).strip().lower()
+        if val in ("openai", "local_slm"):
+            return val
+        return "openai"
+
+    # Indexing Mode Selection ("no_llm" or "llm")
+    INDEXING_MODE: Literal["no_llm", "llm"] = Field(
+        default="no_llm",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_INDEXING_MODE", "INDEXING_MODE"),
+    )
+
+    @field_validator("INDEXING_MODE", mode="before")
+    @classmethod
+    def validate_indexing_mode(cls, v: Any) -> str:
+        """Normalizes and validates indexing mode selection ('no_llm' or 'llm').
+
+        Args:
+            v (Any): Raw input value for INDEXING_MODE.
+
+        Returns:
+            str: Validated indexing mode ('no_llm' or 'llm').
+        """
+        if not v or (isinstance(v, str) and not v.strip()):
+            return "no_llm"
+        val = str(v).strip().lower()
+        if val in ("llm", "openai", "local_slm"):
+            return "llm"
+        return "no_llm"
+
     # OpenAI Settings
     OPENAI_API_KEY: SecretStr = Field(
         default=SecretStr(""),
@@ -255,6 +303,32 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = Field(
         default="gpt-4o-mini",
         validation_alias=AliasChoices("SOURCE_CONTEXT_OPENAI_MODEL", "OPENAI_MODEL"),
+    )
+
+    # Local SLM Settings
+    LOCAL_SLM_MODEL_PATH: Path = Field(
+        default=Path("app/embedding/Phi-4-mini-instruct-Q4_K_M.gguf"),
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_LOCAL_SLM_MODEL_PATH", "LOCAL_SLM_MODEL_PATH"
+        ),
+    )
+    LOCAL_SLM_N_CTX: int = Field(
+        default=4096,
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_LOCAL_SLM_N_CTX", "LOCAL_SLM_N_CTX"
+        ),
+    )
+    LOCAL_SLM_N_THREADS: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_LOCAL_SLM_N_THREADS", "LOCAL_SLM_N_THREADS"
+        ),
+    )
+    LOCAL_SLM_N_GPU_LAYERS: int = Field(
+        default=0,
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_LOCAL_SLM_N_GPU_LAYERS", "LOCAL_SLM_N_GPU_LAYERS"
+        ),
     )
 
     # Voyage AI Settings
@@ -275,6 +349,25 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices(
             "SOURCE_CONTEXT_GITHUB_WEBHOOK_SECRET", "GITHUB_WEBHOOK_SECRET"
+        ),
+    )
+
+    # GitHub App Settings
+    GITHUB_APP_ID: str = Field(
+        default="4542819",
+        validation_alias=AliasChoices("SOURCE_CONTEXT_GITHUB_APP_ID", "GITHUB_APP_ID"),
+    )
+    GITHUB_APP_PRIVATE_KEY_PATH: Path | None = Field(
+        default=Path("source-context.2026-10-16.private-key.pem"),
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY_PATH",
+            "GITHUB_APP_PRIVATE_KEY_PATH",
+        ),
+    )
+    GITHUB_APP_PRIVATE_KEY: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices(
+            "SOURCE_CONTEXT_GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_PRIVATE_KEY"
         ),
     )
 
